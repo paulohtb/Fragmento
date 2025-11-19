@@ -14,11 +14,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public record ReplaceItemPacket(Item item, InteractionHand hand) implements CustomPacketPayload {
 
     public static final Type<ReplaceItemPacket> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath("fragmento", "replace_bard_weapon"));
+            new Type<>(ResourceLocation.fromNamespaceAndPath("fragmento", "replace_item"));
 
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    @Override
+    public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, ReplaceItemPacket> CODEC =
             CustomPacketPayload.codec(ReplaceItemPacket::write, ReplaceItemPacket::new);

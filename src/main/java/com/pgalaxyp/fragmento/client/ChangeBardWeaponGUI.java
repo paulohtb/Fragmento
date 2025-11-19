@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pgalaxyp.fragmento.item.AbstractBardWeapon;
+import com.pgalaxyp.fragmento.item.bard_weapon.AbstractBardWeapon;
 import com.pgalaxyp.fragmento.network.ReplaceItemPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

@@ -7,7 +7,7 @@ import net.minecraft.world.item.component.CustomData;
 
 public class NormalAbilityComboHandler {
 
-    private static final int MAX_COMBO_HITS = 4;
+    private static final int MAX_COMBO_HITS = 1;
     private int currentComboIndex;
 
     public NormalAbilityComboHandler(int currentComboIndex) {

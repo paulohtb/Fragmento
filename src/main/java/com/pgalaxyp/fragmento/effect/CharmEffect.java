@@ -18,9 +18,7 @@ import java.util.List;
 @EventBusSubscriber(modid = Fragmento.MODID)
 public class CharmEffect extends MobEffect {
 
-    public CharmEffect() {
-        super(MobEffectCategory.NEUTRAL, 0xFF88CC);
-    }
+    public CharmEffect() { super(MobEffectCategory.NEUTRAL, 0xFF88CC); }
 
     @SubscribeEvent
     public static void onLivingChangeTarget(LivingChangeTargetEvent event) {

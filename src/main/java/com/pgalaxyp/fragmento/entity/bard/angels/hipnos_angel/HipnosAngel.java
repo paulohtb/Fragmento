@@ -1,0 +1,26 @@
+package com.pgalaxyp.fragmento.entity.bard.angels.hipnos_angel;
+
+import com.pgalaxyp.fragmento.entity.bard.angels.AbstractAngel;
+import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.util.GeckoLibUtil;
+
+public class HipnosAngel extends AbstractAngel implements GeoEntity {
+
+    public HipnosAngel(EntityType<? extends Mob> type, Level level) {
+        super(type, level);
+    }
+
+    public HipnosAngel(Level level, LivingEntity owner) {
+        super(EntitiesRegistry.HIPNOS_ANGEL.get(), level, owner);
+    }
+
+    private final AnimatableInstanceCache ANIMATION_CACHE = GeckoLibUtil.createInstanceCache(this);
+    public AnimatableInstanceCache getAnimatableInstanceCache() { return this.ANIMATION_CACHE; }
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {}
+}

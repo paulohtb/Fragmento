@@ -11,8 +11,7 @@ public class PayloadHandler {
 
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar payload = event.registrar(Fragmento.MODID).versioned("1.0").optional();
-
+        PayloadRegistrar payload = event.registrar(Fragmento.MODID).versioned("1.0");
         payload.playToServer(LeftClickPacket.TYPE, LeftClickPacket.CODEC, LeftClickPacket::handle);
         payload.playToServer(ReplaceItemPacket.TYPE, ReplaceItemPacket.CODEC, ReplaceItemPacket::handle);
     }

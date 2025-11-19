@@ -4,6 +4,7 @@ import com.pgalaxyp.fragmento.registry.EffectsRegistry;
 import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
 import com.pgalaxyp.fragmento.registry.ItensRegistry;
 import com.pgalaxyp.fragmento.setup.ClientSetup;
+import com.pgalaxyp.fragmento.util.BardComponents;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -16,6 +17,8 @@ public class Fragmento {
         ItensRegistry.register(modEventBus);
         EntitiesRegistry.register(modEventBus);
         EffectsRegistry.register(modEventBus);
+
+        BardComponents.COMPONENTS.register(modEventBus);
 
         modEventBus.addListener(ClientSetup::rendererRegister);
     }

@@ -1,22 +1,29 @@
 package com.pgalaxyp.fragmento.client;
 
 import com.pgalaxyp.fragmento.Fragmento;
-import com.pgalaxyp.fragmento.item.AbstractBardWeapon;
+import com.pgalaxyp.fragmento.item.bard_weapon.AbstractBardWeapon;
 import com.pgalaxyp.fragmento.network.LeftClickPacket;
+import com.pgalaxyp.fragmento.registry.EffectsRegistry;
 import com.pgalaxyp.fragmento.registry.ItensRegistry;
 import com.pgalaxyp.fragmento.util.TimerHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSources;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import static com.pgalaxyp.fragmento.util.KeyHandler.CHANGE_WEAPON_KEY;
@@ -53,7 +60,7 @@ public class ClientEvents {
                         ItensRegistry.GUITAR.get(),
                         ItensRegistry.FLUTE.get(),
                         ItensRegistry.LUTE.get(),
-                        ItensRegistry.LIRA.get(),
+                        ItensRegistry.LYRE.get(),
                         ItensRegistry.DRUM.get()
                 };
 
@@ -75,6 +82,25 @@ public class ClientEvents {
 
         for (ServerLevel sLevel : event.getServer().getAllLevels()) {
             TimerHandler.tickAll(sLevel);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onProjectileAttack(LivingIncomingDamageEvent event) {
+        LivingEntity target = event.getEntity();
+        DamageSources sources = target.damageSources();
+
+        if (target.hasEffect(EffectsRegistry.PROJECTILE_REJECTION)) {
+            Entity directSource = event.getSource().getDirectEntity();
+
+            if (directSource instanceof Projectile) {
+                event.setCanceled(true);
+
+                if (!target.level().isClientSide()) {
+                    Level level = target.level();
+                    directSource.setDeltaMovement(0, -0.4, 0);
+                }
+            }
         }
     }
 }
