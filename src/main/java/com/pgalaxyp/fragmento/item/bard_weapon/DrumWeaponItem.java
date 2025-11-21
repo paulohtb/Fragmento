@@ -10,12 +10,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-
-import java.util.List;
+import org.joml.Vector3f;
 
 public class DrumWeaponItem extends AbstractBardWeapon {
 
@@ -37,6 +34,11 @@ public class DrumWeaponItem extends AbstractBardWeapon {
     @Override
     protected EntityType<? extends AbstractAngel> getAngelType() {
         return null;
+    }
+
+    @Override
+    protected Vector3f getSpecialColor() {
+        return new Vector3f(1.0f, 1.0f, 1.0f);
     }
 
     private void applyBuff(ServerLevel server, Player player) {

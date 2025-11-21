@@ -1,22 +1,29 @@
 package com.pgalaxyp.fragmento.item.bard_weapon;
 
-import com.pgalaxyp.fragmento.entity.bard.angels.*;
-import com.pgalaxyp.fragmento.entity.bard.projectiles.flute_projectile.*;
-import com.pgalaxyp.fragmento.registry.*;
-import net.minecraft.server.level.*;
-import net.minecraft.world.effect.*;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.player.*;
-import net.minecraft.world.entity.projectile.*;
-import net.minecraft.world.item.*;
-import net.minecraft.world.level.*;
-import net.minecraft.world.phys.*;
+import com.pgalaxyp.fragmento.entity.bard.angels.AbstractAngel;
+import com.pgalaxyp.fragmento.entity.bard.projectiles.flute_projectile.FluteProjectile;
+import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
-import java.util.*;
+import java.util.List;
 
 public class FluteWeaponItem extends AbstractBardWeapon {
 
     private static final int PUSH_COOLDOWN_TICKS = 10;
+    private static final String PUSH_COOLDOWN_KEY = "FlutePushCooldown";
+    private static final double PUSH_STRENGTH = 1.75D;
+    private static final double PUSH_VERTICAL = 0.5D;
+    private static final double MIN_HORIZONTAL_EPSILON = 1.0E-4D;
 
     public FluteWeaponItem(Properties properties) {
         super(properties);
@@ -30,7 +37,7 @@ public class FluteWeaponItem extends AbstractBardWeapon {
     @Override
     protected void specialAbility(ServerLevel server, ServerPlayer player, ItemStack stack) {
         applyBuff(server, player);
-        applyDebuff(server, player);
+        applyPushWithCooldown(server, player);
     }
 
     @Override
@@ -38,40 +45,48 @@ public class FluteWeaponItem extends AbstractBardWeapon {
         return EntitiesRegistry.AEOLUS_ANGEL.get();
     }
 
-    private void applyBuff(ServerLevel server, Player player) {
-        AABB area = getSpecialRangeAABB(player);
-        server.getEntitiesOfClass(Player.class, area).forEach(
-                p -> p.addEffect(new MobEffectInstance(
-                        MobEffects.MOVEMENT_SPEED, 10, 0,
-                        false, false, false)));
+    @Override
+    protected Vector3f getSpecialColor() {
+        return new Vector3f(1.0F, 1.0F, 1.0F);
     }
 
-    private void applyDebuff(ServerLevel server, Player player) {
+    private void applyBuff(ServerLevel server, Player player) {
+        List<Player> players = getEntitiesInCircularRange(server, player, Player.class);
+        for (Player p : players) {
+            p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 10, 0, false, false, false));
+        }
+    }
+
+    private void applyPushWithCooldown(ServerLevel server, Player player) {
         var data = player.getPersistentData();
-        int cooldown = data.getInt("FlutePushCooldown");
+        int cooldown = data.getInt(PUSH_COOLDOWN_KEY);
 
         if (cooldown > 0) {
-            data.putInt("FlutePushCooldown", cooldown - 1);
+            data.putInt(PUSH_COOLDOWN_KEY, cooldown - 1);
             return;
         }
 
         pushNearbyMobs(server, player);
-        data.putInt("FlutePushCooldown", PUSH_COOLDOWN_TICKS);
+        data.putInt(PUSH_COOLDOWN_KEY, PUSH_COOLDOWN_TICKS);
     }
 
     private void pushNearbyMobs(ServerLevel server, Player player) {
-        AABB area = getSpecialRangeAABB(player);
-        List<Mob> mobs = server.getEntitiesOfClass(Mob.class, area, mob -> mob.getId() != player.getId());
+        List<Mob> mobs = getEntitiesInCircularRange(server, player, Mob.class);
+        Vec3 playerPos = player.position();
+
         for (Mob mob : mobs) {
-            Vec3 diff = mob.position().subtract(player.position());
+            if (!mob.isAlive() || !mob.isPushable()) continue;
+
+            Vec3 diff = mob.position().subtract(playerPos);
             Vec3 horizontal = new Vec3(diff.x, 0.0D, diff.z);
 
-            if (horizontal.lengthSqr() < 1.0E-4) continue;
+            if (horizontal.lengthSqr() < MIN_HORIZONTAL_EPSILON) {
+                continue;
+            }
 
-            Vec3 push = horizontal.normalize().scale(1.75D);
-
+            Vec3 push = horizontal.normalize().scale(PUSH_STRENGTH);
             Vec3 current = mob.getDeltaMovement();
-            mob.setDeltaMovement(current.add(push.x, 0.5D, push.z));
+            mob.setDeltaMovement(current.add(push.x, PUSH_VERTICAL, push.z));
             mob.hurtMarked = true;
         }
     }

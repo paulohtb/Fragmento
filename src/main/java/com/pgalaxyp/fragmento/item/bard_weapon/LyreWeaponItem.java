@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.AABB;
+import org.joml.Vector3f;
 
 public class LyreWeaponItem extends AbstractBardWeapon {
 
@@ -25,14 +26,26 @@ public class LyreWeaponItem extends AbstractBardWeapon {
 
     @Override
     protected void specialAbility(ServerLevel server, ServerPlayer player, ItemStack stack) {
-        AABB area = getSpecialRangeAABB(player);
-        server.getEntitiesOfClass(Mob.class, area)
-                .forEach(mob ->
-                        mob.heal(0.5f));
+        applyBuff(server, player);
+        applyDebuff(server, player);
     }
 
     @Override
     protected EntityType<? extends AbstractAngel> getAngelType() {
         return null;
     }
+
+    @Override
+    protected Vector3f getSpecialColor() {
+        return new Vector3f(1.0f, 1.0f, 1.0f);
+    }
+
+    private void applyBuff(ServerLevel server, Player player) {
+        AABB area = getSpecialRangeAABB(player);
+        server.getEntitiesOfClass(Mob.class, area)
+                .forEach(mob ->
+                        mob.heal(0.5f));
+    }
+
+    private void applyDebuff(ServerLevel server, Player player) {}
 }

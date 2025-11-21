@@ -19,5 +19,8 @@ public class BardComponents {
                     builder -> builder.persistent(Codec.INT)
                             .networkSynchronized(ByteBufCodecs.VAR_INT));
 
-    public static void bootstrap() {}
+    public static final Supplier<DataComponentType<Integer>> NORMAL_COMBO_INDEX =
+            COMPONENTS.registerComponentType("normal_combo_index",
+                    builder -> builder.persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.VAR_INT));
 }

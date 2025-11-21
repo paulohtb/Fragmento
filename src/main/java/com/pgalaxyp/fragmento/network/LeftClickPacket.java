@@ -10,7 +10,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record LeftClickPacket(InteractionHand hand) implements CustomPacketPayload {
+public record LeftClickPacket(InteractionHand hand, boolean ultimate) implements CustomPacketPayload {
 
     public static final Type<LeftClickPacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("fragmento", "weapon_left_click"));
@@ -22,17 +22,20 @@ public record LeftClickPacket(InteractionHand hand) implements CustomPacketPaylo
             CustomPacketPayload.codec(LeftClickPacket::write, LeftClickPacket::new);
 
     public LeftClickPacket(RegistryFriendlyByteBuf buf) {
-        this( buf.readEnum(InteractionHand.class) );
+        this(buf.readEnum(InteractionHand.class), buf.readBoolean());
     }
 
-    public void write(RegistryFriendlyByteBuf buf) { buf.writeEnum(hand); }
+    public void write(RegistryFriendlyByteBuf buf) {
+        buf.writeEnum(hand);
+        buf.writeBoolean(ultimate);
+    }
 
     public static void handle(LeftClickPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer player) {
-                ItemStack stack = player.getItemInHand(packet.hand());
-                AbstractBardWeapon.normalAbility(player, stack);
-            }
+            if (!(context.player() instanceof ServerPlayer player)) return;
+
+            ItemStack stack = player.getItemInHand(packet.hand());
+            AbstractBardWeapon.handleAction(player, stack, false, packet.ultimate());
         });
     }
 }
