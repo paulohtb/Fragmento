@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.event;
 
 import com.pgalaxyp.fragmento.Fragmento;
-import com.pgalaxyp.fragmento.entity.bard.angels.AbstractAngel;
+import com.pgalaxyp.fragmento.entity.bard.angel.AbstractAngel;
 import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

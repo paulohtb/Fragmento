@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento;
 
+import com.pgalaxyp.fragmento.NEW.NewDataComponents;
 import com.pgalaxyp.fragmento.registry.EffectsRegistry;
 import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
 import com.pgalaxyp.fragmento.registry.ItensRegistry;
@@ -18,6 +19,7 @@ public class Fragmento {
         EntitiesRegistry.register(modEventBus);
         EffectsRegistry.register(modEventBus);
 
+        NewDataComponents.COMPONENTS.register(modEventBus);
         BardComponents.COMPONENTS.register(modEventBus);
 
         modEventBus.addListener(ClientSetup::rendererRegister);

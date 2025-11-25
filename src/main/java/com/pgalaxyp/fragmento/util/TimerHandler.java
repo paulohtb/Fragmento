@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.util;
 
-import com.pgalaxyp.fragmento.entity.timer_entity.TimerEntity;
+import com.pgalaxyp.fragmento.entity.timerEntity.TimerEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;

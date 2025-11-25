@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.network;
 
-import com.pgalaxyp.fragmento.item.bard_weapon.AbstractBardWeapon;
+import com.pgalaxyp.fragmento.item.bard.weapon.AbstractWeapon;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -35,7 +35,7 @@ public record LeftClickPacket(InteractionHand hand, boolean ultimate) implements
             if (!(context.player() instanceof ServerPlayer player)) return;
 
             ItemStack stack = player.getItemInHand(packet.hand());
-            AbstractBardWeapon.handleAction(player, stack, false, packet.ultimate());
+            AbstractWeapon.handleAction(player, stack, packet.ultimate());
         });
     }
 }
