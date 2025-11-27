@@ -19,6 +19,6 @@ public class NewEntityRenderers {
 
     @SubscribeEvent
     public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-        event.registerLayerDefinition(NewBanjo.LAYER_LOCATION, NewBanjo::createBodyLayer);
+        event.registerLayerDefinition(NewFluteProjectileModel.LAYER_LOCATION, NewFluteProjectileModel::createBodyLayer);
     }
 }

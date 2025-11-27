@@ -11,11 +11,11 @@ import net.minecraft.resources.ResourceLocation;
 
 public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectile> {
 
-    private final NewBanjo<NewFluteProjectile> model;
+    private final NewFluteProjectileModel<NewFluteProjectile> model;
 
     public NewFluteProjectileRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
-        this.model = new NewBanjo<>(ctx.bakeLayer(NewBanjo.LAYER_LOCATION));
+        this.model = new NewFluteProjectileModel<>(ctx.bakeLayer(NewFluteProjectileModel.LAYER_LOCATION));
     }
 
     @Override
@@ -39,6 +39,6 @@ public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectil
 
     @Override
     public ResourceLocation getTextureLocation(NewFluteProjectile entity) {
-        return ResourceLocation.fromNamespaceAndPath("fragmento", "textures/entity/banjo.png");
+        return ResourceLocation.fromNamespaceAndPath("fragmento", "textures/entity/new_flute_projectile_texture.png");
     }
 }
