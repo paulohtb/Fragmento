@@ -2,8 +2,8 @@ package com.pgalaxyp.fragmento;
 
 import com.pgalaxyp.fragmento.NEW.NewDataComponents;
 import com.pgalaxyp.fragmento.registry.EffectsRegistry;
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
-import com.pgalaxyp.fragmento.registry.ItensRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.ItensRegistry;
 import com.pgalaxyp.fragmento.setup.ClientSetup;
 import com.pgalaxyp.fragmento.util.BardComponents;
 import net.neoforged.bus.api.IEventBus;

@@ -1,9 +1,7 @@
-package com.pgalaxyp.fragmento.registry;
+package com.pgalaxyp.fragmento.NEW;
 
 import com.pgalaxyp.fragmento.Fragmento;
-import com.pgalaxyp.fragmento.NEW.NewDrumProjectile;
-import com.pgalaxyp.fragmento.NEW.NewFluteProjectile;
-import com.pgalaxyp.fragmento.NEW.NewLyreProjectile;
+import com.pgalaxyp.fragmento.NEW.newnew.NewNewLuteProjectile;
 import com.pgalaxyp.fragmento.entity.bard.angel.aeolus_angel.AeolusAngel;
 import com.pgalaxyp.fragmento.entity.bard.angel.apollo_angel.ApolloAngel;
 import com.pgalaxyp.fragmento.entity.bard.angel.hercules_angel.HerculesAngel;
@@ -29,27 +27,42 @@ public class EntitiesRegistry {
 
     public static void register(IEventBus eventBus) { ENTITIES.register(eventBus); }
 
-
     public static final DeferredHolder<EntityType<?>, EntityType<NewLyreProjectile>> NEW_LYRE_PROJECTILE =
             ENTITIES.register("new_lyre_projectile",
                     () -> EntityType.Builder.<NewLyreProjectile>of(NewLyreProjectile::new, MobCategory.MISC)
-                            .sized(0.375f, 0.375f)
+                            .sized(0.35f, 0.35f)
                             .clientTrackingRange(64)
                             .build("new_lyre_projectile"));
     public static final DeferredHolder<EntityType<?>, EntityType<NewDrumProjectile>> NEW_DRUM_PROJECTILE =
             ENTITIES.register("new_drum_projectile",
                     () -> EntityType.Builder.<NewDrumProjectile>of(NewDrumProjectile::new, MobCategory.MISC)
-                            .sized(0.375f, 0.375f)
+                            .sized(0.35f, 0.35f)
                             .clientTrackingRange(64)
                             .build("new_drum_projectile"));
     public static final DeferredHolder<EntityType<?>, EntityType<NewFluteProjectile>> NEW_FLUTE_PROJECTILE =
             ENTITIES.register("new_flute_projectile",
                     () -> EntityType.Builder.<NewFluteProjectile>of(NewFluteProjectile::new, MobCategory.MISC)
-                            .sized(0.375f, 0.375f)
+                            .sized(0.35f, 0.35f)
                             .clientTrackingRange(64)
                             .build("new_flute_projectile"));
-
-
+    public static final DeferredHolder<EntityType<?>, EntityType<NewSoundWaveEntity>> NEW_SOUNDWAVE_ENTITY =
+            ENTITIES.register("new_soundwave_entity",
+                    () -> EntityType.Builder.of(NewSoundWaveEntity::new, MobCategory.MISC)
+                            .sized(0.35f, 0.35f)
+                            .clientTrackingRange(64)
+                            .build("new_soundwave_entity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<NewFluteSpecialEntity>> NEW_FLUTE_SPECIAL_ENTITY =
+            ENTITIES.register("new_flute_special_entity",
+                    () -> EntityType.Builder.of(NewFluteSpecialEntity::new, MobCategory.MISC)
+                            .sized(9.1f, 0.1f)
+                            .clientTrackingRange(64)
+                            .build("new_flute_special_entity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<NewNewLuteProjectile>> NEW_NEW_LUTE_PROJECTILE =
+            ENTITIES.register("new_new_lute_projectile",
+                    () -> EntityType.Builder.<NewNewLuteProjectile>of(NewNewLuteProjectile::new, MobCategory.MISC)
+                            .sized(0.35f, 0.35f)
+                            .clientTrackingRange(64)
+                            .build("new_new_lute_projectile"));
 
 
     public static final DeferredHolder<EntityType<?>, EntityType<TimerEntity>> TIMER_INDICATOR =

@@ -9,16 +9,18 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
-public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectile> {
+public class NewLyreProjectileRenderer extends EntityRenderer<NewLyreProjectile> {
 
-    private final NewFluteProjectileModel<NewFluteProjectile> model;
+    private final NewLyreProjectileModel<NewLyreProjectile> model;
 
-    public NewFluteProjectileRenderer(EntityRendererProvider.Context ctx) {
+    public NewLyreProjectileRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
-        this.model = new NewFluteProjectileModel<>(ctx.bakeLayer(NewFluteProjectileModel.LAYER_LOCATION));
+        this.model = new NewLyreProjectileModel<>(ctx.bakeLayer(NewLyreProjectileModel.LAYER_LOCATION));
     }
 
-    public void render(NewFluteProjectile entity, float yaw, float partialTicks, PoseStack pose, MultiBufferSource buffer, int light) {
+    @Override
+    public void render(NewLyreProjectile entity, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffer, int light) {
+
         pose.pushPose();
         pose.translate(0.0, entity.getBbHeight() * 0.5, 0.0);
         int delay = entity.getSpawnDelayTicks();
@@ -43,13 +45,14 @@ public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectil
         model.applyTickVisibility(visualTick);
 
         model.renderToBuffer(pose, buffer.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity))), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+
         pose.popPose();
     }
 
     @Override
-    public ResourceLocation getTextureLocation(NewFluteProjectile entity) {
-        return ResourceLocation.fromNamespaceAndPath
-                ("fragmento", "textures/entity/new_flute_projectile_texture.png"
+    public ResourceLocation getTextureLocation(NewLyreProjectile entity) {
+        return ResourceLocation.fromNamespaceAndPath(
+                "fragmento", "textures/entity/new_lyre_projectile_texture.png"
         );
     }
 }

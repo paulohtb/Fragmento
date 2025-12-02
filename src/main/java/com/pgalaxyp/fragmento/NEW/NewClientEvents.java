@@ -1,5 +1,7 @@
 package com.pgalaxyp.fragmento.NEW;
 
+import com.pgalaxyp.fragmento.NEW.newnew.NewLuteTestWeaponInputPacket;
+import com.pgalaxyp.fragmento.NEW.newnew.NewNewAbstractWeapon;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -34,12 +36,6 @@ public class NewClientEvents {
             return;
         }
 
-        var player = mc.player;
-        var stack = player.getMainHandItem();
-        if (stack.isEmpty() || !(stack.getItem() instanceof NewAbstractWeapon)) {
-            return;
-        }
-
         event.setCanceled(true);
         event.setSwingHand(false);
     }
@@ -53,8 +49,16 @@ public class NewClientEvents {
 
         var player = mc.player;
 
+        boolean leftPressedRaw = mc.options.keyAttack.isDown();
         var stack = player.getMainHandItem();
-        boolean holdingAbilityWeapon = !stack.isEmpty() && stack.getItem() instanceof NewAbstractWeapon;
+
+        if (leftPressedRaw && stack.getItem() instanceof NewNewAbstractWeapon) {
+            PacketDistributor.sendToServer(new NewLuteTestWeaponInputPacket());
+            leftMouseWasPressed = leftPressedRaw;
+            return;
+        }
+
+        var holdingAbilityWeapon = !stack.isEmpty() && stack.getItem() instanceof NewAbstractWeapon;
 
         boolean leftPressed = mc.options.keyAttack.isDown();
         if (!holdingAbilityWeapon) {

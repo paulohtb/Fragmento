@@ -6,22 +6,25 @@ import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.*;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 
-public class NewFluteProjectileModel<T extends Entity> extends EntityModel<T> {
+public class NewDrumProjectileModel<T extends Entity> extends EntityModel<T> {
 
     public static final ModelLayerLocation LAYER_LOCATION =
             new ModelLayerLocation(
-                    ResourceLocation.fromNamespaceAndPath("fragmento", "new_flute_projectile"),
-                    "main");
+                    ResourceLocation.fromNamespaceAndPath("modid", "drum_projectile"),
+                    "main"
+            );
 
     private final ModelPart main;
     private final ModelPart original;
     private final ModelPart past1;
     private final ModelPart past2;
-
     private final ModelPart e1;
     private final ModelPart e2;
     private final ModelPart e3;
@@ -35,7 +38,7 @@ public class NewFluteProjectileModel<T extends Entity> extends EntityModel<T> {
     private final ModelPart e11;
     private final ModelPart e12;
 
-    public NewFluteProjectileModel(ModelPart root) {
+    public NewDrumProjectileModel(ModelPart root) {
         this.main     = root.getChild("main");
         this.original = this.main.getChild("original");
         this.past1    = this.main.getChild("past1");

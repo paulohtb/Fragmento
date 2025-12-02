@@ -1,9 +1,7 @@
-package com.pgalaxyp.fragmento.registry;
+package com.pgalaxyp.fragmento.NEW;
 
 import com.pgalaxyp.fragmento.Fragmento;
-import com.pgalaxyp.fragmento.NEW.NewDrumWeapon;
-import com.pgalaxyp.fragmento.NEW.NewFluteWeapon;
-import com.pgalaxyp.fragmento.NEW.NewLyreWeapon;
+import com.pgalaxyp.fragmento.NEW.newnew.NewLuteTestWeapon;
 import com.pgalaxyp.fragmento.item.bard.weapon.*;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Item;
@@ -21,14 +19,17 @@ public class ItensRegistry {
 
 
     public static final DeferredHolder<Item, Item> NEW_LYRE =
-            ITEMS.register("new_lyre",
+            ITEMS.register("new_lyre_item",
                     () -> new NewLyreWeapon(new Item.Properties().rarity(Rarity.EPIC)));
     public static final DeferredHolder<Item, Item> NEW_DRUM =
-            ITEMS.register("new_drum",
+            ITEMS.register("new_drum_item",
                     () -> new NewDrumWeapon(new Item.Properties().rarity(Rarity.EPIC)));
     public static final DeferredHolder<Item, Item> NEW_FLUTE =
-            ITEMS.register("new_flute",
+            ITEMS.register("new_flute_item",
                     () -> new NewFluteWeapon(new Item.Properties().rarity(Rarity.EPIC)));
+    public static final DeferredHolder<Item, Item> NEW_LUTE_TEST =
+            ITEMS.register("new_lute_test",
+                    () -> new NewLuteTestWeapon(new Item.Properties().rarity(Rarity.UNCOMMON)));
 
 
 

@@ -12,7 +12,7 @@ import com.pgalaxyp.fragmento.entity.bard.projectile.flute_projectile.FluteProje
 import com.pgalaxyp.fragmento.entity.bard.projectile.guitar_projectile.GuitarProjectileRenderer;
 import com.pgalaxyp.fragmento.entity.bard.projectile.lyre_projectile.LyreProjectileRenderer;
 import com.pgalaxyp.fragmento.entity.timerEntity.TimerEntityRenderer;
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

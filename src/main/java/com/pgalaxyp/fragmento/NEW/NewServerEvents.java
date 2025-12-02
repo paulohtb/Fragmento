@@ -8,7 +8,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public class NewServerEvents {
 
     @SubscribeEvent
-    public static void onServerTickUpdateAbilityWeapons(ServerTickEvent.Post event) {
+    public static void onServerTick(ServerTickEvent.Post event) {
         NewAbstractWeapon.serverTickUpdateAllAbilityWeapons();
     }
 }

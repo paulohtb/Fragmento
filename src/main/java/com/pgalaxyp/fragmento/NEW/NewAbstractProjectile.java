@@ -19,22 +19,26 @@ public abstract class NewAbstractProjectile extends Projectile {
     private static final EntityDataAccessor<Boolean> CHARGED_STATE =
             SynchedEntityData.defineId(NewAbstractProjectile.class, EntityDataSerializers.BOOLEAN);
 
-    private static final int HITS_REQUIRED_FOR_CHARGED_STATE = 3;
+    private static final EntityDataAccessor<Integer> SPAWN_DELAY_TICKS =
+            SynchedEntityData.defineId(NewAbstractProjectile.class, EntityDataSerializers.INT);
+
+    private static final int HITS_REQUIRED_FOR_CHARGED_STATE = 4;
 
     protected NewAbstractProjectile(EntityType<? extends NewAbstractProjectile> type, Level level) {
         super(type, level);
     }
 
-    protected NewAbstractProjectile(EntityType<? extends NewAbstractProjectile> type, Level level, LivingEntity owner, boolean startCharged) {
+    protected NewAbstractProjectile(EntityType<? extends NewAbstractProjectile> type, Level level,
+                                    LivingEntity owner, boolean startCharged) {
         this(type, level);
         this.setOwner(owner);
-        this.setPos(owner.getX(), owner.getEyeY() - 0.1, owner.getZ());
         this.setChargedState(startCharged);
     }
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(CHARGED_STATE, false);
+        builder.define(SPAWN_DELAY_TICKS, 0);
     }
 
     public void setChargedState(boolean charged) {
@@ -49,18 +53,33 @@ public abstract class NewAbstractProjectile extends Projectile {
         return HITS_REQUIRED_FOR_CHARGED_STATE;
     }
 
+    public void setSpawnDelayTicks(int ticks) {
+        this.entityData.set(SPAWN_DELAY_TICKS, ticks);
+    }
+
+    public int getSpawnDelayTicks() {
+        return this.entityData.get(SPAWN_DELAY_TICKS);
+    }
+
     @Override
     public void tick() {
+        int delay = this.getSpawnDelayTicks();
+        if (delay > 0) {
+            this.entityData.set(SPAWN_DELAY_TICKS, delay - 1);
+            super.tick();
+            return;
+        }
+
         if (!this.level().isClientSide) {
-            HitResult hitResult = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
-            if (hitResult.getType() != HitResult.Type.MISS) {
-                this.onHit(hitResult);
+            HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
+            if (hit.getType() != HitResult.Type.MISS) {
+                this.onHit(hit);
             }
         }
 
         if (!this.isRemoved()) {
-            Vec3 movement = this.getDeltaMovement();
-            this.setPos(this.getX() + movement.x, this.getY() + movement.y, this.getZ() + movement.z);
+            Vec3 mov = this.getDeltaMovement();
+            this.setPos(this.getX() + mov.x, this.getY() + mov.y, this.getZ() + mov.z);
         }
 
         if (this.tickCount > getMaxLifetimeInTicks()) {
@@ -78,13 +97,10 @@ public abstract class NewAbstractProjectile extends Projectile {
     protected void onHit(HitResult result) {
         super.onHit(result);
 
-        if (this.level().isClientSide) {
-            return;
-        }
+        if (this.level().isClientSide) return;
 
         if (result.getType() == HitResult.Type.ENTITY) {
-            EntityHitResult entityHitResult = (EntityHitResult) result;
-            this.handleEntityHitDamageAndEffects(entityHitResult);
+            handleEntityHitDamageAndEffects((EntityHitResult) result);
         }
 
         if (!this.isInChargedState()) {
@@ -96,52 +112,38 @@ public abstract class NewAbstractProjectile extends Projectile {
         return true;
     }
 
-    protected void handleEntityHitDamageAndEffects(EntityHitResult entityHitResult) {
-        Entity hit = entityHitResult.getEntity();
+    protected void handleEntityHitDamageAndEffects(EntityHitResult hitResult) {
+        Entity hit = hitResult.getEntity();
         Entity owner = this.getOwner();
 
         if (hit instanceof LivingEntity living && living.isAlive()) {
 
-            Vec3 originalMotion = living.getDeltaMovement();
+            Vec3 original = living.getDeltaMovement();
 
             if (this.shouldDealDamage(living)) {
-                float damage = this.isInChargedState() ? this.getChargedDamageAmount() : this.getNormalDamageAmount();
+                float damage = this.isInChargedState()
+                        ? this.getChargedDamageAmount()
+                        : this.getNormalDamageAmount();
+
                 DamageSource source = this.damageSources().thrown(this, owner);
                 living.hurt(source, damage);
             }
 
-            living.setDeltaMovement(originalMotion);
+            living.setDeltaMovement(original);
 
-            if (this.isInChargedState()) {
-                this.applyChargedHitEffects(living);
-            } else {
-                this.applyNormalHitEffects(living);
-            }
+            if (this.isInChargedState()) applyChargedHitEffects(living);
+            else applyNormalHitEffects(living);
         }
     }
 
-    public void shootInStraightDirection(Vec3 direction, float speed, float inaccuracy) {
-        Vec3 dir = direction.normalize();
-        Vec3 spread = new Vec3(
-                this.random.triangle(0.0, inaccuracy),
-                this.random.triangle(0.0, inaccuracy),
-                this.random.triangle(0.0, inaccuracy)
-        );
-        Vec3 finalDir = dir.add(spread).normalize().scale(speed);
-        this.setDeltaMovement(finalDir);
-    }
-
     protected float getNormalDamageAmount() {
-        return 2.0F;
-    }
-
-    protected float getChargedDamageAmount() {
         return 3.0F;
     }
 
-    protected void applyNormalHitEffects(LivingEntity target) {
+    protected float getChargedDamageAmount() {
+        return 5.0F;
     }
 
-    protected void applyChargedHitEffects(LivingEntity target) {
-    }
+    protected void applyNormalHitEffects(LivingEntity target) {}
+    protected void applyChargedHitEffects(LivingEntity target) {}
 }

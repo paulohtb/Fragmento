@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.client;
 
 import com.pgalaxyp.fragmento.Fragmento;
 import com.pgalaxyp.fragmento.client.bardClient.BardWeaponGUI;
-import com.pgalaxyp.fragmento.registry.ItensRegistry;
+import com.pgalaxyp.fragmento.NEW.ItensRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.item.Item;

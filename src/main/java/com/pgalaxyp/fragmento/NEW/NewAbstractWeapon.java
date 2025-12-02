@@ -10,11 +10,11 @@ import net.minecraft.world.phys.AABB;
 
 public abstract class NewAbstractWeapon extends Item {
 
-    private final TriFunction<Level, LivingEntity, Boolean, Projectile> projectileFactory;
+    final TriFunction<Level, LivingEntity, Boolean, Projectile> projectileFactory;
 
-    public NewAbstractWeapon(Properties properties, TriFunction<Level, LivingEntity, Boolean, Projectile> projectileFactory) {
-        super(properties.stacksTo(1));
-        this.projectileFactory = projectileFactory;
+    public NewAbstractWeapon(Properties props, TriFunction<Level, LivingEntity, Boolean, Projectile> factory) {
+        super(props.stacksTo(1));
+        this.projectileFactory = factory;
     }
 
     public static int getNormalAbilityClientCooldownTicks() {
@@ -38,24 +38,23 @@ public abstract class NewAbstractWeapon extends Item {
         NewNormalAbilityController.executeNormalAbilityProjectileAttack(this, player, stack, this.projectileFactory);
     }
 
+    protected boolean updateNormalAbilityChargeAndCheckReady(ItemStack stack) {
+        return NewNormalAbilityController.updateNormalAbilityChargeAndCheckReady(stack);
+    }
+
     public void useSpecialAbilityOnNearbyTargets(ServerPlayer player, ItemStack stack) {
         Level level = player.level();
-        if (level.isClientSide()) {
-            return;
-        }
+        if (level.isClientSide()) return;
+
+        this.applySpecialAbilityEffectToTarget(player, stack, player);
 
         double range = NewSpecialAbilityController.SPECIAL_ABILITY_RANGE;
-        double rangeSquared = range * range;
+        double dist2 = range * range;
 
-        AABB searchBox = player.getBoundingBox().inflate(range);
-        var targets = level.getEntitiesOfClass(
-                LivingEntity.class,
-                searchBox,
-                entity -> entity.isAlive() && entity != player
-        );
+        AABB box = player.getBoundingBox().inflate(range);
 
-        for (LivingEntity target : targets) {
-            if (target.distanceToSqr(player) <= rangeSquared) {
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (target.distanceToSqr(player) <= dist2) {
                 this.applySpecialAbilityEffectToTarget(player, stack, target);
             }
         }
@@ -64,8 +63,10 @@ public abstract class NewAbstractWeapon extends Item {
     protected void applySpecialAbilityEffectToTarget(ServerPlayer player, ItemStack stack, LivingEntity target) {
     }
 
-    protected boolean updateNormalAbilityChargeAndCheckReady(ItemStack stack) {
-        return NewNormalAbilityController.updateNormalAbilityChargeAndCheckReady(stack);
+    protected void onNormalAbilityFired(ServerPlayer player, ItemStack stack, boolean charged) {
+    }
+
+    protected void onSpecialAbilityTick(ServerPlayer player, ItemStack stack, int ticks) {
     }
 
     @FunctionalInterface

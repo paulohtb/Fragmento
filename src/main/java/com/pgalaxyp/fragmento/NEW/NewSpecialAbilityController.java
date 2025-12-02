@@ -14,7 +14,6 @@ final class NewSpecialAbilityController {
     static final int SPECIAL_ABILITY_INITIAL_DELAY_TICKS = 40;
     static final int SPECIAL_ABILITY_COOLDOWN_TICKS = 20;
     static final double SPECIAL_ABILITY_RANGE = 4.5D;
-    private static final int PARTICLE_EMIT_INTERVAL_TICKS = 2;
 
     private static final Map<ServerPlayer, SpecialAbilityChargeState> specialAbilityStates = new WeakHashMap<>();
 
@@ -24,6 +23,7 @@ final class NewSpecialAbilityController {
     private static final class SpecialAbilityChargeState {
         int ticksSinceStart;
         int ticksSinceLastCast;
+        NewFluteSpecialEntity castEntity;
     }
 
     static boolean isCurrentlyChargingSpecialAbility(ServerPlayer player) {
@@ -39,28 +39,50 @@ final class NewSpecialAbilityController {
     }
 
     static void tickSpecialAbilityChargingAndCasting() {
-        Iterator<Map.Entry<ServerPlayer, SpecialAbilityChargeState>> iterator = specialAbilityStates.entrySet().iterator();
+
+        Iterator<Map.Entry<ServerPlayer, SpecialAbilityChargeState>> iterator =
+                specialAbilityStates.entrySet().iterator();
 
         while (iterator.hasNext()) {
+
             Map.Entry<ServerPlayer, SpecialAbilityChargeState> entry = iterator.next();
             ServerPlayer player = entry.getKey();
             SpecialAbilityChargeState state = entry.getValue();
 
             ItemStack stack = player.getMainHandItem();
             if (stack.isEmpty() || !(stack.getItem() instanceof NewAbstractWeapon weaponItem)) {
+                if (state.castEntity != null) state.castEntity.discard();
                 iterator.remove();
                 continue;
             }
 
             Level level = player.level();
 
-            state.ticksSinceStart = state.ticksSinceStart + 1;
+            state.ticksSinceStart++;
+
+            weaponItem.onSpecialAbilityTick(player, stack, state.ticksSinceStart);
 
             double castProgress = Math.min(1.0D, state.ticksSinceStart / (double) SPECIAL_ABILITY_CAST_TIME_TICKS);
-            double radius = SPECIAL_ABILITY_RANGE * castProgress;
+            double radius = SPECIAL_ABILITY_RANGE * castProgress * 2;
 
-            if (!level.isClientSide() && state.ticksSinceStart % PARTICLE_EMIT_INTERVAL_TICKS == 0) {
-                NewParticleEffects.spawnSpecialAbilityRingParticles(player, radius, SPECIAL_ABILITY_RANGE);
+            if (!level.isClientSide() && state.ticksSinceStart == 1) {
+
+                NewFluteSpecialEntity cast = new NewFluteSpecialEntity(
+                        EntitiesRegistry.NEW_FLUTE_SPECIAL_ENTITY.get(),
+                        level
+                );
+
+                cast.setPos(player.getX(), player.getY(), player.getZ());
+                cast.setYRot(player.getYRot());
+                cast.setXRot(player.getXRot());
+
+                level.addFreshEntity(cast);
+
+                state.castEntity = cast;
+            }
+
+            if (state.castEntity != null && state.castEntity.isAlive()) {
+                state.castEntity.setRadius((float) radius);
             }
 
             if (state.ticksSinceStart < SPECIAL_ABILITY_INITIAL_DELAY_TICKS) {
@@ -70,7 +92,7 @@ final class NewSpecialAbilityController {
             if (state.ticksSinceLastCast < 0) {
                 state.ticksSinceLastCast = 0;
             } else {
-                state.ticksSinceLastCast = state.ticksSinceLastCast + 1;
+                state.ticksSinceLastCast++;
             }
 
             if (state.ticksSinceLastCast >= SPECIAL_ABILITY_COOLDOWN_TICKS) {
@@ -88,6 +110,10 @@ final class NewSpecialAbilityController {
     }
 
     private static void stopSpecialAbilityCharge(ServerPlayer player) {
-        specialAbilityStates.remove(player);
+        SpecialAbilityChargeState state = specialAbilityStates.remove(player);
+
+        if (state != null && state.castEntity != null && state.castEntity.isAlive()) {
+            state.castEntity.discard();
+        }
     }
 }

@@ -9,16 +9,17 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
-public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectile> {
+public class NewDrumProjectileRenderer extends EntityRenderer<NewDrumProjectile> {
 
-    private final NewFluteProjectileModel<NewFluteProjectile> model;
+    private final NewDrumProjectileModel<NewDrumProjectile> model;
 
-    public NewFluteProjectileRenderer(EntityRendererProvider.Context ctx) {
+    public NewDrumProjectileRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
-        this.model = new NewFluteProjectileModel<>(ctx.bakeLayer(NewFluteProjectileModel.LAYER_LOCATION));
+        this.model = new NewDrumProjectileModel<>(ctx.bakeLayer(NewDrumProjectileModel.LAYER_LOCATION));
     }
 
-    public void render(NewFluteProjectile entity, float yaw, float partialTicks, PoseStack pose, MultiBufferSource buffer, int light) {
+    @Override
+    public void render(NewDrumProjectile entity, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffer, int light) {
         pose.pushPose();
         pose.translate(0.0, entity.getBbHeight() * 0.5, 0.0);
         int delay = entity.getSpawnDelayTicks();
@@ -47,9 +48,9 @@ public class NewFluteProjectileRenderer extends EntityRenderer<NewFluteProjectil
     }
 
     @Override
-    public ResourceLocation getTextureLocation(NewFluteProjectile entity) {
-        return ResourceLocation.fromNamespaceAndPath
-                ("fragmento", "textures/entity/new_flute_projectile_texture.png"
+    public ResourceLocation getTextureLocation(NewDrumProjectile entity) {
+        return ResourceLocation.fromNamespaceAndPath(
+                "fragmento", "textures/entity/new_drum_projectile_texture.png"
         );
     }
 }

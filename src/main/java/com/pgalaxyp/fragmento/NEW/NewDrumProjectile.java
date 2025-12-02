@@ -1,8 +1,5 @@
 package com.pgalaxyp.fragmento.NEW;
 
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -22,10 +19,8 @@ public class NewDrumProjectile extends NewAbstractProjectile {
     @Override
     protected void applyChargedHitEffects(LivingEntity target) {
         if (target instanceof Mob mob) {
-            mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 5, 0));
-
             Entity source = this.getOwner();
-            double strength = 1.0D;
+            double strength = 2.0D;
             double dx;
             double dz;
 

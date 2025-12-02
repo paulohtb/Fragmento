@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.network;
 import com.pgalaxyp.fragmento.Fragmento;
 import com.pgalaxyp.fragmento.NEW.NormalAbilityInputPacket;
 import com.pgalaxyp.fragmento.NEW.SpecialAbilityInputPacket;
+import com.pgalaxyp.fragmento.NEW.newnew.NewLuteTestWeaponInputPacket;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -18,5 +19,6 @@ public class PayloadHandler {
         payload.playToServer(NormalAbilityInputPacket.TYPE, NormalAbilityInputPacket.CODEC, NormalAbilityInputPacket::handle);
         payload.playToServer(SpecialAbilityInputPacket.TYPE, SpecialAbilityInputPacket.CODEC, SpecialAbilityInputPacket::handle);
         payload.playToServer(ReplaceItemPacket.TYPE, ReplaceItemPacket.CODEC, ReplaceItemPacket::handle);
+        payload.playToServer(NewLuteTestWeaponInputPacket.TYPE, NewLuteTestWeaponInputPacket.CODEC, NewLuteTestWeaponInputPacket::handle);
     }
 }

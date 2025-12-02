@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.entity.bard.angel.apollo_angel;
 
 import com.pgalaxyp.fragmento.entity.bard.angel.AbstractAngel;
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.level.Level;
 import software.bernie.geckolib.animatable.GeoEntity;

@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.entity.timerEntity;
 
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import com.pgalaxyp.fragmento.util.TimerHandler;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;

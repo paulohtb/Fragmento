@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.entity.bard.projectile.flute_projectile;
 
 import com.pgalaxyp.fragmento.entity.bard.projectile.AbstractProjectile;
 import com.pgalaxyp.fragmento.registry.EffectsRegistry;
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;

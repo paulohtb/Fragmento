@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.item.bard.weapon;
 
 import com.pgalaxyp.fragmento.entity.bard.angel.AbstractAngel;
 import com.pgalaxyp.fragmento.entity.bard.projectile.flute_projectile.FluteProjectile;
-import com.pgalaxyp.fragmento.registry.EntitiesRegistry;
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;

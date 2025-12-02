@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.entity.bard.angel.aeolus_angel;
 
+import com.pgalaxyp.fragmento.NEW.EntitiesRegistry;
 import com.pgalaxyp.fragmento.entity.bard.angel.AbstractAngel;
 import net.minecraft.world.entity.player.Player;
 import com.pgalaxyp.fragmento.registry.*;
