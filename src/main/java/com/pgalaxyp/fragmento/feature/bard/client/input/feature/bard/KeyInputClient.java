@@ -1,10 +1,9 @@
-package com.pgalaxyp.fragmento.feature.bard.client.input;
+package com.pgalaxyp.fragmento.feature.bard.client.input.feature.bard;
 
-import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BardChargedAbilityPacket;
-import com.pgalaxyp.fragmento.feature.bard.common.weapon.WeaponBase;
+import com.pgalaxyp.fragmento.feature.bard.common.network.packet.ChargedAbilityPacket;
+import com.pgalaxyp.fragmento.feature.bard.common.weapon.InstrumentBase;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.InteractionHand;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -12,9 +11,9 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = "fragmento", value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
-public final class BardWeaponKeyInputClient {
+public final class KeyInputClient {
 
-    private BardWeaponKeyInputClient() {
+    private KeyInputClient() {
     }
 
     @SubscribeEvent
@@ -29,20 +28,19 @@ public final class BardWeaponKeyInputClient {
             return;
         }
 
-        if (BardKeyMappings.BARD_WEAPON_CHARGED == null) {
+        if (KeyMappings.BARD_WEAPON_CHARGED == null) {
             return;
         }
 
-        while (BardKeyMappings.BARD_WEAPON_CHARGED.consumeClick()) {
-            if (!(player.getMainHandItem().getItem() instanceof WeaponBase)) {
+        while (KeyMappings.BARD_WEAPON_CHARGED.consumeClick()) {
+            if (!(player.getMainHandItem().getItem() instanceof InstrumentBase)) {
                 continue;
             }
             if (player.getCooldowns().isOnCooldown(player.getMainHandItem().getItem())) {
                 continue;
             }
 
-            player.swing(InteractionHand.MAIN_HAND);
-            PacketDistributor.sendToServer(new BardChargedAbilityPacket());
+            PacketDistributor.sendToServer(new ChargedAbilityPacket());
         }
     }
 }

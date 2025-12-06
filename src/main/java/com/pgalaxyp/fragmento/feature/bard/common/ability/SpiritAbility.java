@@ -2,14 +2,14 @@ package com.pgalaxyp.fragmento.feature.bard.common.ability;
 
 import com.pgalaxyp.fragmento.feature.bard.common.combat.BardWeaponProfile;
 import com.pgalaxyp.fragmento.feature.bard.common.spirit.SpiritSpawnUtil;
-import com.pgalaxyp.fragmento.feature.bard.common.spirit.TargetedSpiritBase;
+import com.pgalaxyp.fragmento.feature.bard.common.spirit.SpiritTargetBase;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Function;
 
-public final class BardTargetedSpiritAbility<S extends TargetedSpiritBase> extends BardAbilityBase {
+public final class SpiritAbility<S extends SpiritTargetBase> extends AbilityBase {
 
     private final BardWeaponProfile profile;
     private final boolean charged;
@@ -19,7 +19,7 @@ public final class BardTargetedSpiritAbility<S extends TargetedSpiritBase> exten
     private final int extraLifetimeTicks;
     private final Function<ServerLevel, S> spiritFactory;
 
-    public BardTargetedSpiritAbility(
+    public SpiritAbility(
             BardWeaponProfile profile,
             boolean charged,
             double minForward,
@@ -63,20 +63,28 @@ public final class BardTargetedSpiritAbility<S extends TargetedSpiritBase> exten
                 this.maxSideOffset
         );
 
-        int idleTicks = this.profile.getIdleTicks(this.charged);
+        int spawnTicks = this.profile.getIdleTicks(this.charged);
         int travelTicks = this.profile.getTravelTicks(this.charged);
         double collisionRadius = this.profile.getCollisionRadius(this.charged);
 
         spirit.setOwner(caster);
         spirit.setTarget(target);
+
         spirit.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
-        spirit.setSpawnDelay(idleTicks);
+
+        Vec3 initialTargetPos = spirit.getTargetPosition();
+        spirit.faceInstantlyTowards(initialTargetPos);
+
+        spirit.setSpawnDelay(0);
+
+        spirit.setMoveStartAge(spawnTicks);
+
         spirit.configureFlight(travelTicks, collisionRadius);
-        spirit.setMaxLifetime(
-                idleTicks
-                        + travelTicks
-                        + this.extraLifetimeTicks
-        );
+
+        spirit.setDespawnDurationTicks(this.extraLifetimeTicks);
+
+        int maxLifetime = spawnTicks + travelTicks + this.extraLifetimeTicks + 20;
+        spirit.setMaxLifetime(maxLifetime);
 
         level.addFreshEntity(spirit);
     }

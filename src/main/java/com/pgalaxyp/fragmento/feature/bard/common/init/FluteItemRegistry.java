@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.feature.bard.common.init;
 
-import com.pgalaxyp.fragmento.feature.bard.common.weapon.FluteWeaponItem;
+import com.pgalaxyp.fragmento.feature.bard.common.weapon.FluteInstrumentItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
@@ -18,7 +18,7 @@ public final class FluteItemRegistry {
     public static final DeferredHolder<Item, Item> FLUTE =
             ITEMS.register(
                     "flute",
-                    () -> new FluteWeaponItem(
+                    () -> new FluteInstrumentItem(
                             new Item.Properties().rarity(Rarity.UNCOMMON)
                     )
             );

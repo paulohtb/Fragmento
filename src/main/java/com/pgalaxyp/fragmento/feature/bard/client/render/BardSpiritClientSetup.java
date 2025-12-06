@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.feature.bard.client.render;
 
 import com.pgalaxyp.fragmento.feature.bard.client.render.spirit.FluteSpiritRenderer;
-import com.pgalaxyp.fragmento.feature.bard.common.init.FluteSpiritTypeRegistry;
+import com.pgalaxyp.fragmento.feature.bard.common.init.FluteSpiritRegistry;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
@@ -16,7 +16,7 @@ public final class BardSpiritClientSetup {
 
     public static void registerRenderer(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(
-                FluteSpiritTypeRegistry.FLUTE_SPIRIT.get(),
+                FluteSpiritRegistry.FLUTE_SPIRIT.get(),
                 FluteSpiritRenderer::new
         );
     }

@@ -1,28 +1,28 @@
 package com.pgalaxyp.fragmento.feature.bard.common.input;
 
-import com.pgalaxyp.fragmento.feature.bard.common.data.BardWeaponChargeData;
-import com.pgalaxyp.fragmento.feature.bard.common.weapon.WeaponBase;
+import com.pgalaxyp.fragmento.feature.bard.common.data.AbilityChargeData;
+import com.pgalaxyp.fragmento.feature.bard.common.weapon.InstrumentBase;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 
-public final class BardWeaponUseHandler {
+public final class InstrumentUseHandler {
 
-    private BardWeaponUseHandler() {
+    private InstrumentUseHandler() {
     }
 
     public static void handleBasic(ServerPlayer player) {
         ItemStack stack = player.getItemInHand(InteractionHand.MAIN_HAND);
-        if (!(stack.getItem() instanceof WeaponBase weapon)) {
+        if (!(stack.getItem() instanceof InstrumentBase weapon)) {
             return;
         }
 
-        int charge = BardWeaponChargeData.getCharge(stack);
+        int charge = AbilityChargeData.getCharge(stack);
 
-        if (charge >= BardWeaponChargeData.getMaxCharge()) {
+        if (charge >= AbilityChargeData.getMaxCharge()) {
             boolean used = weapon.useNormalCharged(player, stack);
             if (used) {
-                BardWeaponChargeData.reset(stack);
+                AbilityChargeData.reset(stack);
             }
         } else {
             weapon.useNormalBasic(player, stack);
@@ -31,7 +31,7 @@ public final class BardWeaponUseHandler {
 
     public static void handleCharged(ServerPlayer player) {
         ItemStack stack = player.getItemInHand(InteractionHand.MAIN_HAND);
-        if (stack.getItem() instanceof WeaponBase weapon) {
+        if (stack.getItem() instanceof InstrumentBase weapon) {
             weapon.useNormalCharged(player, stack);
         }
     }

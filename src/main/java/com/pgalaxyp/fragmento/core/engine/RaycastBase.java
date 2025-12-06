@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.core.engine.ability;
+package com.pgalaxyp.fragmento.core.engine;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,7 +10,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-public abstract class AbilityRaycastBase {
+public abstract class RaycastBase {
 
     private double range = 8.0D;
 

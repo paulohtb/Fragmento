@@ -8,7 +8,7 @@ public final class BardFeatureInit {
     }
 
     public static void registerCommon(IEventBus modBus) {
-        FluteSpiritTypeRegistry.ENTITIES.register(modBus);
+        FluteSpiritRegistry.ENTITIES.register(modBus);
         FluteItemRegistry.ITEMS.register(modBus);
     }
 }

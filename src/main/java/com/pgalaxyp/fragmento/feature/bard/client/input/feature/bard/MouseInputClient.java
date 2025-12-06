@@ -1,10 +1,9 @@
-package com.pgalaxyp.fragmento.feature.bard.client.input;
+package com.pgalaxyp.fragmento.feature.bard.client.input.feature.bard;
 
-import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BardBasicAbilityPacket;
-import com.pgalaxyp.fragmento.feature.bard.common.weapon.WeaponBase;
+import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BasicAbilityPacket;
+import com.pgalaxyp.fragmento.feature.bard.common.weapon.InstrumentBase;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.InteractionHand;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -12,13 +11,13 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = "fragmento", value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
-public final class BardWeaponMouseInputClient {
+public final class MouseInputClient {
 
-    private BardWeaponMouseInputClient() {
+    private MouseInputClient() {
     }
 
     private static boolean isHoldingBardWeapon(LocalPlayer player) {
-        return player.getMainHandItem().getItem() instanceof WeaponBase;
+        return player.getMainHandItem().getItem() instanceof InstrumentBase;
     }
 
     @SubscribeEvent
@@ -50,8 +49,7 @@ public final class BardWeaponMouseInputClient {
             return;
         }
 
-        player.swing(InteractionHand.MAIN_HAND);
-        PacketDistributor.sendToServer(new BardBasicAbilityPacket());
+        PacketDistributor.sendToServer(new BasicAbilityPacket());
         event.setCanceled(true);
     }
 }

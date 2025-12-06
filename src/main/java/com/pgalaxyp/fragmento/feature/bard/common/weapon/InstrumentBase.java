@@ -1,13 +1,13 @@
 package com.pgalaxyp.fragmento.feature.bard.common.weapon;
 
-import com.pgalaxyp.fragmento.core.engine.ability.AbilityRaycastBase;
+import com.pgalaxyp.fragmento.core.engine.RaycastBase;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-public abstract class WeaponBase extends Item {
+public abstract class InstrumentBase extends Item {
 
-    protected WeaponBase(Properties props) {
+    protected InstrumentBase(Properties props) {
         super(props.stacksTo(1));
     }
 
@@ -18,7 +18,7 @@ public abstract class WeaponBase extends Item {
         if (!this.canUseNormalBasic(player, stack)) {
             return false;
         }
-        AbilityRaycastBase ability = getNormalBasic();
+        RaycastBase ability = getNormalBasic();
         if (ability != null) {
             boolean hit = ability.execute(player);
             if (!hit) {
@@ -41,7 +41,7 @@ public abstract class WeaponBase extends Item {
         if (!this.canUseNormalCharged(player, stack)) {
             return false;
         }
-        AbilityRaycastBase ability = getNormalCharged();
+        RaycastBase ability = getNormalCharged();
         if (ability != null) {
             boolean hit = ability.execute(player);
             if (!hit) {
@@ -79,9 +79,9 @@ public abstract class WeaponBase extends Item {
     protected void triggerNormalChargedAnimation(ServerPlayer player, ItemStack stack) {
     }
 
-    protected abstract AbilityRaycastBase getNormalBasic();
+    protected abstract RaycastBase getNormalBasic();
 
-    protected abstract AbilityRaycastBase getNormalCharged();
+    protected abstract RaycastBase getNormalCharged();
 
     protected int getNormalBasicCooldownTicks(ItemStack stack) {
         return 0;

@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.feature.bard.common.network;
 
-import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BardBasicAbilityPacket;
-import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BardChargedAbilityPacket;
+import com.pgalaxyp.fragmento.feature.bard.common.network.packet.BasicAbilityPacket;
+import com.pgalaxyp.fragmento.feature.bard.common.network.packet.ChargedAbilityPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -9,9 +9,9 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 @EventBusSubscriber(modid = "fragmento", bus = EventBusSubscriber.Bus.MOD)
-public final class BardNetworkRegistry {
+public final class NetworkRegistry {
 
-    private BardNetworkRegistry() {
+    private NetworkRegistry() {
     }
 
     public static ResourceLocation id(String path) {
@@ -23,15 +23,15 @@ public final class BardNetworkRegistry {
         PayloadRegistrar registrar = event.registrar("1");
 
         registrar.playToServer(
-                BardBasicAbilityPacket.TYPE,
-                BardBasicAbilityPacket.STREAM_CODEC,
-                BardBasicAbilityPacket::handle
+                BasicAbilityPacket.TYPE,
+                BasicAbilityPacket.STREAM_CODEC,
+                BasicAbilityPacket::handle
         );
 
         registrar.playToServer(
-                BardChargedAbilityPacket.TYPE,
-                BardChargedAbilityPacket.STREAM_CODEC,
-                BardChargedAbilityPacket::handle
+                ChargedAbilityPacket.TYPE,
+                ChargedAbilityPacket.STREAM_CODEC,
+                ChargedAbilityPacket::handle
         );
     }
 }

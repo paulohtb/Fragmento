@@ -14,13 +14,13 @@ public final class FluteConstants {
     public static final float BASIC_DAMAGE = 2.0F;
     public static final float CHARGED_DAMAGE = 4.0F;
 
-    public static final int BASIC_IDLE_TICKS = 15;
-    public static final int CHARGED_IDLE_TICKS = 15;
+    public static final int BASIC_IDLE_TICKS = 10;
+    public static final int CHARGED_IDLE_TICKS = 10;
 
-    public static final int BASIC_TRAVEL_TICKS = 15;
-    public static final int CHARGED_TRAVEL_TICKS = 15;
+    public static final int BASIC_TRAVEL_TICKS = 7;
+    public static final int CHARGED_TRAVEL_TICKS = 7;
 
-    public static final int FLUTE_EXTRA_LIFETIME_TICKS = 5;
+    public static final int FLUTE_EXTRA_LIFETIME_TICKS = 9;
 
     public static final double FLUTE_SPAWN_MIN_FORWARD = 1.0D;
     public static final double FLUTE_SPAWN_MAX_FORWARD = 2.0D;

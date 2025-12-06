@@ -2,11 +2,11 @@ package com.pgalaxyp.fragmento.feature.bard.common.combat;
 
 import com.pgalaxyp.fragmento.feature.bard.common.config.FluteConstants;
 
-public final class FluteSpiritCombatProfile implements BardWeaponProfile {
+public final class SpiritCombatProfile implements BardWeaponProfile {
 
-    public static final FluteSpiritCombatProfile INSTANCE = new FluteSpiritCombatProfile();
+    public static final SpiritCombatProfile INSTANCE = new SpiritCombatProfile();
 
-    private FluteSpiritCombatProfile() {
+    private SpiritCombatProfile() {
     }
 
     @Override

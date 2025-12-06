@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.feature.bard.common.spirit;
 
 import com.pgalaxyp.fragmento.feature.bard.common.combat.BardWeaponProfile;
-import com.pgalaxyp.fragmento.feature.bard.common.data.BardWeaponChargeData;
-import com.pgalaxyp.fragmento.feature.bard.common.weapon.WeaponBase;
+import com.pgalaxyp.fragmento.feature.bard.common.data.AbilityChargeData;
+import com.pgalaxyp.fragmento.feature.bard.common.weapon.InstrumentBase;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
@@ -11,21 +11,23 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.animation.*;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.animation.AnimationController;
+import software.bernie.geckolib.animation.AnimationState;
+import software.bernie.geckolib.animation.PlayState;
+import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
-public abstract class BardSpirit extends TargetedSpiritBase implements GeoEntity {
+public abstract class BardSpirit extends SpiritTargetBase implements GeoEntity {
 
     private boolean charged;
 
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 
     private static final RawAnimation SPAWN_ANIM =
-            RawAnimation.begin().then("spawn", Animation.LoopType.PLAY_ONCE);
-    private static final RawAnimation TRAVEL_ANIM =
-            RawAnimation.begin().then("travel", Animation.LoopType.LOOP);
+            RawAnimation.begin().thenPlayAndHold("spawn");
     private static final RawAnimation DESPAWN_ANIM =
-            RawAnimation.begin().then("despawn", Animation.LoopType.PLAY_ONCE);
+            RawAnimation.begin().thenPlayAndHold("despawn");
 
     protected BardSpirit(EntityType<? extends SpiritBase> type, Level level) {
         super(type, level);
@@ -45,17 +47,18 @@ public abstract class BardSpirit extends TargetedSpiritBase implements GeoEntity
         BardWeaponProfile profile = this.getProfile();
         boolean isCharged = this.charged;
 
-        int idle = profile.getIdleTicks(isCharged);
-        int travel = profile.getTravelTicks(isCharged);
+        int spawnTicks = profile.getIdleTicks(isCharged);
         int age = this.getLifetime();
 
-        if (age <= idle) {
+        if (age < spawnTicks) {
             return SpiritAnimationPhase.SPAWN;
         }
-        if (age <= idle + travel) {
-            return SpiritAnimationPhase.TRAVEL;
+
+        if (this.hasHit()) {
+            return SpiritAnimationPhase.DESPAWN;
         }
-        return SpiritAnimationPhase.DESPAWN;
+
+        return SpiritAnimationPhase.ACTIVE;
     }
 
     @Override
@@ -66,8 +69,8 @@ public abstract class BardSpirit extends TargetedSpiritBase implements GeoEntity
         LivingEntity owner = this.getOwner();
         if (!isCharged && owner instanceof ServerPlayer serverPlayer) {
             ItemStack stack = serverPlayer.getMainHandItem();
-            if (stack.getItem() instanceof WeaponBase) {
-                BardWeaponChargeData.incrementCharge(stack);
+            if (stack.getItem() instanceof InstrumentBase) {
+                AbilityChargeData.incrementCharge(stack);
             }
         }
 
@@ -124,12 +127,10 @@ public abstract class BardSpirit extends TargetedSpiritBase implements GeoEntity
     private <E extends BardSpirit> PlayState animationPredicate(AnimationState<E> state) {
         SpiritAnimationPhase phase = this.getAnimationPhase();
 
-        if (phase == SpiritAnimationPhase.SPAWN) {
-            state.setAndContinue(SPAWN_ANIM);
-        } else if (phase == SpiritAnimationPhase.TRAVEL) {
-            state.setAndContinue(TRAVEL_ANIM);
-        } else {
+        if (phase == SpiritAnimationPhase.DESPAWN) {
             state.setAndContinue(DESPAWN_ANIM);
+        } else {
+            state.setAndContinue(SPAWN_ANIM);
         }
 
         return PlayState.CONTINUE;

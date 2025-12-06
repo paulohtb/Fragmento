@@ -1,14 +1,14 @@
-package com.pgalaxyp.fragmento.feature.bard.client.input;
+package com.pgalaxyp.fragmento.feature.bard.client.input.feature.bard;
 
 import net.minecraft.client.KeyMapping;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import org.lwjgl.glfw.GLFW;
 
-public final class BardKeyMappings {
+public final class KeyMappings {
 
     public static KeyMapping BARD_WEAPON_CHARGED;
 
-    private BardKeyMappings() {
+    private KeyMappings() {
     }
 
     public static void register(RegisterKeyMappingsEvent event) {

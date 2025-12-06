@@ -5,12 +5,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
-public final class BardWeaponChargeData {
+public final class AbilityChargeData {
 
     private static final String KEY_CHARGE = "fragmento_bard_charge";
     private static final int MAX_CHARGE = 2;
 
-    private BardWeaponChargeData() {
+    private AbilityChargeData() {
     }
 
     public static int getCharge(ItemStack stack) {
