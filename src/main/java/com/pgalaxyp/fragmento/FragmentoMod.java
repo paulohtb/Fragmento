@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento;
 
-import com.pgalaxyp.fragmento.feature.bard.BardModule;
-import com.pgalaxyp.fragmento.feature.bard.client.BardClientModule;
+import com.pgalaxyp.fragmento.feature.bard_class.BardModule;
+import com.pgalaxyp.fragmento.feature.bard_class.client.BardClientModule;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;

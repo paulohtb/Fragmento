@@ -10,27 +10,24 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-public abstract class RaycastBase {
+public final class RaycastBase {
 
-    private double range = 8.0D;
+    public record Result(LivingEntity hitEntity, Vec3 hitPosition) {
 
-    public void setRange(double value) {
-        this.range = value;
-    }
-
-    public double getRange() {
-        return this.range;
-    }
-
-    public final boolean execute(LivingEntity caster) {
-        Level level = caster.level();
-        if (level.isClientSide()) {
-            return false;
+        public boolean hasEntityHit() {
+                return this.hitEntity != null;
+            }
         }
+
+    private RaycastBase() {
+    }
+
+    public static Result perform(LivingEntity caster, double range) {
+        Level level = caster.level();
 
         Vec3 start = caster.getEyePosition(1.0F);
         Vec3 look = caster.getLookAngle().normalize();
-        Vec3 end = start.add(look.scale(this.range));
+        Vec3 end = start.add(look.scale(range));
 
         HitResult blockHit = level.clip(
                 new ClipContext(
@@ -42,7 +39,7 @@ public abstract class RaycastBase {
                 )
         );
 
-        double maxDistance = this.range;
+        double maxDistance = range;
         if (blockHit.getType() != HitResult.Type.MISS) {
             double dist = blockHit.getLocation().distanceTo(start);
             if (dist < maxDistance) {
@@ -70,16 +67,10 @@ public abstract class RaycastBase {
         if (entityHit != null) {
             Entity hit = entityHit.getEntity();
             if (hit instanceof LivingEntity living) {
-                onHitEntity(caster, living, entityHit.getLocation());
-                return true;
+                return new Result(living, entityHit.getLocation());
             }
         }
 
-        onHitPosition(caster, limitedEnd);
-        return false;
+        return new Result(null, limitedEnd);
     }
-
-    protected abstract void onHitEntity(LivingEntity caster, LivingEntity target, Vec3 hitPos);
-
-    protected abstract void onHitPosition(LivingEntity caster, Vec3 hitPos);
 }
