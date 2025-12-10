@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.features.bard_class.spirit.base;
 
 import com.pgalaxyp.fragmento.core.controller.*;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.SpiritBehavior;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.*;
 import net.minecraft.server.level.ServerLevel;
@@ -11,22 +12,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class CastedSpiritBase extends Entity {
-
-    public interface SpiritBehavior {
-        void init(CastedSpiritBase spirit);
-        void tick(CastedSpiritBase spirit);
-        void onHit(CastedSpiritBase spirit, LivingEntity target);
-    }
-
     public static final EntityDataAccessor<Integer> LIFETIME =
             SynchedEntityData.defineId(CastedSpiritBase.class, EntityDataSerializers.INT);
 
     public static final EntityDataAccessor<String> ANIM_KEY =
             SynchedEntityData.defineId(CastedSpiritBase.class, EntityDataSerializers.STRING);
 
+    public enum Mode {
+        BASIC,
+        CHARGED,
+        SPECIAL
+    }
+
     private final List<EntityController<?>> controllers = new ArrayList<>(5);
 
-    private int maxLifetime;
     private LivingEntity owner;
     private LivingEntity target;
 
@@ -55,15 +54,18 @@ public abstract class CastedSpiritBase extends Entity {
         controllers.add(collisionController);
     }
 
-    public abstract SpiritBehavior createBehavior(boolean charged);
+    public abstract SpiritBehavior createBehavior(Mode mode);
 
-    public void summon(LivingEntity caster, LivingEntity target, ServerLevel level, boolean charged) {
+    public void summon(LivingEntity caster,
+                       LivingEntity target,
+                       ServerLevel level,
+                       Mode mode) {
         this.owner = caster;
         this.target = target;
         this.entityData.set(LIFETIME, 0);
         this.entityData.set(ANIM_KEY, "");
-        this.behavior = createBehavior(charged);
-        this.behavior.init(this);
+        this.behavior = createBehavior(mode);
+        boolean charged = mode == Mode.CHARGED;
         this.spawnController.initializeSpawn(caster, target, level, charged);
     }
 
@@ -92,7 +94,7 @@ public abstract class CastedSpiritBase extends Entity {
     }
 
     public void onHit(LivingEntity target) {
-        if (behavior != null) behavior.onHit(this, target);
+        if (behavior != null) behavior.onHit(target);
     }
 
     @Override
@@ -104,17 +106,17 @@ public abstract class CastedSpiritBase extends Entity {
             return;
         }
 
-        int age = this.entityData.get(LIFETIME) + 1;
+        int age = getLifetime() + 1;
         this.entityData.set(LIFETIME, age);
 
-        if (behavior != null) behavior.tick(this);
+        flightController.tick();
+        orientationController.tick();
+        collisionController.tick();
+        spiritBounceController.tick();
 
-        for (EntityController<?> c : controllers) {
-            if (c != collisionController) c.tick();
-        }
+        if (behavior != null) behavior.tick();
 
         movement();
-        collisionController.tick();
     }
 
     private void movement() {
@@ -131,14 +133,12 @@ public abstract class CastedSpiritBase extends Entity {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         this.entityData.set(LIFETIME, tag.getInt("Lifetime"));
-        this.maxLifetime = tag.getInt("MaxLifetime");
         this.entityData.set(ANIM_KEY, tag.getString("AnimKey"));
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("Lifetime", this.entityData.get(LIFETIME));
-        tag.putInt("MaxLifetime", this.maxLifetime);
         tag.putString("AnimKey", this.entityData.get(ANIM_KEY));
     }
 }

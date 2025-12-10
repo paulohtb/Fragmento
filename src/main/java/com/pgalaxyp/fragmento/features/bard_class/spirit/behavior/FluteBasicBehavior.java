@@ -8,111 +8,102 @@ import com.pgalaxyp.fragmento.features.bard_class.spirit.controller.SpiritConsta
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
-public class FluteBasicBehavior implements CastedSpiritBase.SpiritBehavior {
+public class FluteBasicBehavior extends SpiritBehavior {
 
-    private enum Phase { SPAWN, ACTIVE, DESPAWN }
+    private enum Phase { SPAWN, TRAVEL, DESPAWN }
 
     private Phase phase;
     private int time;
-    private int duration;
+    private double duration;
 
-    @Override
-    public void init(CastedSpiritBase spirit) {
+    public FluteBasicBehavior(CastedSpiritBase spirit) {
+        super(spirit);
         phase = Phase.SPAWN;
         time = 0;
-        duration = 10;
+        duration = 7.5;
 
-        spirit.setAnimKey("spawn");
-
-        spirit.flightController.setEnabled(false);
-        spirit.collisionController.setEnabled(false);
-        spirit.spiritBounceController.setEnabled(false);
+        CastedSpiritBase s = spirit();
+        s.setAnimKey("spawn");
+        s.flightController.setEnabled(false);
+        s.collisionController.setEnabled(false);
+        s.orientationController.setEnabled(false);
+        s.spiritBounceController.setEnabled(false);
     }
 
     @Override
-    public void tick(CastedSpiritBase spirit) {
+    public void tick() {
+        CastedSpiritBase s = spirit();
         time++;
 
         switch (phase) {
-
             case SPAWN -> {
                 if (time >= duration) {
-                    phase = Phase.ACTIVE;
+                    phase = Phase.TRAVEL;
                     time = 0;
-                    duration = 20;
+                    duration = 10;
 
-                    spirit.flightController.setMovement(
-                            spirit.flightController.dashMovement(duration)
+                    s.flightController.setMovement(s.flightController.dashMovement(duration));
+                    s.flightController.setEnabled(true);
+                    s.collisionController.setEnabled(true);
+                    s.spiritBounceController.setEnabled(true);
+
+                    s.collisionController.setCollisionCheck(
+                            s.collisionController.surfaceHitboxCollision(SpiritConstants.COLLISION_RADIUS)
                     );
 
-                    spirit.flightController.setEnabled(true);
-                    spirit.collisionController.setEnabled(true);
-                    spirit.spiritBounceController.setEnabled(true);
-
-                    spirit.collisionController.setCollisionCheck(
-                            spirit.collisionController.surfaceHitboxCollision(SpiritConstants.COLLISION_RADIUS)
-                    );
-
-                    spirit.setAnimKey("travel");
+                    s.setAnimKey("travel");
                 }
             }
 
-            case ACTIVE -> {
-                if (spirit.collisionController.hasCollision()) {
-                    LivingEntity target = spirit.collisionController.getCollisionTarget();
-                    spirit.collisionController.resetCollision();
+            case TRAVEL -> {
+                if (s.collisionController.hasCollision()) {
+                    LivingEntity target = s.collisionController.getCollisionTarget();
+                    s.collisionController.resetCollision();
 
                     if (target != null && target.isAlive()) {
-                        onHit(spirit, target);
-                        spirit.spiritBounceController.bounce();
+                        onHit(target);
+                        s.flightController.setEnabled(false);
+                        s.collisionController.setEnabled(false);
+                        s.setDeltaMovement(Vec3.ZERO);
+                        s.spiritBounceController.bounce();
                     }
 
-                    despawnInit(spirit);
+                    startDespawn();
                 }
 
-                if (time >= duration) {
-                    despawnInit(spirit);
-                }
+                if (time >= duration) startDespawn();
             }
 
             case DESPAWN -> {
-                if (time >= duration) {
-                    spirit.discard();
-                }
+                if (time >= duration) s.discard();
             }
         }
     }
 
-    private void despawnInit(CastedSpiritBase spirit) {
+    private void startDespawn() {
+        CastedSpiritBase s = spirit();
         phase = Phase.DESPAWN;
         time = 0;
-        duration = 10;
+        duration = 7.5;
 
-        spirit.flightController.setEnabled(false);
-        spirit.collisionController.setEnabled(false);
-        spirit.spiritBounceController.setEnabled(false);
-
-        spirit.setAnimKey("despawn");
+        s.flightController.setEnabled(false);
+        s.collisionController.setEnabled(false);
+        s.setAnimKey("despawn");
     }
 
     @Override
-    public void onHit(CastedSpiritBase spirit, LivingEntity target) {
-        int currentCharge = 0;
-        if (spirit.getOwner() instanceof ServerPlayer p) {
-            ItemStack s = p.getMainHandItem();
-            if (s.getItem() instanceof InstrumentBase) {
-                currentCharge = InstrumentChargeData.getCharge(s);
-            }
-        }
+    public void onHit(LivingEntity target) {
+        CastedSpiritBase s = spirit();
 
-        target.hurt(target.damageSources().magic(), InstrumentConstants.BASIC_DAMAGE);
-
-        if (spirit.getOwner() instanceof ServerPlayer player) {
-            ItemStack stack = player.getMainHandItem();
+        if (s.getOwner() instanceof ServerPlayer p) {
+            ItemStack stack = p.getMainHandItem();
             if (stack.getItem() instanceof InstrumentBase) {
                 InstrumentChargeData.increment(stack);
             }
         }
+
+        target.hurt(target.damageSources().magic(), InstrumentConstants.BASIC_DAMAGE);
     }
 }

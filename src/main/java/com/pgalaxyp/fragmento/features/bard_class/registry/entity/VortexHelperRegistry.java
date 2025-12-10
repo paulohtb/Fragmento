@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.features.bard_class.registry.entity;
 
+import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MelodyZone;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
@@ -22,5 +23,15 @@ public final class VortexHelperRegistry {
                             .sized(4F, 4F)
                             .clientTrackingRange(64)
                             .build("wind_vortex")
+            );
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MelodyZone>> MELODY_ZONE =
+            ENTITIES.register(
+                    "melody_zone",
+                    () -> EntityType.Builder
+                            .of(MelodyZone::new, MobCategory.MISC)
+                            .sized(3F, 0.5F)
+                            .clientTrackingRange(64)
+                            .build("melody_zone")
             );
 }

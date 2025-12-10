@@ -16,13 +16,17 @@ public final class InstrumentInputBlocker {
     @SubscribeEvent
     public static void onClick(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
-
         if (mc.player == null) return;
 
         ItemStack stack = mc.player.getMainHandItem();
         if (!(stack.getItem() instanceof InstrumentBase)) return;
 
         if (event.isAttack()) {
+            event.setCanceled(true);
+            event.setSwingHand(false);
+        }
+
+        if (event.isUseItem()) {
             event.setCanceled(true);
             event.setSwingHand(false);
         }

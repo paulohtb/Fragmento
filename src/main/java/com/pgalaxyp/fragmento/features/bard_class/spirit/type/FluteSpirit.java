@@ -2,8 +2,11 @@ package com.pgalaxyp.fragmento.features.bard_class.spirit.type;
 
 import com.pgalaxyp.fragmento.core.controller.BehaviorAnimationController;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase.Mode;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.FluteBasicBehavior;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.FluteChargedBehavior;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.FluteSpecialBehavior;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.SpiritBehavior;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import software.bernie.geckolib.animatable.GeoEntity;
@@ -24,8 +27,12 @@ public class FluteSpirit extends CastedSpiritBase implements GeoEntity {
     }
 
     @Override
-    public SpiritBehavior createBehavior(boolean charged) {
-        return charged ? new FluteChargedBehavior() : new FluteBasicBehavior();
+    public SpiritBehavior createBehavior(Mode mode) {
+        return switch (mode) {
+            case BASIC -> new FluteBasicBehavior(this);
+            case CHARGED -> new FluteChargedBehavior(this);
+            case SPECIAL -> new FluteSpecialBehavior(this);
+        };
     }
 
     @Override

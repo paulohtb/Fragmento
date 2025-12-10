@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.features.bard_class.network.packet;
 
-import com.pgalaxyp.fragmento.features.bard_class.network.NetworkRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentBase;
+import com.pgalaxyp.fragmento.features.bard_class.network.NetworkRegistry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;

@@ -81,7 +81,7 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
         Vec3 up = new Vec3(0, 1, 0);
 
         double minSide = 1.25;
-        double maxSide = 1.75;
+        double maxSide = 1.725;
 
         double minForward = 0.75;
         double maxForward = 1.5;

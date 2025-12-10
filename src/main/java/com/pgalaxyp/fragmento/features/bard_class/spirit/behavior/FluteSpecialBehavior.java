@@ -1,21 +1,17 @@
 package com.pgalaxyp.fragmento.features.bard_class.spirit.behavior;
 
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentBase;
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentChargeData;
 import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentConstants;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.VortexHelperRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.controller.SpiritConstants;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
-public class FluteChargedBehavior extends SpiritBehavior {
+public class FluteSpecialBehavior extends SpiritBehavior {
 
     private enum Phase { SPAWN, TRAVEL, OVERSHOOT, ASCENT, HOVER, DESPAWN }
 
@@ -25,7 +21,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
     private boolean vortexSpawned;
     private Vec3 hoverOffset;
 
-    public FluteChargedBehavior(CastedSpiritBase spirit) {
+    public FluteSpecialBehavior(CastedSpiritBase spirit) {
         super(spirit);
         phase = Phase.SPAWN;
         time = 0;
@@ -37,7 +33,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.collisionController.setEnabled(false);
         s.spiritBounceController.setEnabled(false);
         s.orientationController.setEnabled(false);
-        s.setAnimKey("spawn");
+        s.setAnimKey("spawn_charged");
     }
 
     @Override
@@ -98,7 +94,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.collisionController.setEnabled(true);
 
         s.orientationController.setEnabled(true);
-        s.setAnimKey("travel");
+        s.setAnimKey("dash");
     }
 
     private void startOvershoot() {
@@ -113,7 +109,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.flightController.setEnabled(true);
 
         s.collisionController.setEnabled(false);
-        s.setAnimKey("travel");
+        s.setAnimKey("dash");
     }
 
     private void startAscent() {
@@ -127,7 +123,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         );
         s.flightController.setEnabled(true);
 
-        s.setAnimKey("travel");
+        s.setAnimKey("ascend");
     }
 
     private void startHover() {
@@ -153,7 +149,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.flightController.setEnabled(true);
 
         s.collisionController.setEnabled(false);
-        s.setAnimKey("travel");
+        s.setAnimKey("hover");
     }
 
     private void startDespawn() {
@@ -168,7 +164,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.orientationController.setEnabled(false);
 
         s.setDeltaMovement(Vec3.ZERO);
-        s.setAnimKey("despawn");
+        s.setAnimKey("despawn_charged");
     }
 
     private void spawnVortex() {
@@ -193,12 +189,5 @@ public class FluteChargedBehavior extends SpiritBehavior {
     public void onHit(LivingEntity target) {
         CastedSpiritBase s = spirit();
         target.hurt(target.damageSources().magic(), InstrumentConstants.CHARGED_DAMAGE);
-
-        if (s.getOwner() instanceof ServerPlayer player) {
-            ItemStack stack = player.getMainHandItem();
-            if (stack.getItem() instanceof InstrumentBase) {
-                InstrumentChargeData.reset(stack);
-            }
-        }
     }
 }

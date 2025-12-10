@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.features.bard_class.client.registry;
 
 import com.pgalaxyp.fragmento.features.bard_class.client.render.renderer.FluteSpiritRenderer;
+import com.pgalaxyp.fragmento.features.bard_class.client.render.renderer.MelodyZoneRenderer;
 import com.pgalaxyp.fragmento.features.bard_class.client.render.renderer.WindVortexRenderer;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.VortexHelperRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.FluteSpiritRegistry;
@@ -19,5 +20,6 @@ public final class SpiritClientSetup {
     private static void onRegister(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(FluteSpiritRegistry.FLUTE_SPIRIT.get(), FluteSpiritRenderer::new);
         event.registerEntityRenderer(VortexHelperRegistry.WIND_VORTEX.get(), WindVortexRenderer::new);
+        event.registerEntityRenderer(VortexHelperRegistry.MELODY_ZONE.get(), MelodyZoneRenderer::new);
     }
 }

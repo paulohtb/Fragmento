@@ -31,7 +31,6 @@ public final class FlightController<T extends Entity> extends EntityController<T
 
     public void setEnabled(boolean v) {
         enabled = v;
-        if (!v) entity.setDeltaMovement(Vec3.ZERO);
     }
 
     @Override
@@ -46,8 +45,18 @@ public final class FlightController<T extends Entity> extends EntityController<T
         movement.apply(entity, target, age);
     }
 
-    public Movement<T> dashMovement(int totalTicks) {
+    public Movement<T> dashMovement(double totalTicks) {
+        double startAge = ageGetter.apply(entity);
+        double duration = Math.max(1, totalTicks);
+
         return (self, target, age) -> {
+            double elapsed = age - startAge;
+            if (elapsed < 0) elapsed = 0;
+            if (elapsed >= duration) {
+                self.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
+
             Vec3 from = self.position();
             Vec3 to = target.getBoundingBox().getCenter();
             Vec3 delta = to.subtract(from);
@@ -58,32 +67,92 @@ public final class FlightController<T extends Entity> extends EntityController<T
                 return;
             }
 
-            int remain = Math.max(1, totalTicks - age);
+            double remain = duration - elapsed;
             Vec3 vel = delta.scale(1.0 / remain);
             self.setDeltaMovement(vel);
         };
     }
 
-    public Movement<T> orbitMovement(double radius, double angularSpeed, double travelSpeed) {
+    public Movement<T> dashCharged(int totalTicks, double speedFactor) {
+        int startAge = ageGetter.apply(entity);
+        int duration = Math.max(1, totalTicks);
+
         return (self, target, age) -> {
-            Vec3 center = target.getBoundingBox().getCenter();
-
-            double angle = age * angularSpeed;
-            double x = center.x + Math.cos(angle) * radius;
-            double z = center.z + Math.sin(angle) * radius;
-            double y = center.y;
-
-            Vec3 dest = new Vec3(x, y, z);
-            Vec3 delta = dest.subtract(self.position());
-            double len = delta.length();
-
-            if (len < 1.0E-6) {
+            int elapsed = age - startAge;
+            if (elapsed < 0) elapsed = 0;
+            if (elapsed >= duration) {
                 self.setDeltaMovement(Vec3.ZERO);
                 return;
             }
 
-            Vec3 vel = delta.normalize().scale(travelSpeed);
+            Vec3 from = self.position();
+            Vec3 to = target.getBoundingBox().getCenter();
+
+            Vec3 dir = to.subtract(from).normalize();
+            Vec3 vel = dir.scale(speedFactor);
+
             self.setDeltaMovement(vel);
+        };
+    }
+
+    public Movement<T> overshootCharged(double overshootDistance, int overshootTicks) {
+        int startAge = ageGetter.apply(entity);
+        int duration = Math.max(1, overshootTicks);
+
+        return (self, target, age) -> {
+            int elapsed = age - startAge;
+            if (elapsed < 0) elapsed = 0;
+            if (elapsed >= duration) {
+                self.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
+
+            Vec3 from = self.position();
+            Vec3 to = target.getBoundingBox().getCenter();
+
+            Vec3 dir = to.subtract(from).normalize();
+            Vec3 finalPos = to.add(dir.scale(overshootDistance));
+            Vec3 delta = finalPos.subtract(from);
+
+            int remain = duration - elapsed;
+            Vec3 vel = delta.scale(1.0 / remain);
+
+            self.setDeltaMovement(vel);
+        };
+    }
+
+    public Movement<T> ascendCharged(double riseHeight, int totalTicks) {
+        int startAge = ageGetter.apply(entity);
+        int duration = Math.max(1, totalTicks);
+
+        return (self, target, age) -> {
+            int elapsed = age - startAge;
+            if (elapsed < 0) elapsed = 0;
+            if (elapsed >= duration) {
+                self.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
+
+            Vec3 from = self.position();
+            double targetY = target.getBoundingBox().maxY + riseHeight;
+
+            Vec3 to = new Vec3(from.x, targetY, from.z);
+            Vec3 delta = to.subtract(from);
+
+            int remain = duration - elapsed;
+            Vec3 vel = delta.scale(1.0 / remain);
+
+            self.setDeltaMovement(vel);
+        };
+    }
+
+    public Movement<T> hoverCharged(Vec3 offset) {
+        return (self, target, age) -> {
+            Vec3 base = new Vec3(target.getX(), target.getY(), target.getZ());
+            Vec3 desired = base.add(offset);
+
+            Vec3 delta = desired.subtract(self.position());
+            self.setDeltaMovement(delta);
         };
     }
 }

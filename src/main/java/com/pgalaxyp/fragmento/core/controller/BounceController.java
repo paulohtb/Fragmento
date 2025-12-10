@@ -57,10 +57,10 @@ public final class BounceController<T extends Entity> extends EntityController<T
         if (len < 1.0E-6) dir = new Vec3(0, 0.02, 0);
         else dir = dir.normalize();
 
-        Vec3 upward = new Vec3(0, 0.03, 0);
+        Vec3 upward = new Vec3(0, 0.2, 0);
         Vec3 finalDir = dir.add(upward).normalize();
 
-        double scale = 0.04 + (speed * 0.16);
+        double scale = 0.2;
 
         return finalDir.scale(scale);
     }

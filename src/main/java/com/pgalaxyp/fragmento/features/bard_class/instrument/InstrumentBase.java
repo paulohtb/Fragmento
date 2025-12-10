@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.features.bard_class.instrument;
 
-import com.pgalaxyp.fragmento.features.bard_class.ability.NormalAbility;
+import com.pgalaxyp.fragmento.features.bard_class.ability.AbilityBase;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,44 +10,33 @@ import java.util.List;
 
 public abstract class InstrumentBase extends Item {
 
-    private final List<NormalAbility<?>> abilities;
+    protected final List<AbilityBase> abilities;
 
-    protected InstrumentBase(Properties props, List<NormalAbility<?>> abilities) {
-        super(props.stacksTo(1));
+    public InstrumentBase(Properties props, List<AbilityBase> abilities) {
+        super(props);
         this.abilities = abilities;
     }
 
-    public NormalAbility<?> getAbility(int index) {
-        if (index < 0 || index >= abilities.size()) return null;
-        return abilities.get(index);
+    public AbilityBase getAbility(int index) {
+        return index >= 0 && index < abilities.size() ? abilities.get(index) : null;
     }
 
-    public void executeAbility(ServerLevel level, ServerPlayer player, ItemStack stack, int index, LivingEntity target) {
-        if (player.getCooldowns().isOnCooldown(this)) return;
+    public void executeAbility(ServerLevel level,
+                               ServerPlayer player,
+                               ItemStack stack,
+                               int index,
+                               LivingEntity target) {
 
-        NormalAbility<?> ability = getAbility(index);
+        if (player.getCooldowns().isOnCooldown(this)) {
+            return;
+        }
+
+        AbilityBase ability = getAbility(index);
         if (ability == null) return;
 
-        boolean charged = InstrumentChargeData.isCharged(stack);
+        int cooldown = ability.execute(level, player, stack, target);
+        if (cooldown <= 0) return;
 
-        if (!ability.execute(level, player, stack, target, charged)) return;
-
-        onAbilityExecuted(level, player);
-
-        int cd = charged ? getChargedCooldown(stack) : getNormalCooldown(stack);
-        if (cd > 0) player.getCooldowns().addCooldown(this, cd);
-
-        if (charged) InstrumentChargeData.reset(stack);
-    }
-
-    protected int getNormalCooldown(ItemStack stack) {
-        return 0;
-    }
-
-    protected int getChargedCooldown(ItemStack stack) {
-        return 0;
-    }
-
-    public void onAbilityExecuted(ServerLevel level, ServerPlayer player) {
+        player.getCooldowns().addCooldown(this, cooldown);
     }
 }

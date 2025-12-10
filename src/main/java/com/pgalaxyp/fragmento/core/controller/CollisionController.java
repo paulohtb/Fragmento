@@ -29,7 +29,6 @@ public final class CollisionController<T extends Entity> extends EntityControlle
         enabled = v;
         if (!v) {
             lastCollision = null;
-            entity.setDeltaMovement(Vec3.ZERO);
         }
     }
 
@@ -79,8 +78,9 @@ public final class CollisionController<T extends Entity> extends EntityControlle
     public CollisionCheck<T> surfaceHitboxCollision(double inflate) {
         return (self, target) -> {
             AABB expanded = target.getBoundingBox().inflate(inflate);
-            AABB box = self.getBoundingBox();
-            return expanded.intersects(box) ? target : null;
+            Vec3 motion = self.getDeltaMovement();
+            AABB futureBox = self.getBoundingBox().move(motion);
+            return expanded.intersects(futureBox) ? target : null;
         };
     }
 
