@@ -1,12 +1,11 @@
 package com.pgalaxyp.fragmento.features.bard_class.ability;
 
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentChargeData;
+import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase.Mode;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+
 import java.util.function.Function;
 
 public record NormalAbility<S extends CastedSpiritBase>(
@@ -22,29 +21,25 @@ public record NormalAbility<S extends CastedSpiritBase>(
     }
 
     @Override
-    public int execute(ServerLevel level,
-                       ServerPlayer player,
-                       ItemStack stack,
-                       LivingEntity target) {
-
-        boolean charged = InstrumentChargeData.isCharged(stack);
-
+    public AbilityResult execute(AbilityContext ctx) {
+        boolean charged = ctx.mode() == Mode.CHARGED;
         S spirit = charged
-                ? chargedFactory.apply(level)
-                : basicFactory.apply(level);
+                ? chargedFactory.apply(ctx.level())
+                : basicFactory.apply(ctx.level());
+
+        String label = "NORMAL_" + (charged ? "CHARGED" : "BASIC");
 
         if (spirit == null) {
-            return -1;
+            ModLogger.abilityResult(label, false, 0);
+            return AbilityResult.failure();
         }
 
-        Mode mode = charged ? Mode.CHARGED : Mode.BASIC;
+        ModLogger.ability(label, ctx.caster(), ctx.target());
+        spirit.summon(ctx.caster(), ctx.target(), ctx.level(), ctx.mode());
 
-        spirit.summon(player, target, level, mode);
+        int cooldown = charged ? chargedCooldown : basicCooldown;
+        ModLogger.abilityResult(label, true, cooldown);
 
-        if (charged) {
-            InstrumentChargeData.reset(stack);
-        }
-
-        return charged ? chargedCooldown : basicCooldown;
+        return AbilityResult.successWithCooldown(cooldown);
     }
 }

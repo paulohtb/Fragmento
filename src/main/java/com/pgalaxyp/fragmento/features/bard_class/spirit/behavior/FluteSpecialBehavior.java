@@ -1,193 +1,203 @@
 package com.pgalaxyp.fragmento.features.bard_class.spirit.behavior;
 
+import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentBase;
 import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentConstants;
+import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentCooldownService;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.VortexHelperRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
-import com.pgalaxyp.fragmento.features.bard_class.spirit.controller.SpiritConstants;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 public class FluteSpecialBehavior extends SpiritBehavior {
 
-    private enum Phase { SPAWN, TRAVEL, OVERSHOOT, ASCENT, HOVER, DESPAWN }
+    private enum Phase { SPAWN, ORBIT, ASCENT, HOVER, DESPAWN }
 
-    private Phase phase;
     private int time;
+    private Phase phase;
+    private Vec3 fixedPos;
     private double duration;
-    private boolean vortexSpawned;
-    private Vec3 hoverOffset;
 
     public FluteSpecialBehavior(CastedSpiritBase spirit) {
         super(spirit);
-        phase = Phase.SPAWN;
-        time = 0;
-        duration = 7.5;
-        vortexSpawned = false;
-
-        CastedSpiritBase s = spirit();
-        s.flightController.setEnabled(false);
-        s.collisionController.setEnabled(false);
-        s.spiritBounceController.setEnabled(false);
-        s.orientationController.setEnabled(false);
-        s.setAnimKey("spawn_charged");
+        startSpawn(Phase.SPAWN, 7.5, spirit, 0);
     }
 
     @Override
     public void tick() {
-        CastedSpiritBase s = spirit();
+        CastedSpiritBase spirit = spirit();
         time++;
 
         switch (phase) {
             case SPAWN -> {
-                if (time >= duration) startTravel();
-            }
-
-            case TRAVEL -> {
-                if (s.collisionController.hasCollision()) {
-                    LivingEntity hit = s.collisionController.getCollisionTarget();
-                    s.collisionController.resetCollision();
-                    if (hit != null && hit.isAlive()) onHit(hit);
-                    startOvershoot();
-                    return;
+                if (time >= duration) {
+                    startOrbit(Phase.ORBIT, 22.5, spirit, 0);
                 }
-                if (time >= duration) startOvershoot();
             }
-
-            case OVERSHOOT -> {
-                if (time >= duration) startAscent();
+            case ORBIT -> {
+                if (time >= duration) {
+                    fixedPos = spirit.position();
+                    startAscent(Phase.ASCENT, 10, spirit, 0);
+                }
             }
-
             case ASCENT -> {
-                if (time >= duration) startHover();
-            }
-
-            case HOVER -> {
-                if (!vortexSpawned && time >= 5) {
-                    spawnVortex();
-                    vortexSpawned = true;
+                if (time >= duration) {
+                    startHover(Phase.HOVER, 100, spirit, 0);
                 }
-                if (time >= duration) startDespawn();
             }
-
+            case HOVER -> {
+                if (time >= duration) {
+                    startDespawn(Phase.DESPAWN, 7.5, spirit, 0);
+                }
+            }
             case DESPAWN -> {
-                if (time >= duration) s.discard();
+                if (time >= duration) {
+                    spirit.discard();
+                }
             }
         }
     }
 
-    private void startTravel() {
-        CastedSpiritBase s = spirit();
-        phase = Phase.TRAVEL;
-        time = 0;
-        duration = 8;
-
-        s.flightController.setMovement(s.flightController.dashMovement(duration));
-        s.flightController.setEnabled(true);
-
-        s.collisionController.setCollisionCheck(
-                s.collisionController.surfaceHitboxCollision(SpiritConstants.COLLISION_RADIUS)
-        );
-        s.collisionController.setEnabled(true);
-
-        s.orientationController.setEnabled(true);
-        s.setAnimKey("dash");
+    @Override
+    protected void onTick() {
     }
 
-    private void startOvershoot() {
-        CastedSpiritBase s = spirit();
-        phase = Phase.OVERSHOOT;
-        time = 0;
-        duration = 2;
-
-        s.flightController.setMovement(
-                s.flightController.overshootCharged(1.0, 2)
-        );
-        s.flightController.setEnabled(true);
-
-        s.collisionController.setEnabled(false);
-        s.setAnimKey("dash");
+    public boolean isInterruptible() {
+        return phase == Phase.SPAWN
+                || phase == Phase.ORBIT
+                || phase == Phase.ASCENT;
     }
 
-    private void startAscent() {
-        CastedSpiritBase s = spirit();
-        phase = Phase.ASCENT;
-        time = 0;
-        duration = 5;
+    private void startSpawn(Phase phase, double duration, CastedSpiritBase spirit, int time) {
+        this.phase = phase;
+        this.duration = duration;
+        this.time = time;
 
-        s.flightController.setMovement(
-                s.flightController.ascendCharged(2.0, 5)
-        );
-        s.flightController.setEnabled(true);
+        spirit.flightController.setEnabled(false);
+        spirit.orientationController.setEnabled(false);
 
-        s.setAnimKey("ascend");
+        spirit.setAnimKey("spawn");
     }
 
-    private void startHover() {
-        CastedSpiritBase s = spirit();
-        LivingEntity t = s.getTarget();
-        if (t == null) {
-            startDespawn();
+    private void startOrbit(Phase phase, double duration, CastedSpiritBase spirit, int time) {
+        this.phase = phase;
+        this.duration = duration;
+        this.time = time;
+
+        spirit.flightController.setEnabled(true);
+        spirit.orientationController.setEnabled(true);
+
+        spirit.setAnimKey("travel");
+        spirit.flightController.setMovement(
+                spirit.flightController.orbitMovement(2D, duration)
+        );
+    }
+
+    private void startAscent(Phase phase, double duration, CastedSpiritBase spirit, int time) {
+        this.phase = phase;
+        this.duration = duration;
+        this.time = time;
+
+        spirit.flightController.setEnabled(true);
+        spirit.orientationController.setEnabled(true);
+
+        spirit.setAnimKey("travel");
+        spirit.flightController.setMovement(
+                spirit.flightController.ascendCharged(2D, duration)
+        );
+    }
+
+    private void startHover(Phase phase, double duration, CastedSpiritBase spirit, int time) {
+        this.phase = phase;
+        this.duration = duration;
+        this.time = time;
+
+        this.fixedPos = spirit.position();
+
+        spirit.flightController.setEnabled(true);
+        spirit.orientationController.setEnabled(true);
+
+        spirit.flightController.setMovement(
+                (self, target, age) -> {
+                    Vec3 delta = fixedPos.subtract(self.position());
+                    self.setDeltaMovement(delta);
+                }
+        );
+
+        spirit.setAnimKey("travel");
+
+        // Efeito visual e mecânico
+        spawnEffect(spirit);
+
+        // Aqui é o ponto certo para aplicar o cooldown
+        // O espírito já passou por SPAWN, ORBIT e ASCENT
+        // Agora entrou no HOVER, que é a parte ativa da habilidade
+        applyCooldownOnOwnerInstrument(spirit);
+    }
+
+    private void startDespawn(Phase phase, double duration, CastedSpiritBase spirit, int time) {
+        this.phase = phase;
+        this.duration = duration;
+        this.time = time;
+
+        spirit.flightController.setEnabled(false);
+        spirit.orientationController.setEnabled(false);
+
+        spirit.setAnimKey("despawn");
+    }
+
+    private void spawnEffect(CastedSpiritBase spirit) {
+        if (!(spirit.level() instanceof ServerLevel level)) {
             return;
         }
 
-        phase = Phase.HOVER;
-        time = 0;
-        duration = 10;
-        vortexSpawned = false;
+        LivingEntity owner = spirit.getOwner();
+        if (owner == null) {
+            return;
+        }
 
-        Vec3 current = s.position();
-        Vec3 base = new Vec3(t.getX(), t.getY(), t.getZ());
-        hoverOffset = current.subtract(base);
-
-        s.flightController.setMovement(
-                s.flightController.hoverCharged(hoverOffset)
-        );
-        s.flightController.setEnabled(true);
-
-        s.collisionController.setEnabled(false);
-        s.setAnimKey("hover");
-    }
-
-    private void startDespawn() {
-        CastedSpiritBase s = spirit();
-        phase = Phase.DESPAWN;
-        time = 0;
-        duration = 7.5;
-
-        s.flightController.setEnabled(false);
-        s.collisionController.setEnabled(false);
-        s.spiritBounceController.setEnabled(false);
-        s.orientationController.setEnabled(false);
-
-        s.setDeltaMovement(Vec3.ZERO);
-        s.setAnimKey("despawn_charged");
-    }
-
-    private void spawnVortex() {
-        CastedSpiritBase s = spirit();
-        if (!(s.level() instanceof ServerLevel level)) return;
-
-        LivingEntity t = s.getTarget();
-        if (t == null) return;
-
-        Vec3 c = t.getBoundingBox().getCenter();
-        double y = t.getBoundingBox().minY;
+        Vec3 c = fixedPos;
 
         WindVortex vortex = new WindVortex(VortexHelperRegistry.WIND_VORTEX.get(), level);
-        vortex.setOwner(s.getOwner());
-        vortex.setPos(c.x, y, c.z);
+        vortex.setOwner(owner);
+        vortex.setPos(c.x, c.y, c.z);
 
         level.addFreshEntity(vortex);
-        level.playSound(null, c.x, y, c.z, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.7F, 1.0F);
+        level.playSound(
+                null,
+                c.x,
+                c.y,
+                c.z,
+                net.minecraft.sounds.SoundEvents.ENCHANTMENT_TABLE_USE,
+                net.minecraft.sounds.SoundSource.PLAYERS,
+                0.7F,
+                1.0F
+        );
+    }
+
+    private void applyCooldownOnOwnerInstrument(CastedSpiritBase spirit) {
+        LivingEntity owner = spirit.getOwner();
+        if (!(owner instanceof ServerPlayer player)) {
+            return;
+        }
+
+        ItemStack main = player.getMainHandItem();
+        ItemStack off = player.getOffhandItem();
+
+        if (main.getItem() instanceof InstrumentBase instrument) {
+            InstrumentCooldownService.applyCooldown(player, instrument, InstrumentConstants.SPECIAL_COOLDOWN);
+            return;
+        }
+
+        if (off.getItem() instanceof InstrumentBase instrument) {
+            InstrumentCooldownService.applyCooldown(player, instrument, InstrumentConstants.SPECIAL_COOLDOWN);
+        }
     }
 
     @Override
     public void onHit(LivingEntity target) {
-        CastedSpiritBase s = spirit();
-        target.hurt(target.damageSources().magic(), InstrumentConstants.CHARGED_DAMAGE);
     }
 }

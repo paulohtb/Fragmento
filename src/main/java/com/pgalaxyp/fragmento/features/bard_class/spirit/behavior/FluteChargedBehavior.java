@@ -83,6 +83,11 @@ public class FluteChargedBehavior extends SpiritBehavior {
         }
     }
 
+    @Override
+    protected void onTick() {
+
+    }
+
     private void startTravel() {
         CastedSpiritBase s = spirit();
         phase = Phase.TRAVEL;

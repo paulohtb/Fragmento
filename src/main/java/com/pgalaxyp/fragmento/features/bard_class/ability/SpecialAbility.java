@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.features.bard_class.ability;
 
+import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase.Mode;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+
 import java.util.function.Function;
 
 public record SpecialAbility<S extends CastedSpiritBase>(
@@ -19,15 +19,17 @@ public record SpecialAbility<S extends CastedSpiritBase>(
     }
 
     @Override
-    public int execute(ServerLevel level,
-                       ServerPlayer player,
-                       ItemStack stack,
-                       LivingEntity target) {
+    public AbilityResult execute(AbilityContext ctx) {
+        S spirit = factory.apply(ctx.level());
+        if (spirit == null) {
+            ModLogger.abilityResult("SPECIAL", false, 0);
+            return AbilityResult.failure();
+        }
 
-        S spirit = factory.apply(level);
-        if (spirit == null) return -1;
+        ModLogger.ability("SPECIAL", ctx.caster(), ctx.target());
+        spirit.summon(ctx.caster(), ctx.target(), ctx.level(), Mode.SPECIAL);
 
-        spirit.summon(player, target, level, Mode.SPECIAL);
-        return cooldown;
+        ModLogger.abilityResult("SPECIAL", true, 0);
+        return AbilityResult.successNoCooldown();
     }
 }

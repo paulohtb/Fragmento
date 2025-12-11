@@ -45,6 +45,11 @@ public final class FlightController<T extends Entity> extends EntityController<T
         movement.apply(entity, target, age);
     }
 
+    @Override
+    protected void onTick() {
+
+    }
+
     public Movement<T> dashMovement(double totalTicks) {
         double startAge = ageGetter.apply(entity);
         double duration = Math.max(1, totalTicks);
@@ -121,9 +126,9 @@ public final class FlightController<T extends Entity> extends EntityController<T
         };
     }
 
-    public Movement<T> ascendCharged(double riseHeight, int totalTicks) {
+    public Movement<T> ascendCharged(double riseHeight, double totalTicks) {
         int startAge = ageGetter.apply(entity);
-        int duration = Math.max(1, totalTicks);
+        double duration = Math.max(1, totalTicks);
 
         return (self, target, age) -> {
             int elapsed = age - startAge;
@@ -139,7 +144,7 @@ public final class FlightController<T extends Entity> extends EntityController<T
             Vec3 to = new Vec3(from.x, targetY, from.z);
             Vec3 delta = to.subtract(from);
 
-            int remain = duration - elapsed;
+            double remain = duration - elapsed;
             Vec3 vel = delta.scale(1.0 / remain);
 
             self.setDeltaMovement(vel);
@@ -155,4 +160,57 @@ public final class FlightController<T extends Entity> extends EntityController<T
             self.setDeltaMovement(delta);
         };
     }
+
+    public Movement<T> orbitMovement(double radius, double totalTicks) {
+        double startAge = ageGetter.apply(entity);
+        double duration = Math.max(1, totalTicks);
+
+        // posição inicial da entidade → define o ângulo inicial
+        Vec3 ePos = entity.position();
+
+        return (self, target, age) -> {
+            double elapsed = age - startAge;
+            if (elapsed < 0) elapsed = 0;
+
+            if (elapsed >= duration) {
+                self.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
+
+            Vec3 center = target.getBoundingBox().getCenter();
+            Vec3 current = self.position();
+
+            // vetor do centro → entidade
+            Vec3 startVec = ePos.subtract(center);
+            if (startVec.length() < 1.0E-6) {
+                // fallback: começa exatamente na frente
+                startVec = new Vec3(0, 0, radius);
+            }
+
+            // normalizar e garantir raio exato
+            Vec3 startDir = startVec.normalize();
+
+            // ângulo inicial baseado na direção inicial (x,z)
+            double startAngle = Math.atan2(startDir.z, startDir.x);
+
+            // progresso [0 → 1]
+            double progress = elapsed / duration;
+
+            // ângulo atual (360°)
+            double angle = startAngle + 2 * Math.PI * progress;
+
+            // ponto desejado no círculo
+            double dx = Math.cos(angle) * radius;
+            double dz = Math.sin(angle) * radius;
+            double dy = 0; // sem elevação
+
+            Vec3 desiredPos = new Vec3(center.x + dx, center.y, center.z + dz);
+
+            // velocidade = diferença direta (como hover)
+            Vec3 vel = desiredPos.subtract(current);
+
+            self.setDeltaMovement(vel);
+        };
+    }
+
 }

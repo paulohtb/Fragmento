@@ -35,6 +35,10 @@ public class FluteSpirit extends CastedSpiritBase implements GeoEntity {
         };
     }
 
+    public SpiritBehavior getBehavior() {
+        return super.behaviorInternal();
+    }
+
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         animation.registerState("spawn", RawAnimation.begin().thenPlay("spawn"));
@@ -51,12 +55,12 @@ public class FluteSpirit extends CastedSpiritBase implements GeoEntity {
     }
 
     @Override
-    public AnimatableInstanceCache getAnimatableInstanceCache() {
-        return cache;
+    public double getTick(Object o) {
+        return tickCount;
     }
 
     @Override
-    public double getTick(Object o) {
-        return tickCount;
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return cache;
     }
 }

@@ -56,4 +56,9 @@ public final class OrientationController<T extends Entity> extends EntityControl
         entity.setXRot(np);
         entity.xRotO = np;
     }
+
+    @Override
+    protected void onTick() {
+
+    }
 }

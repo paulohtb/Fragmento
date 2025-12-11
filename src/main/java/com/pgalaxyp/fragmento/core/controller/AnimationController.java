@@ -51,4 +51,9 @@ public class AnimationController<T extends Entity & GeoAnimatable> extends Entit
     @Override
     public void tick() {
     }
+
+    @Override
+    protected void onTick() {
+
+    }
 }

@@ -82,6 +82,11 @@ public class FluteBasicBehavior extends SpiritBehavior {
         }
     }
 
+    @Override
+    protected void onTick() {
+
+    }
+
     private void startDespawn() {
         CastedSpiritBase s = spirit();
         phase = Phase.DESPAWN;

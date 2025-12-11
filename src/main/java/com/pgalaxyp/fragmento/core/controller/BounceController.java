@@ -27,6 +27,11 @@ public final class BounceController<T extends Entity> extends EntityController<T
         active = false;
     }
 
+    @Override
+    protected void onTick() {
+
+    }
+
     public void setEnabled(boolean v) {
         enabled = v;
         if (!v) {

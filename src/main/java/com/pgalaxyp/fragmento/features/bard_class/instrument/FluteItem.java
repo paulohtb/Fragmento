@@ -5,6 +5,7 @@ import com.pgalaxyp.fragmento.features.bard_class.ability.SpecialAbility;
 import com.pgalaxyp.fragmento.features.bard_class.ability.AbilityBase;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.FluteSpiritRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.type.FluteSpirit;
+
 import java.util.List;
 
 public class FluteItem extends InstrumentBase {
@@ -20,12 +21,12 @@ public class FluteItem extends InstrumentBase {
                 new NormalAbility<>(
                         level -> new FluteSpirit(FluteSpiritRegistry.FLUTE_SPIRIT.get(), level),
                         level -> new FluteSpirit(FluteSpiritRegistry.FLUTE_SPIRIT.get(), level),
-                        35,
-                        50
+                        InstrumentConstants.BASIC_COOLDOWN,
+                        InstrumentConstants.CHARGED_COOLDOWN
                 ),
                 new SpecialAbility<>(
                         level -> new FluteSpirit(FluteSpiritRegistry.FLUTE_SPIRIT.get(), level),
-                        100
+                        InstrumentConstants.SPECIAL_COOLDOWN
                 )
         );
     }

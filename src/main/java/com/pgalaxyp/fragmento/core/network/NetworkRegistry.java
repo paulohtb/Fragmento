@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.features.bard_class.network;
+package com.pgalaxyp.fragmento.core.network;
 
-import com.pgalaxyp.fragmento.features.bard_class.network.packet.AbilityPacket;
+import com.pgalaxyp.fragmento.core.network.packet.AbilityPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

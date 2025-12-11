@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -30,6 +31,11 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
         if (!fired) {
             fired = true;
         }
+    }
+
+    @Override
+    protected void onTick() {
+
     }
 
     public void initializeSpawn(LivingEntity caster, LivingEntity target, ServerLevel level, boolean charged) {
@@ -65,6 +71,13 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
         }
 
         level.addFreshEntity(entity);
+
+
+        //LOGGUER AQUI
+        ModLogger.spawn(entity);
+        //LOGGUER AQUI
+
+
     }
 
     private Vec3 computePivot(LivingEntity caster) {

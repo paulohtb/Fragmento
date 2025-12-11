@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -58,6 +59,13 @@ public final class CollisionController<T extends Entity> extends EntityControlle
         if (target != null && target.isAlive()) {
             LivingEntity result = check.collided(entity, target);
             if (result != null) {
+
+
+                //LOGGUER AQUI
+                ModLogger.collision(entity, result);
+                //LOGGUER AQUI
+
+
                 lastCollision = result;
                 return;
             }
@@ -69,11 +77,27 @@ public final class CollisionController<T extends Entity> extends EntityControlle
             LivingEntity candidate = (LivingEntity) e;
             LivingEntity result = check.collided(entity, candidate);
             if (result != null) {
+
+
+                //LOGGUER AQUI
+                ModLogger.collision(entity, candidate);
+                //LOGGUER AQUI
+
+
                 lastCollision = result;
                 return;
             }
         }
     }
+
+
+    //LOGGUER AQUI
+    @Override
+    protected void onTick() {
+
+    }
+    //LOGUER AQUI
+
 
     public CollisionCheck<T> surfaceHitboxCollision(double inflate) {
         return (self, target) -> {
