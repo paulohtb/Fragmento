@@ -2,8 +2,8 @@ package com.pgalaxyp.fragmento.features.bard_class.client.render.renderer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pgalaxyp.fragmento.features.bard_class.client.render.model.WindVortexGeoModel;
-import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
+import com.pgalaxyp.fragmento.features.bard_class.client.render.model.MediumWindVortexGeoModel;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MediumWindVortex;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -11,22 +11,22 @@ import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
-public class WindVortexRenderer extends GeoEntityRenderer<WindVortex> {
+public class MediumWindVortexRender extends GeoEntityRenderer<MediumWindVortex> {
 
-    public WindVortexRenderer(EntityRendererProvider.Context renderManager) {
-        super(renderManager, new WindVortexGeoModel());
+    public MediumWindVortexRender(EntityRendererProvider.Context renderManager) {
+        super(renderManager, new MediumWindVortexGeoModel());
         this.shadowRadius = 0.0F;
     }
 
     @Override
-    public RenderType getRenderType(WindVortex anim, ResourceLocation tex, MultiBufferSource buf, float pt) {
+    public RenderType getRenderType(MediumWindVortex anim, ResourceLocation tex, MultiBufferSource buf, float pt) {
         return RenderType.entityTranslucent(tex);
     }
 
     @Override
     public void preRender(
             PoseStack stack,
-            WindVortex anim,
+            MediumWindVortex anim,
             BakedGeoModel model,
             MultiBufferSource buf,
             VertexConsumer vc,

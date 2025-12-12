@@ -1,16 +1,20 @@
 package com.pgalaxyp.fragmento.features.bard_class.spirit.base;
 
 import com.pgalaxyp.fragmento.core.controller.*;
-import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.behavior.SpiritBehavior;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.*;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.item.ItemStack;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public abstract class CastedSpiritBase extends Entity {
 
@@ -29,6 +33,9 @@ public abstract class CastedSpiritBase extends Entity {
     private final List<EntityController<?>> controllers = new ArrayList<>(5);
     private LivingEntity owner;
     private LivingEntity target;
+    private UUID ownerUuid;
+    private UUID targetUuid;
+    private ItemStack instrumentSnapshot = ItemStack.EMPTY;
 
     public final FlightController<CastedSpiritBase> flightController;
     public final CollisionController<CastedSpiritBase> collisionController;
@@ -64,29 +71,81 @@ public abstract class CastedSpiritBase extends Entity {
     public void summon(LivingEntity caster,
                        LivingEntity target,
                        ServerLevel level,
-                       Mode mode) {
+                       Mode mode,
+                       ItemStack instrumentStack) {
 
         this.owner = caster;
         this.target = target;
+
+        this.ownerUuid = caster != null ? caster.getUUID() : null;
+        this.targetUuid = target != null ? target.getUUID() : null;
+
+        this.instrumentSnapshot = instrumentStack == null ? ItemStack.EMPTY : instrumentStack.copy();
         this.entityData.set(LIFETIME, 0);
         this.entityData.set(ANIM_KEY, "");
         this.behavior = createBehavior(mode);
 
         boolean charged = mode == Mode.CHARGED;
         this.spawnController.initializeSpawn(caster, target, level, charged);
-        ModLogger.state(this, "SUMMON " + mode.name());
+    }
+
+    public void summon(LivingEntity caster,
+                       LivingEntity target,
+                       ServerLevel level,
+                       Mode mode) {
+        summon(caster, target, level, mode, ItemStack.EMPTY);
+    }
+
+    public ItemStack getInstrumentSnapshot() {
+        return instrumentSnapshot;
     }
 
     public LivingEntity getOwner() {
+        if (owner == null && ownerUuid != null && level() instanceof ServerLevel sl) {
+            ServerPlayer p = (ServerPlayer) sl.getPlayerByUUID(ownerUuid);
+            if (p != null && p.isAlive()) owner = p;
+        }
         return owner;
     }
 
     public LivingEntity getTarget() {
-        return target != null && target.isAlive() ? target : null;
+        if (target != null && target.isAlive()) return target;
+
+        if (targetUuid == null) {
+            target = null;
+            return null;
+        }
+
+        if (level() instanceof ServerLevel sl) {
+            ServerPlayer p = (ServerPlayer) sl.getPlayerByUUID(targetUuid);
+            if (p != null && p.isAlive()) {
+                target = p;
+                return target;
+            }
+
+            AABB area = this.getBoundingBox().inflate(128.0);
+            List<LivingEntity> list = sl.getEntitiesOfClass(
+                    LivingEntity.class,
+                    area,
+                    e -> e.isAlive() && targetUuid.equals(e.getUUID())
+            );
+            if (!list.isEmpty()) {
+                target = list.get(0);
+                return target;
+            }
+        }
+
+        target = null;
+        return null;
     }
 
     public void setTarget(LivingEntity target) {
         this.target = target;
+        this.targetUuid = target != null ? target.getUUID() : null;
+    }
+
+    public UUID getTargetUuid() {
+        return targetUuid;
     }
 
     public int getLifetime() {
@@ -107,7 +166,6 @@ public abstract class CastedSpiritBase extends Entity {
 
     @Override
     public void tick() {
-        ModLogger.tickEntity(this);
         super.tick();
 
         if (level().isClientSide()) {
@@ -124,7 +182,6 @@ public abstract class CastedSpiritBase extends Entity {
         spiritBounceController.tick();
 
         if (behavior != null) {
-            ModLogger.behaviorTick(this, behavior.getClass().getSimpleName(), age);
             behavior.tick();
         }
 
@@ -143,20 +200,25 @@ public abstract class CastedSpiritBase extends Entity {
     }
 
     @Override
-    public void onRemovedFromLevel() {
-        ModLogger.discard(this);
-        super.onRemovedFromLevel();
-    }
-
-    @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         this.entityData.set(LIFETIME, tag.getInt("Lifetime"));
         this.entityData.set(ANIM_KEY, tag.getString("AnimKey"));
+
+        if (tag.hasUUID("OwnerUUID")) this.ownerUuid = tag.getUUID("OwnerUUID");
+        if (tag.hasUUID("TargetUUID")) this.targetUuid = tag.getUUID("TargetUUID");
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("Lifetime", this.entityData.get(LIFETIME));
         tag.putString("AnimKey", this.entityData.get(ANIM_KEY));
+
+        if (ownerUuid != null) tag.putUUID("OwnerUUID", ownerUuid);
+        if (targetUuid != null) tag.putUUID("TargetUUID", targetUuid);
+    }
+
+    @Override
+    public boolean shouldBeSaved() {
+        return false;
     }
 }

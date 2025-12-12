@@ -1,6 +1,5 @@
 package com.pgalaxyp.fragmento.features.bard_class.client.input;
 
-import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import com.pgalaxyp.fragmento.core.network.packet.AbilityPacket;
 import com.pgalaxyp.fragmento.core.util.RaycastUtil;
 import com.pgalaxyp.fragmento.features.bard_class.ability.AbilityBase;
@@ -17,8 +16,7 @@ public final class BardAbilityClientController {
     private enum ChannelState {
         IDLE,
         CHANNELING,
-        FINISHED,
-        BLOCKED
+        FINISHED
     }
 
     private static ChannelState state = ChannelState.IDLE;
@@ -28,8 +26,7 @@ public final class BardAbilityClientController {
 
     private static final int REQUIRED_CHANNEL_TICKS = 40;
 
-    private BardAbilityClientController() {
-    }
+    private BardAbilityClientController() {}
 
     public static void tick(Minecraft mc, LocalPlayer player, ItemStack stack, InstrumentBase instrument) {
         handleNormal(player, stack, instrument);
@@ -37,51 +34,31 @@ public final class BardAbilityClientController {
     }
 
     private static void handleNormal(LocalPlayer player, ItemStack stack, InstrumentBase instrument) {
-        if (!InstrumentKeybinds.NORMAL_ABILITY_USE.consumeClick()) {
-            return;
-        }
-
-        if (player.getCooldowns().isOnCooldown(stack.getItem())) {
-            ModLogger.input("normal_ability", "Blocked by cooldown for player=" + player.getGameProfile().getName());
-            return;
-        }
+        if (instrument == null) return;
+        if (!InstrumentKeybinds.NORMAL_ABILITY_USE.consumeClick()) return;
 
         AbilityBase ability = instrument.getAbility(AbilitySlot.BASIC.id());
-        if (ability == null) {
-            ModLogger.input("normal_ability", "No BASIC ability on instrument=" + stack.getItem());
-            return;
-        }
+        if (ability == null) return;
 
-        double range = ability.getRange(stack);
-        RaycastUtil.Result rc = RaycastUtil.perform(player, range);
-        if (!rc.hasTarget()) {
-            ModLogger.input("normal_ability", "No target in range for player=" + player.getGameProfile().getName());
-            return;
-        }
-
-        int targetId = rc.target().getId();
-        ModLogger.input("normal_ability", "Sending FINISH packet targetId=" + targetId);
+        RaycastUtil.Result rc = RaycastUtil.perform(player, ability.getRange(stack));
+        if (!rc.hasTarget()) return;
 
         PacketDistributor.sendToServer(
-                new AbilityPacket(AbilityPacket.Action.FINISH, AbilitySlot.BASIC.id(), targetId)
+                new AbilityPacket(AbilityPacket.Action.FINISH, AbilitySlot.BASIC.id(), rc.target().getId())
         );
     }
 
     private static void handleSpecial(Minecraft mc, LocalPlayer player, ItemStack stack, InstrumentBase instrument) {
         boolean down = mc.options.keyUse.isDown();
 
+        if (state == ChannelState.CHANNELING && instrument == null) {
+            cancelChannel();
+            return;
+        }
+
         switch (state) {
             case IDLE -> {
-                if (!down) {
-                    return;
-                }
-
-                if (player.getCooldowns().isOnCooldown(stack.getItem())) {
-                    state = ChannelState.BLOCKED;
-                    ModLogger.input("special_ability", "Blocked by cooldown at start for player=" + player.getGameProfile().getName());
-                    return;
-                }
-
+                if (!down || instrument == null) return;
                 startChannel(player, stack, instrument);
             }
 
@@ -91,29 +68,20 @@ public final class BardAbilityClientController {
                     return;
                 }
 
-                if (isInterrupted(mc, player, stack)) {
+                if (!ItemStack.isSameItemSameComponents(stack, itemRef)) {
                     cancelChannel();
                     return;
                 }
 
                 channelTicks++;
                 if (channelTicks >= REQUIRED_CHANNEL_TICKS) {
-                    finishChannel(player);
+                    finishChannel();
                 }
             }
 
-            case FINISHED, BLOCKED -> {
-                if (player.getCooldowns().isOnCooldown(stack.getItem())) {
-                    return;
-                }
-
-                if (down) {
-                    startChannel(player, stack, instrument);
-                } else {
+            case FINISHED -> {
+                if (!down) {
                     state = ChannelState.IDLE;
-                    channelTicks = 0;
-                    itemRef = null;
-                    currentTargetId = 0;
                 }
             }
         }
@@ -135,24 +103,18 @@ public final class BardAbilityClientController {
 
         currentTargetId = target;
 
-        ModLogger.input("special_ability", "Starting channel with targetId=" + target);
-
         PacketDistributor.sendToServer(
                 new AbilityPacket(AbilityPacket.Action.START, AbilitySlot.SPECIAL.id(), target)
         );
     }
 
-    private static void finishChannel(LocalPlayer player) {
+    private static void finishChannel() {
         state = ChannelState.FINISHED;
         channelTicks = 0;
         itemRef = null;
-
-        ModLogger.input("special_ability", "Channel finished locally for player=" + player.getGameProfile().getName());
     }
 
     private static void cancelChannel() {
-        ModLogger.input("special_ability", "Channel cancelled client side");
-
         PacketDistributor.sendToServer(
                 new AbilityPacket(AbilityPacket.Action.CANCEL, AbilitySlot.SPECIAL.id(), currentTargetId)
         );
@@ -161,24 +123,5 @@ public final class BardAbilityClientController {
         channelTicks = 0;
         itemRef = null;
         currentTargetId = 0;
-    }
-
-    private static boolean isInterrupted(Minecraft mc, LocalPlayer player, ItemStack stack) {
-        if (itemRef == null || !ItemStack.isSameItemSameComponents(stack, itemRef)) {
-            ModLogger.input("special_ability", "Interrupted by item change");
-            return true;
-        }
-
-        if (mc.options.keyAttack.consumeClick()) {
-            ModLogger.input("special_ability", "Interrupted by attack key");
-            return true;
-        }
-
-        if (mc.screen != null) {
-            ModLogger.input("special_ability", "Interrupted by opening screen");
-            return true;
-        }
-
-        return false;
     }
 }

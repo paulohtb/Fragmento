@@ -3,9 +3,12 @@ package com.pgalaxyp.fragmento.features.bard_class.spirit.type;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.controller.SpiritConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -19,8 +22,9 @@ import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.List;
+import java.util.UUID;
 
-public class WindVortex extends Entity implements GeoEntity {
+public class MinorWindVortex extends Entity implements GeoEntity {
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -28,14 +32,31 @@ public class WindVortex extends Entity implements GeoEntity {
 
     private int lifetime;
     private LivingEntity owner;
+    private UUID ownerUuid;
 
-    public WindVortex(EntityType<?> type, Level level) {
+    public MinorWindVortex(EntityType<?> type, Level level) {
         super(type, level);
         this.noPhysics = true;
     }
 
     public void setOwner(LivingEntity owner) {
         this.owner = owner;
+        this.ownerUuid = owner != null ? owner.getUUID() : null;
+    }
+
+    private LivingEntity getOwnerResolved() {
+        if (owner != null && owner.isAlive()) return owner;
+
+        if (ownerUuid != null && level() instanceof ServerLevel sl) {
+            ServerPlayer p = (ServerPlayer) sl.getPlayerByUUID(ownerUuid);
+            if (p != null && p.isAlive()) {
+                owner = p;
+                return owner;
+            }
+        }
+
+        owner = null;
+        return null;
     }
 
     @Override
@@ -45,11 +66,13 @@ public class WindVortex extends Entity implements GeoEntity {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         this.lifetime = tag.getInt("Lifetime");
+        if (tag.hasUUID("OwnerUUID")) this.ownerUuid = tag.getUUID("OwnerUUID");
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("Lifetime", this.lifetime);
+        if (ownerUuid != null) tag.putUUID("OwnerUUID", ownerUuid);
     }
 
     @Override
@@ -60,15 +83,12 @@ public class WindVortex extends Entity implements GeoEntity {
         if (this.level().isClientSide()) return;
 
         int total = SpiritConstants.VORTEX_LIFETIME_TICKS;
-
-        if (lifetime == total - 5) {
-            applyFinalImpulse();
-        }
-
         if (lifetime >= total) {
             discard();
             return;
         }
+
+        getOwnerResolved();
 
         Vec3 center = position();
         double radius = SpiritConstants.VORTEX_RADIUS;
@@ -81,7 +101,7 @@ public class WindVortex extends Entity implements GeoEntity {
         List<LivingEntity> list = level().getEntitiesOfClass(
                 LivingEntity.class,
                 area,
-                e -> e.isAlive() && e != owner
+                e -> e.isAlive() && !(e instanceof Player)
         );
 
         for (LivingEntity e : list) {
@@ -95,28 +115,7 @@ public class WindVortex extends Entity implements GeoEntity {
         }
     }
 
-    private void applyFinalImpulse() {
-        Vec3 center = position();
-        double radius = SpiritConstants.VORTEX_RADIUS;
-
-        AABB area = new AABB(
-                center.x - radius, center.y - radius, center.z - radius,
-                center.x + radius, center.y + radius, center.z + radius
-        );
-
-        List<LivingEntity> list = level().getEntitiesOfClass(
-                LivingEntity.class,
-                area,
-                e -> e.isAlive() && e != owner
-        );
-
-        for (LivingEntity e : list) {
-            e.setDeltaMovement(e.getDeltaMovement().x, 1.4, e.getDeltaMovement().z);
-            e.hurtMarked = true;
-        }
-    }
-
-    private <E extends WindVortex> PlayState predicate(AnimationState<E> state) {
+    private <E extends MinorWindVortex> PlayState predicate(AnimationState<E> state) {
         state.getController().setAnimation(FULL);
         return PlayState.CONTINUE;
     }

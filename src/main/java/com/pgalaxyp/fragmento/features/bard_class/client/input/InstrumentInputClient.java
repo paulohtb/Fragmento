@@ -12,22 +12,15 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 @EventBusSubscriber(modid = "fragmento", value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class InstrumentInputClient {
 
-    private InstrumentInputClient() {
-    }
-
     @SubscribeEvent
     public static void tick(ClientTickEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null || mc.screen != null) {
-            return;
-        }
+        if (player == null) return;
 
         ItemStack stack = player.getMainHandItem();
-        if (!(stack.getItem() instanceof InstrumentBase instrument)) {
-            return;
-        }
+        InstrumentBase instrument = stack.getItem() instanceof InstrumentBase i ? i : null;
 
-        BardAbilityClientController.tick(mc, player, stack, instrument);
+        com.pgalaxyp.fragmento.features.bard_class.client.input.BardAbilityClientController.tick(mc, player, stack, instrument);
     }
 }

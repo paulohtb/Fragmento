@@ -1,16 +1,11 @@
 package com.pgalaxyp.fragmento.features.bard_class.spirit.behavior;
 
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentBase;
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentChargeData;
-import com.pgalaxyp.fragmento.features.bard_class.instrument.InstrumentConstants;
+import com.pgalaxyp.fragmento.features.bard_class.instrument.*;
 import com.pgalaxyp.fragmento.features.bard_class.registry.entity.VortexHelperRegistry;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.base.CastedSpiritBase;
-import com.pgalaxyp.fragmento.features.bard_class.spirit.controller.SpiritConstants;
-import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MinorWindVortex;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -32,12 +27,11 @@ public class FluteChargedBehavior extends SpiritBehavior {
         duration = 7.5;
         vortexSpawned = false;
 
-        CastedSpiritBase s = spirit();
-        s.flightController.setEnabled(false);
-        s.collisionController.setEnabled(false);
-        s.spiritBounceController.setEnabled(false);
-        s.orientationController.setEnabled(false);
-        s.setAnimKey("spawn");
+        spirit.flightController.setEnabled(false);
+        spirit.collisionController.setEnabled(false);
+        spirit.spiritBounceController.setEnabled(false);
+        spirit.orientationController.setEnabled(false);
+        spirit.setAnimKey("spawn");
     }
 
     @Override
@@ -45,41 +39,45 @@ public class FluteChargedBehavior extends SpiritBehavior {
         CastedSpiritBase s = spirit();
         time++;
 
-        switch (phase) {
-            case SPAWN -> {
-                if (time >= duration) startTravel();
+        try {
+            if (phase != Phase.DESPAWN && s.getTarget() == null) {
+                startDespawn();
+                return;
             }
 
-            case TRAVEL -> {
-                if (s.collisionController.hasCollision()) {
-                    LivingEntity hit = s.collisionController.getCollisionTarget();
-                    s.collisionController.resetCollision();
-                    if (hit != null && hit.isAlive()) onHit(hit);
-                    startOvershoot();
-                    return;
+            switch (phase) {
+                case SPAWN -> {
+                    if (time >= duration) startTravel();
                 }
-                if (time >= duration) startOvershoot();
-            }
-
-            case OVERSHOOT -> {
-                if (time >= duration) startAscent();
-            }
-
-            case ASCENT -> {
-                if (time >= duration) startHover();
-            }
-
-            case HOVER -> {
-                if (!vortexSpawned && time >= 5) {
-                    spawnVortex();
-                    vortexSpawned = true;
+                case TRAVEL -> {
+                    if (s.collisionController.hasCollision()) {
+                        LivingEntity hit = s.collisionController.getCollisionTarget();
+                        s.collisionController.resetCollision();
+                        if (hit != null && hit.isAlive()) onHit(hit);
+                        startOvershoot();
+                        return;
+                    }
+                    if (time >= duration) startOvershoot();
                 }
-                if (time >= duration) startDespawn();
+                case OVERSHOOT -> {
+                    if (time >= duration) startAscent();
+                }
+                case ASCENT -> {
+                    if (time >= duration) startHover();
+                }
+                case HOVER -> {
+                    if (!vortexSpawned && time >= 5) {
+                        spawnVortex();
+                        vortexSpawned = true;
+                    }
+                    if (time >= duration) startDespawn();
+                }
+                case DESPAWN -> {
+                    if (time >= duration) s.discard();
+                }
             }
-
-            case DESPAWN -> {
-                if (time >= duration) s.discard();
-            }
+        } catch (Exception e) {
+            startDespawn();
         }
     }
 
@@ -98,7 +96,7 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.flightController.setEnabled(true);
 
         s.collisionController.setCollisionCheck(
-                s.collisionController.surfaceHitboxCollision(SpiritConstants.COLLISION_RADIUS)
+                s.collisionController.surfaceHitboxCollision(0.2)
         );
         s.collisionController.setEnabled(true);
 
@@ -118,7 +116,6 @@ public class FluteChargedBehavior extends SpiritBehavior {
         s.flightController.setEnabled(true);
 
         s.collisionController.setEnabled(false);
-        s.setAnimKey("travel");
     }
 
     private void startAscent() {
@@ -131,8 +128,6 @@ public class FluteChargedBehavior extends SpiritBehavior {
                 s.flightController.ascendCharged(2.0, 5)
         );
         s.flightController.setEnabled(true);
-
-        s.setAnimKey("travel");
     }
 
     private void startHover() {
@@ -156,9 +151,6 @@ public class FluteChargedBehavior extends SpiritBehavior {
                 s.flightController.hoverCharged(hoverOffset)
         );
         s.flightController.setEnabled(true);
-
-        s.collisionController.setEnabled(false);
-        s.setAnimKey("travel");
     }
 
     private void startDespawn() {
@@ -186,12 +178,11 @@ public class FluteChargedBehavior extends SpiritBehavior {
         Vec3 c = t.getBoundingBox().getCenter();
         double y = t.getBoundingBox().minY;
 
-        WindVortex vortex = new WindVortex(VortexHelperRegistry.WIND_VORTEX.get(), level);
+        MinorWindVortex vortex = new MinorWindVortex(VortexHelperRegistry.WIND_VORTEX.get(), level);
         vortex.setOwner(s.getOwner());
         vortex.setPos(c.x, y, c.z);
 
         level.addFreshEntity(vortex);
-        level.playSound(null, c.x, y, c.z, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.7F, 1.0F);
     }
 
     @Override
@@ -199,10 +190,14 @@ public class FluteChargedBehavior extends SpiritBehavior {
         CastedSpiritBase s = spirit();
         target.hurt(target.damageSources().magic(), InstrumentConstants.CHARGED_DAMAGE);
 
-        if (s.getOwner() instanceof ServerPlayer player) {
-            ItemStack stack = player.getMainHandItem();
-            if (stack.getItem() instanceof InstrumentBase) {
-                InstrumentChargeData.reset(stack);
+        if (s.getOwner() instanceof ServerPlayer p) {
+            ItemStack snap = s.getInstrumentSnapshot();
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                ItemStack inv = p.getInventory().getItem(i);
+                if (ItemStack.isSameItemSameComponents(inv, snap)) {
+                    InstrumentChargeData.reset(inv);
+                    break;
+                }
             }
         }
     }

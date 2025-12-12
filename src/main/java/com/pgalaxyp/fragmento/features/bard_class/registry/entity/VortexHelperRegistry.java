@@ -1,7 +1,8 @@
 package com.pgalaxyp.fragmento.features.bard_class.registry.entity;
 
+import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MediumWindVortex;
 import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MelodyZone;
-import com.pgalaxyp.fragmento.features.bard_class.spirit.type.WindVortex;
+import com.pgalaxyp.fragmento.features.bard_class.spirit.type.MinorWindVortex;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -15,14 +16,24 @@ public final class VortexHelperRegistry {
     public static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(Registries.ENTITY_TYPE, "fragmento");
 
-    public static final DeferredHolder<EntityType<?>, EntityType<WindVortex>> WIND_VORTEX =
+    public static final DeferredHolder<EntityType<?>, EntityType<MinorWindVortex>> WIND_VORTEX =
             ENTITIES.register(
                     "wind_vortex",
                     () -> EntityType.Builder
-                            .of(WindVortex::new, MobCategory.MISC)
+                            .of(MinorWindVortex::new, MobCategory.MISC)
                             .sized(4F, 4F)
                             .clientTrackingRange(64)
                             .build("wind_vortex")
+            );
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MediumWindVortex>> MEDIUM_WIND_VORTEX =
+            ENTITIES.register(
+                    "medium_wind_vortex",
+                    () -> EntityType.Builder
+                            .of(MediumWindVortex::new, MobCategory.MISC)
+                            .sized(4F, 4F)
+                            .clientTrackingRange(64)
+                            .build("medium_wind_vortex")
             );
 
     public static final DeferredHolder<EntityType<?>, EntityType<MelodyZone>> MELODY_ZONE =
