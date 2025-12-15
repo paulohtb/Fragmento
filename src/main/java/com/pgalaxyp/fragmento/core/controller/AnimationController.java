@@ -11,29 +11,25 @@ import java.util.function.Supplier;
 
 public class AnimationController<T extends Entity & GeoAnimatable> extends EntityController<T> {
 
-    private final Supplier<RawAnimation> animationSupplier;
+    private final Supplier<RawAnimation> supplier;
     private RawAnimation last;
 
     public AnimationController(T entity, Supplier<RawAnimation> supplier) {
         super(entity);
-        this.animationSupplier = supplier;
+        this.supplier = supplier;
     }
 
     protected Supplier<RawAnimation> getAnimationSupplier() {
-        return animationSupplier;
+        return supplier;
     }
 
     private PlayState predicate(AnimationState<T> state) {
         RawAnimation anim = getAnimationSupplier().get();
-
-        if (anim != null) {
-            if (anim != last) {
-                state.getController().setAnimation(anim);
-                state.getController().forceAnimationReset();
-                last = anim;
-            }
+        if (anim != null && anim != last) {
+            state.getController().setAnimation(anim);
+            state.getController().forceAnimationReset();
+            last = anim;
         }
-
         return PlayState.CONTINUE;
     }
 
@@ -49,11 +45,6 @@ public class AnimationController<T extends Entity & GeoAnimatable> extends Entit
     }
 
     @Override
-    public void tick() {
-    }
-
-    @Override
     protected void onTick() {
-
     }
 }

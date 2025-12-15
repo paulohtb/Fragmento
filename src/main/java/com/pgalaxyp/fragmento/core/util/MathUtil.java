@@ -4,7 +4,8 @@ import net.minecraft.world.phys.Vec3;
 
 public final class MathUtil {
 
-    private MathUtil() {}
+    private MathUtil() {
+    }
 
     public static Vec3 lerp(Vec3 a, Vec3 b, double t) {
         if (t <= 0) return a;

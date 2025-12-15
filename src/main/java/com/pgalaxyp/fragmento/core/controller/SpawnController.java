@@ -1,25 +1,17 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+
 import java.util.function.BiConsumer;
 
 public final class SpawnController<T extends Entity> extends EntityController<T> {
 
-    private boolean fired;
     private final BiConsumer<T, LivingEntity> targetSetter;
-
-    private static final double VERTICAL_MIN = 0;
-    private static final double VERTICAL_MAX = 0.75;
-
-    private static final double DEPTH_MIN = 1.25;
-    private static final double DEPTH_MAX = 1.3;
+    private boolean fired;
 
     public SpawnController(T entity, BiConsumer<T, LivingEntity> targetSetter) {
         super(entity);
@@ -27,109 +19,88 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
     }
 
     @Override
-    public void tick() {
-        if (!fired) {
-            fired = true;
-        }
-    }
-
-    @Override
     protected void onTick() {
-
+        if (!fired) fired = true;
     }
 
-    public void initializeSpawn(LivingEntity caster, LivingEntity target, ServerLevel level, boolean charged) {
-        Vec3 pivot = computePivot(caster);
-        Vec3 spawnPos = computeSpawnPosition(caster, level, pivot);
+    public void initializeSpawn(
+            LivingEntity caster,
+            LivingEntity target,
+            ServerLevel level,
+            boolean charged
+    ) {
+        if (caster == null) return;
+
+        Vec3 eye = caster.getEyePosition();
+
+        float yawRad = (float) Math.toRadians(caster.getYRot());
+
+        Vec3 forward = new Vec3(
+                -Math.sin(yawRad),
+                0.0,
+                Math.cos(yawRad)
+        );
+
+        double lenSqr = forward.lengthSqr();
+        if (lenSqr < 1.0E-6) {
+            forward = new Vec3(0.0, 0.0, 1.0);
+        } else {
+            forward = forward.normalize();
+        }
+
+        Vec3 right = new Vec3(
+                forward.z,
+                0.0,
+                -forward.x
+        );
+
+        RandomSource r = level.getRandom();
+        double side = r.nextBoolean() ? 1.3 : -1.3;
+
+        Vec3 spawnPos = eye
+                .add(forward)
+                .add(right.scale(side));
 
         targetSetter.accept(entity, target);
 
-        entity.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+        Rot rot = computeInitialLookAt(caster, target, spawnPos);
 
-        if (target != null) {
-            Vec3 targetCenter = target.getBoundingBox().getCenter();
-            Vec3 dir = targetCenter.subtract(spawnPos);
+        entity.moveTo(spawnPos.x, spawnPos.y, spawnPos.z, rot.yaw, rot.pitch);
 
-            double dx = dir.x;
-            double dy = dir.y;
-            double dz = dir.z;
-
-            double horiz = Math.sqrt(dx * dx + dz * dz);
-            if (horiz > 1.0E-6) {
-                float yaw = (float) Math.toDegrees(Math.atan2(dx, dz));
-                float pitch = (float) Math.toDegrees(Math.atan2(-dy, horiz));
-
-                entity.setYRot(yaw);
-                entity.yRotO = yaw;
-
-                entity.setXRot(pitch);
-                entity.xRotO = pitch;
-
-                entity.setYHeadRot(yaw);
-                entity.setYBodyRot(yaw);
-            }
-        }
+        entity.yRotO = rot.yaw;
+        entity.xRotO = rot.pitch;
 
         level.addFreshEntity(entity);
-
-
-        //LOGGUER AQUI
-        ModLogger.spawn(entity);
-        //LOGGUER AQUI
-
-
     }
 
-    private Vec3 computePivot(LivingEntity caster) {
-        Vec3 eye = caster.getEyePosition();
-        Vec3 forward = caster.getLookAngle().normalize();
-        return eye.add(forward.scale(0.1));
-    }
+    private static Rot computeInitialLookAt(LivingEntity caster, LivingEntity target, Vec3 fromPos) {
+        Vec3 to;
 
-    private Vec3 computeSpawnPosition(LivingEntity caster, Level level, Vec3 pivot) {
-        RandomSource r = level.getRandom();
-
-        Vec3 look = caster.getLookAngle().normalize();
-        Vec3 right = new Vec3(look.z, 0, -look.x).normalize();
-        Vec3 up = new Vec3(0, 1, 0);
-
-        double minSide = 1.25;
-        double maxSide = 1.725;
-
-        double minForward = 0.75;
-        double maxForward = 1.5;
-
-        double maxVertical = 0.75;
-
-        double minLateralRatio = 1.0;
-
-        for (int i = 0; i < 20; i++) {
-            double depth = Mth.lerp(r.nextDouble(), minForward, maxForward);
-            Vec3 forwardOffset = look.scale(depth);
-
-            double side = Mth.lerp(r.nextDouble(), minSide, maxSide);
-            if (r.nextBoolean()) {
-                side = -side;
-            }
-            Vec3 lateralOffset = right.scale(side);
-
-            double vertical = Mth.lerp(r.nextDouble(), 0, maxVertical);
-            Vec3 verticalOffset = up.scale(vertical);
-
-            Vec3 offset = forwardOffset.add(lateralOffset).add(verticalOffset);
-
-            double projForward = offset.dot(look);
-            double totalLenSq = offset.lengthSqr();
-            double lateralLen = Math.sqrt(Math.max(0.0, totalLenSq - projForward * projForward));
-
-            if (lateralLen >= minLateralRatio * Math.abs(projForward)) {
-                return pivot.add(offset);
-            }
+        if (target != null && target.isAlive()) {
+            to = target.getBoundingBox().getCenter();
+        } else {
+            Vec3 look = caster.getLookAngle();
+            if (look.lengthSqr() < 1.0E-6) look = new Vec3(0.0, 0.0, 1.0);
+            to = fromPos.add(look.normalize());
         }
 
-        double side = level.getRandom().nextBoolean() ? minSide : -minSide;
-        Vec3 fallbackOffset = look.scale(minForward).add(right.scale(side));
-        return pivot.add(fallbackOffset);
+        Vec3 delta = to.subtract(fromPos);
+
+        double dx = delta.x;
+        double dy = delta.y;
+        double dz = delta.z;
+
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz < 1.0E-6) {
+            return new Rot(caster.getYRot(), caster.getXRot());
+        }
+
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0F);
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, horiz)));
+
+        return new Rot(yaw, pitch);
     }
 
+    private record Rot(float yaw, float pitch) {
+    }
 }

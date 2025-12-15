@@ -1,14 +1,16 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import com.pgalaxyp.fragmento.core.debug.ModLogger;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
-public final class CollisionController<T extends Entity> extends EntityController<T> {
+public final class CollisionController<T extends Entity>
+        extends EntityController<T> {
 
     @FunctionalInterface
     public interface CollisionCheck<T extends Entity> {
@@ -17,7 +19,14 @@ public final class CollisionController<T extends Entity> extends EntityControlle
 
     private CollisionCheck<T> check;
     private boolean enabled = true;
+
     private LivingEntity lastCollision;
+    private Vec3 correctedMotion;
+
+    private int scanIntervalTicks = 1;
+    private int scanCounter;
+
+    private boolean scanOtherEntities = true;
 
     private final Function<T, LivingEntity> targetGetter;
 
@@ -26,15 +35,25 @@ public final class CollisionController<T extends Entity> extends EntityControlle
         this.targetGetter = targetGetter;
     }
 
-    public void setEnabled(boolean v) {
-        enabled = v;
-        if (!v) {
+    public void setEnabled(boolean value) {
+        enabled = value;
+        if (!value) {
             lastCollision = null;
+            correctedMotion = null;
         }
     }
 
     public void setCollisionCheck(CollisionCheck<T> check) {
         this.check = check;
+    }
+
+    public void setScanIntervalTicks(int ticks) {
+        scanIntervalTicks = Math.max(1, ticks);
+        scanCounter = 0;
+    }
+
+    public void setScanOtherEntities(boolean value) {
+        scanOtherEntities = value;
     }
 
     public boolean hasCollision() {
@@ -45,75 +64,112 @@ public final class CollisionController<T extends Entity> extends EntityControlle
         return lastCollision;
     }
 
+    public Vec3 getCorrectedMotionOrNull() {
+        return correctedMotion;
+    }
+
     public void resetCollision() {
         lastCollision = null;
+        correctedMotion = null;
     }
 
     @Override
-    public void tick() {
-        if (!enabled) return;
-        if (check == null) return;
+    protected void onTick() {
+        if (!enabled || check == null) return;
+        if (lastCollision != null) return;
+
+        scanCounter++;
+        if (scanCounter < scanIntervalTicks) return;
+        scanCounter = 0;
 
         LivingEntity target = targetGetter.apply(entity);
-
         if (target != null && target.isAlive()) {
             LivingEntity result = check.collided(entity, target);
             if (result != null) {
-
-
-                //LOGGUER AQUI
-                ModLogger.collision(entity, result);
-                //LOGGUER AQUI
-
-
                 lastCollision = result;
                 return;
             }
         }
 
-        AABB area = entity.getBoundingBox().inflate(0.5);
+        if (!scanOtherEntities) return;
 
-        for (Entity e : entity.level().getEntities(entity, area, x -> x instanceof LivingEntity l && l.isAlive())) {
-            LivingEntity candidate = (LivingEntity) e;
-            LivingEntity result = check.collided(entity, candidate);
+        AABB area = entity.getBoundingBox().inflate(0.75);
+
+        Predicate<Entity> filter = e -> {
+            if (!(e instanceof LivingEntity l)) return false;
+            return l.isAlive();
+        };
+
+        List<Entity> list = entity.level().getEntities(entity, area, filter);
+        int size = list.size();
+
+        for (Entity e : list) {
+            if (!(e instanceof LivingEntity l)) continue;
+
+            LivingEntity result = check.collided(entity, l);
             if (result != null) {
-
-
-                //LOGGUER AQUI
-                ModLogger.collision(entity, candidate);
-                //LOGGUER AQUI
-
-
                 lastCollision = result;
                 return;
             }
         }
     }
 
-
-    //LOGGUER AQUI
-    @Override
-    protected void onTick() {
-
-    }
-    //LOGUER AQUI
-
-
-    public CollisionCheck<T> surfaceHitboxCollision(double inflate) {
+    public CollisionCheck<T> sweptStopBeforeHitbox(double inflate) {
         return (self, target) -> {
-            AABB expanded = target.getBoundingBox().inflate(inflate);
             Vec3 motion = self.getDeltaMovement();
-            AABB futureBox = self.getBoundingBox().move(motion);
-            return expanded.intersects(futureBox) ? target : null;
+            if (motion.lengthSqr() < 1.0E-10) return null;
+
+            AABB start = self.getBoundingBox();
+            AABB targetBox = target.getBoundingBox().inflate(inflate);
+
+            AABB swept = start.expandTowards(motion).inflate(inflate);
+            if (!targetBox.intersects(swept)) return null;
+
+            Vec3 corrected = resolveNonPenetratingMotion(start, targetBox, motion);
+            correctedMotion = corrected;
+
+            self.setDeltaMovement(corrected);
+            return target;
         };
     }
 
-    public CollisionCheck<T> centerDistanceCollision(double maxDistance) {
+    public CollisionCheck<T> sweptDetectOnly(double inflate) {
         return (self, target) -> {
-            Vec3 a = self.getBoundingBox().getCenter();
-            Vec3 b = target.getBoundingBox().getCenter();
-            double d = a.distanceTo(b);
-            return d <= maxDistance ? target : null;
+            Vec3 motion = self.getDeltaMovement();
+            if (motion.lengthSqr() < 1.0E-10) return null;
+
+            AABB start = self.getBoundingBox();
+            AABB targetBox = target.getBoundingBox().inflate(inflate);
+
+            AABB swept = start.expandTowards(motion).inflate(inflate);
+            if (!targetBox.intersects(swept)) return null;
+
+            correctedMotion = null;
+            return target;
         };
+    }
+
+    private static Vec3 resolveNonPenetratingMotion(
+            AABB start,
+            AABB target,
+            Vec3 motion
+    ) {
+        double lo = 0.0;
+        double hi = 1.0;
+
+        for (int i = 0; i < 7; i++) {
+            double mid = (lo + hi) * 0.5;
+            AABB moved = start.move(motion.scale(mid));
+            if (moved.intersects(target)) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+
+        double safe = Math.max(0.0, lo - 0.01);
+        if (safe <= 0.0) return Vec3.ZERO;
+
+        return motion.scale(safe);
     }
 }

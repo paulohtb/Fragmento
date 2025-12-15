@@ -6,59 +6,69 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class OrientationController<T extends Entity> extends EntityController<T> {
 
     private boolean enabled = true;
 
     private final Function<T, LivingEntity> targetGetter;
+    private final Supplier<Vec3> lookPosGetter;
 
-    public OrientationController(T entity, Function<T, LivingEntity> targetGetter) {
+    public OrientationController(
+            T entity,
+            Function<T, LivingEntity> targetGetter,
+            Supplier<Vec3> lookPosGetter
+    ) {
         super(entity);
         this.targetGetter = targetGetter;
+        this.lookPosGetter = lookPosGetter;
     }
 
-    public void setEnabled(boolean v) {
-        enabled = v;
+    public void setEnabled(boolean value) {
+        enabled = value;
     }
 
     @Override
-    public void tick() {
+    protected void onTick() {
         if (!enabled) return;
 
-        LivingEntity target = targetGetter.apply(entity);
-        if (target == null) return;
+        LivingEntity target = targetGetter != null ? targetGetter.apply(entity) : null;
 
-        Vec3 selfPos = entity.position();
-        Vec3 targetCenter = target.getBoundingBox().getCenter();
-        Vec3 delta = targetCenter.subtract(selfPos);
+        Vec3 from = entity.position().add(0.0, entity.getBbHeight() * 0.5, 0.0);
+        Vec3 to = null;
+
+        if (target != null && target.isAlive()) {
+            to = target.getEyePosition();
+        } else if (lookPosGetter != null) {
+            to = lookPosGetter.get();
+        }
+
+        if (to == null) return;
+
+        Vec3 delta = to.subtract(from);
 
         double dx = delta.x;
         double dy = delta.y;
         double dz = delta.z;
 
-        double h = Math.sqrt(dx * dx + dz * dz);
-        if (h < 1.0E-6) return;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz < 1.0E-6) return;
 
-        float targetYaw = (float) Math.toDegrees(Math.atan2(dx, dz));
-        float targetPitch = (float) Math.toDegrees(Math.atan2(-dy, h));
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0F);
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, horiz)));
 
-        float cy = entity.getYRot();
-        float cp = entity.getXRot();
-        float s = 18f;
+        yaw = Mth.wrapDegrees(yaw);
+        pitch = Mth.clamp(pitch, -90.0F, 90.0F);
 
-        float ny = Mth.approachDegrees(cy, targetYaw, s);
-        float np = Mth.approachDegrees(cp, targetPitch, s);
-
-        entity.setYRot(ny);
-        entity.yRotO = ny;
-
-        entity.setXRot(np);
-        entity.xRotO = np;
+        applyRotation(yaw, pitch);
     }
 
-    @Override
-    protected void onTick() {
+    private void applyRotation(float yaw, float pitch) {
+        entity.setYRot(yaw);
+        entity.setXRot(pitch);
 
+        entity.yRotO = yaw;
+        entity.xRotO = pitch;
     }
 }

@@ -1,0 +1,59 @@
+package com.pgalaxyp.fragmento.content.bard.channel;
+
+import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
+import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
+import com.pgalaxyp.fragmento.gameplay.channel.ChannelAdapter;
+import com.pgalaxyp.fragmento.gameplay.channel.ChannelEntity;
+import com.pgalaxyp.fragmento.gameplay.channel.ChannelFingerprint;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
+
+public final class BardChannelAdapter implements ChannelAdapter {
+
+    @Override
+    public ChannelFingerprint createFingerprint(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        return new BardInstrumentFingerprint(stack);
+    }
+
+    @Override
+    public ChannelEntity resolveEntity(ServerLevel level, int entityId) {
+        if (level == null || entityId <= 0) {
+            return null;
+        }
+
+        Entity e = level.getEntity(entityId);
+        if (e instanceof BardSkillEntityBase spirit) {
+            return new BardChannelEntity(spirit);
+        }
+
+        return null;
+    }
+
+    @Override
+    public void applyVisualCooldown(ServerPlayer player, int ticks) {
+        BardCatalystVisualCooldownService.apply(player, ticks);
+    }
+
+    @Override
+    public boolean isStillHolding(
+            ServerPlayer player,
+            InteractionHand hand,
+            ChannelFingerprint fingerprint
+    ) {
+        if (fingerprint == null || player == null) {
+            return false;
+        }
+
+        ItemStack stack = hand == InteractionHand.OFF_HAND
+                ? player.getOffhandItem()
+                : player.getMainHandItem();
+
+        return fingerprint.matches(stack);
+    }
+}

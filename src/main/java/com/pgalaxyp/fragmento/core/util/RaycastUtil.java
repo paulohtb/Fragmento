@@ -1,6 +1,5 @@
 package com.pgalaxyp.fragmento.core.util;
 
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
@@ -18,7 +17,8 @@ public final class RaycastUtil {
         }
     }
 
-    private RaycastUtil() {}
+    private RaycastUtil() {
+    }
 
     public static Result perform(LivingEntity caster, double range) {
         Level level = caster.level();
@@ -52,7 +52,7 @@ public final class RaycastUtil {
                 .expandTowards(look.scale(max))
                 .inflate(1.0);
 
-        EntityHitResult rawHit = ProjectileUtil.getEntityHitResult(
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(
                 level,
                 caster,
                 eye,
@@ -61,43 +61,8 @@ public final class RaycastUtil {
                 e -> e instanceof LivingEntity l && l.isAlive() && e != caster
         );
 
-        if (rawHit != null) {
-            Entity ent = rawHit.getEntity();
-            if (ent instanceof LivingEntity living) {
-                return new Result(living, rawHit.getLocation());
-            }
-        }
-
-        double bestDist = Double.MAX_VALUE;
-        LivingEntity best = null;
-        Vec3 bestPos = null;
-
-        for (Entity e : level.getEntities(null, broad)) {
-            if (!(e instanceof LivingEntity target)) continue;
-            if (target == caster) continue;
-            if (!target.isAlive()) continue;
-
-            AABB box = target.getBoundingBox().inflate(0.2);
-
-            Vec3 hit = box.clip(eye, limitedEnd).orElse(null);
-            if (hit == null) {
-                if (box.contains(limitedEnd)) {
-                    hit = limitedEnd;
-                }
-            }
-
-            if (hit == null) continue;
-
-            double d = hit.distanceTo(eye);
-            if (d < bestDist) {
-                bestDist = d;
-                best = target;
-                bestPos = hit;
-            }
-        }
-
-        if (best != null) {
-            return new Result(best, bestPos);
+        if (hit != null && hit.getEntity() instanceof LivingEntity living) {
+            return new Result(living, hit.getLocation());
         }
 
         return new Result(null, limitedEnd);

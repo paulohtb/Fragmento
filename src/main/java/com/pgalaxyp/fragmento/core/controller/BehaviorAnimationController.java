@@ -3,32 +3,31 @@ package com.pgalaxyp.fragmento.core.controller;
 import net.minecraft.world.entity.Entity;
 import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animation.RawAnimation;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class BehaviorAnimationController<T extends Entity & GeoAnimatable> extends AnimationController<T> {
+public final class BehaviorAnimationController<T extends Entity & GeoAnimatable>
+        extends AnimationController<T> {
 
-    private final Map<String, RawAnimation> animations = new HashMap<>();
-    private final Function<T, String> keyGetter;
+    private final Map<Byte, RawAnimation> animations = new HashMap<>();
+    private final Supplier<RawAnimation> supplier;
 
-    public BehaviorAnimationController(T entity, Function<T, String> keyGetter) {
+    public BehaviorAnimationController(
+            T entity,
+            Function<T, Byte> keyGetter
+    ) {
         super(entity, () -> null);
-        this.keyGetter = keyGetter;
+        this.supplier = () -> animations.get(keyGetter.apply(entity));
     }
 
-    public void registerState(String id, RawAnimation anim) {
-        animations.put(id, anim);
+    public void registerState(byte key, RawAnimation animation) {
+        animations.put(key, animation);
     }
 
     @Override
     protected Supplier<RawAnimation> getAnimationSupplier() {
-        return () -> {
-            String key = keyGetter.apply(entity);
-            if (key == null || key.isEmpty()) return null;
-            return animations.get(key);
-        };
+        return supplier;
     }
 }
