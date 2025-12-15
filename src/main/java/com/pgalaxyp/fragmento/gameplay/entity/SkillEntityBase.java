@@ -5,7 +5,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
@@ -15,6 +14,9 @@ public abstract class SkillEntityBase extends Entity {
 
     protected final List<EntityController<?>> controllers = new ArrayList<>(6);
 
+    private Vec3 logicPos;
+    private Vec3 prevLogicPos;
+
     protected SkillEntityBase(EntityType<?> type, Level level) {
         super(type, level);
         this.noPhysics = true;
@@ -23,12 +25,28 @@ public abstract class SkillEntityBase extends Entity {
     protected void preControllerTick() {
     }
 
+    public final Vec3 getLogicPos() {
+        return logicPos != null ? logicPos : position();
+    }
+
+    public final Vec3 getPrevLogicPos() {
+        return prevLogicPos != null ? prevLogicPos : getLogicPos();
+    }
+
+    public final void setLogicPos(Vec3 pos) {
+        if (pos == null) return;
+        logicPos = pos;
+    }
+
     @Override
-    public void tick() {
+    public final void tick() {
         if (level().isClientSide()) {
             super.tick();
             return;
         }
+
+        prevLogicPos = logicPos;
+        if (logicPos == null) logicPos = position();
 
         preControllerTick();
         if (isRemoved()) return;
@@ -38,14 +56,16 @@ public abstract class SkillEntityBase extends Entity {
             if (isRemoved()) return;
         }
 
-        Vec3 motion = getDeltaMovement();
-        if (motion.lengthSqr() > 1.0E-10) {
-            move(MoverType.SELF, motion);
-            hasImpulse = true;
-            hurtMarked = true;
-        }
-
         super.tick();
+    }
+
+    @Override
+    public final void setPos(double x, double y, double z) {
+        super.setPos(x, y, z);
+        if (logicPos == null) {
+            logicPos = new Vec3(x, y, z);
+            prevLogicPos = logicPos;
+        }
     }
 
     @Override

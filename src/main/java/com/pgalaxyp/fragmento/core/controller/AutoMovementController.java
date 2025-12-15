@@ -1,14 +1,15 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import net.minecraft.world.entity.Entity;
+import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import java.util.function.Function;
 
-public final class AutoMovementController<T extends Entity> extends EntityController<T> {
+public final class AutoMovementController<T extends SkillEntityBase>
+        extends EntityController<T> {
 
-    public interface Movement<T extends Entity> {
-        void apply(T self, LivingEntity target, int age);
+    public interface Movement<T extends SkillEntityBase> {
+        Vec3 compute(T self, LivingEntity target, int age);
     }
 
     private Movement<T> movement;
@@ -40,14 +41,11 @@ public final class AutoMovementController<T extends Entity> extends EntityContro
         if (!enabled || movement == null) return;
 
         LivingEntity target = targetGetter != null ? targetGetter.apply(entity) : null;
+        int age = ageGetter != null ? ageGetter.apply(entity) : 0;
 
-        Vec3 before = entity.getDeltaMovement();
-        movement.apply(entity, target, ageGetter != null ? ageGetter.apply(entity) : 0);
-        Vec3 after = entity.getDeltaMovement();
+        Vec3 next = movement.compute(entity, target, age);
+        if (next == null) return;
 
-        Vec3 diff = after.subtract(before);
-        if (diff.lengthSqr() > 1.0E-12) {
-            entity.hurtMarked = true;
-        }
+        entity.setLogicPos(next);
     }
 }

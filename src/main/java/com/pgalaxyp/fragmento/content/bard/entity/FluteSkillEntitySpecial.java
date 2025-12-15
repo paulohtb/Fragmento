@@ -1,15 +1,14 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
-import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-
 import java.util.UUID;
 
-public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEntitySpecial.Phase> {
+public final class FluteSkillEntitySpecial
+        extends TimedSkillEntity<FluteSkillEntitySpecial.Phase> {
 
     enum Phase {
         SPAWN,
@@ -20,16 +19,14 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
     }
 
     private boolean castHandled;
-
     private Vec3 vortexPos;
 
-    private final OrbitMovement orbitMovement = new OrbitMovement();
-    private final FixedGoalMovement fixedGoalMovement = new FixedGoalMovement();
+    private double orbitAngle;
 
     public FluteSkillEntitySpecial(BardSkillEntityBase spirit) {
         super(spirit);
         castHandled = false;
-        spirit.setOrientationLocked(false);
+        orbitAngle = 0.0;
         startPhase(Phase.SPAWN, 6);
     }
 
@@ -44,50 +41,41 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
 
                 LivingEntity owner = s.getOwner();
                 if (owner != null) {
-                    Vec3 forward = owner.getLookAngle();
-                    if (forward.lengthSqr() < 1.0E-8) forward = new Vec3(0.0, 0.0, 1.0);
-                    forward = forward.normalize();
-
+                    Vec3 forward = owner.getLookAngle().normalize();
                     Vec3 start = owner.position().add(forward.scale(1.2)).add(0.0, 1.0, 0.0);
-                    s.moveTo(start.x, start.y, start.z);
+                    s.setPos(start.x, start.y, start.z);
                 }
             }
+
             case ORBIT -> {
-                orbitMovement.reset();
-                s.flightController.setMovement(orbitMovement);
+                orbitAngle = 0.0;
+                s.flightController.setMovement(
+                        (self, target, age) -> {
+                            if (!(target instanceof Player p)) return self.position();
+                            orbitAngle += 0.15;
+                            double r = 2.5;
+                            return new Vec3(
+                                    p.getX() + r * Math.cos(orbitAngle),
+                                    p.getY() + 1.5,
+                                    p.getZ() + r * Math.sin(orbitAngle)
+                            );
+                        }
+                );
                 s.flightController.setEnabled(true);
-                s.setOrientationLocked(false);
             }
-            case CASTED_MOVE_TO_VORTEX -> {
-                s.setTarget(null);
-                s.setOrientationLocked(false);
 
-                Vec3 top = resolveVortexTop();
-                fixedGoalMovement.setGoal(top);
-
-                s.flightController.setMovement(fixedGoalMovement);
+            case CASTED_MOVE_TO_VORTEX, CASTED_HOVER -> {
+                s.flightController.setMovement(
+                        (self, target, age) -> resolveVortexTop()
+                );
                 s.flightController.setEnabled(true);
-
                 s.setLookAtPos(vortexPos);
             }
-            case CASTED_HOVER -> {
-                s.setTarget(null);
-                s.setOrientationLocked(true);
 
-                Vec3 top = resolveVortexTop();
-                fixedGoalMovement.setGoal(top);
-
-                s.flightController.setMovement(fixedGoalMovement);
-                s.flightController.setEnabled(true);
-
-                s.setLookAtPos(vortexPos);
-            }
             case DESPAWN -> {
                 s.setAnimKey(BardAnimKeys.DESPAWN);
                 s.flightController.setEnabled(false);
-                s.setOrientationLocked(false);
                 s.clearLookAtPos();
-                s.setDeltaMovement(Vec3.ZERO);
             }
         }
     }
@@ -115,12 +103,15 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
             case SPAWN, ORBIT -> {
                 if (time() >= duration()) startPhase(Phase.ORBIT, 30);
             }
+
             case CASTED_MOVE_TO_VORTEX -> {
                 if (time() >= duration()) startPhase(Phase.CASTED_HOVER, 80);
             }
+
             case CASTED_HOVER -> {
                 if (time() >= duration()) startPhase(Phase.DESPAWN, 6);
             }
+
             case DESPAWN -> {
                 if (time() >= duration()) s.discard();
             }
@@ -168,52 +159,5 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
     private Vec3 resolveVortexTop() {
         Vec3 base = vortexPos != null ? vortexPos : spirit().position();
         return new Vec3(base.x, base.y + 2.5, base.z);
-    }
-
-    private static final class OrbitMovement implements AutoMovementController.Movement<BardSkillEntityBase> {
-        private double angle;
-
-        void reset() {
-            angle = 0.0;
-        }
-
-        @Override
-        public void apply(BardSkillEntityBase self, LivingEntity target, int age) {
-            if (self == null) return;
-            if (!(target instanceof Player p)) return;
-
-            angle += 0.15;
-            if (angle > Math.PI * 2) angle -= Math.PI * 2;
-
-            double radius = 2.5;
-            Vec3 goal = new Vec3(
-                    p.getX() + radius * Math.cos(angle),
-                    p.getY() + 1.5,
-                    p.getZ() + radius * Math.sin(angle)
-            );
-
-            self.setDeltaMovement(goal.subtract(self.position()).scale(0.25));
-        }
-    }
-
-    private static final class FixedGoalMovement implements AutoMovementController.Movement<BardSkillEntityBase> {
-        private Vec3 goal = Vec3.ZERO;
-
-        void setGoal(Vec3 goal) {
-            this.goal = goal != null ? goal : Vec3.ZERO;
-        }
-
-        @Override
-        public void apply(BardSkillEntityBase self, LivingEntity target, int age) {
-            if (self == null) return;
-
-            Vec3 delta = goal.subtract(self.position());
-            if (delta.lengthSqr() < 1.0E-8) {
-                self.setDeltaMovement(Vec3.ZERO);
-                return;
-            }
-
-            self.setDeltaMovement(delta.scale(0.25));
-        }
     }
 }
