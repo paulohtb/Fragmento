@@ -1,15 +1,14 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
-import com.pgalaxyp.fragmento.core.controller.BehaviorAnimationController;
 
 public final class FluteSkillEntity extends BardSkillEntityBase implements GeoEntity {
 
@@ -32,22 +31,22 @@ public final class FluteSkillEntity extends BardSkillEntityBase implements GeoEn
     }
 
     @Override
-    public void tick() {
-        super.tick();
-    }
-
-    public Vec3 getSmoothedRenderPos(float partialTick) {
-        return position();
-    }
-
-    @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        BehaviorAnimationController<FluteSkillEntity> anim =
-                new BehaviorAnimationController<>(this, FluteSkillEntity::getAnimKey);
+        com.pgalaxyp.fragmento.core.controller.BehaviorAnimationController<FluteSkillEntity> anim =
+                new com.pgalaxyp.fragmento.core.controller.BehaviorAnimationController<>(this, FluteSkillEntity::getAnimKey);
 
-        anim.registerState(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.SPAWN, RawAnimation.begin().thenPlay("spawn"));
-        anim.registerState(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.TRAVEL, RawAnimation.begin().thenLoop("travel"));
-        anim.registerState(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.DESPAWN, RawAnimation.begin().thenPlay("despawn"));
+        anim.registerState(
+                BardAnimKeys.SPAWN,
+                RawAnimation.begin().thenPlay("spawn")
+        );
+        anim.registerState(
+                BardAnimKeys.TRAVEL,
+                RawAnimation.begin().thenLoop("travel")
+        );
+        anim.registerState(
+                BardAnimKeys.DESPAWN,
+                RawAnimation.begin().thenPlay("despawn")
+        );
 
         anim.register(controllers, "main");
     }

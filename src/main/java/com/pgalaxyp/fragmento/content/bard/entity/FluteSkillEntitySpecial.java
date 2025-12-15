@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
+import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -169,7 +170,7 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         return new Vec3(base.x, base.y + 2.5, base.z);
     }
 
-    private static final class OrbitMovement implements com.pgalaxyp.fragmento.core.controller.FlightController.Movement<BardSkillEntityBase> {
+    private static final class OrbitMovement implements AutoMovementController.Movement<BardSkillEntityBase> {
         private double angle;
 
         void reset() {
@@ -195,7 +196,7 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         }
     }
 
-    private static final class FixedGoalMovement implements com.pgalaxyp.fragmento.core.controller.FlightController.Movement<BardSkillEntityBase> {
+    private static final class FixedGoalMovement implements AutoMovementController.Movement<BardSkillEntityBase> {
         private Vec3 goal = Vec3.ZERO;
 
         void setGoal(Vec3 goal) {

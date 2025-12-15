@@ -8,9 +8,10 @@ import com.pgalaxyp.fragmento.platform.events.input.CatalystKeybinds;
 import com.pgalaxyp.fragmento.platform.network.packet.SkillPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
+
+import java.util.UUID;
 
 public final class BardSkillClientController {
 
@@ -20,9 +21,19 @@ public final class BardSkillClientController {
     private static long lastBasicSendTick;
     private static long lastSpecialSendTick;
 
+    private static UUID lastPlayerUuid;
+
     private static final int CLIENT_SEND_INTERVAL_TICKS = 2;
 
     private BardSkillClientController() {
+    }
+
+    public static void resetClientState() {
+        specialChanneling = false;
+        specialCurrentTarget = 0;
+        lastBasicSendTick = 0L;
+        lastSpecialSendTick = 0L;
+        lastPlayerUuid = null;
     }
 
     public static void tick(
@@ -31,19 +42,35 @@ public final class BardSkillClientController {
             ItemStack stack,
             BardCatalystItem instrument
     ) {
+        if (mc == null || mc.level == null || player == null) {
+            resetClientState();
+            return;
+        }
+
+        UUID id = player.getUUID();
+        if (lastPlayerUuid == null || !lastPlayerUuid.equals(id)) {
+            resetClientState();
+            lastPlayerUuid = id;
+        }
+
+        long nowTick = player.tickCount;
+        if (nowTick < lastBasicSendTick) lastBasicSendTick = 0L;
+        if (nowTick < lastSpecialSendTick) lastSpecialSendTick = 0L;
+
         if (instrument == null) {
             if (specialChanneling) cancelSpecial();
             return;
         }
 
-        handleBasic(player, stack, instrument);
-        handleSpecial(player, stack, instrument);
+        handleBasic(player, stack, instrument, nowTick);
+        handleSpecial(player, stack, instrument, nowTick);
     }
 
     private static void handleBasic(
             LocalPlayer player,
             ItemStack stack,
-            BardCatalystItem instrument
+            BardCatalystItem instrument,
+            long nowTick
     ) {
         if (CatalystKeybinds.NORMAL_USE == null) return;
         if (!CatalystKeybinds.NORMAL_USE.consumeClick()) return;
@@ -51,8 +78,7 @@ public final class BardSkillClientController {
         if (stack.isEmpty()) return;
         if (player.getCooldowns().isOnCooldown(stack.getItem())) return;
 
-        long nowTick = player.tickCount;
-        if (nowTick - lastBasicSendTick < CLIENT_SEND_INTERVAL_TICKS) return;
+        if (nowTick < lastBasicSendTick + CLIENT_SEND_INTERVAL_TICKS) return;
         lastBasicSendTick = nowTick;
 
         Skill skill = instrument.getSkill(SkillSlot.BASIC);
@@ -71,7 +97,8 @@ public final class BardSkillClientController {
     private static void handleSpecial(
             LocalPlayer player,
             ItemStack stack,
-            BardCatalystItem instrument
+            BardCatalystItem instrument,
+            long nowTick
     ) {
         if (CatalystKeybinds.SPECIAL_USE == null) return;
 
@@ -90,8 +117,7 @@ public final class BardSkillClientController {
         if (!CatalystKeybinds.SPECIAL_USE.isDown()) return;
         if (player.getCooldowns().isOnCooldown(stack.getItem())) return;
 
-        long nowTick = player.tickCount;
-        if (nowTick - lastSpecialSendTick < CLIENT_SEND_INTERVAL_TICKS) return;
+        if (nowTick < lastSpecialSendTick + CLIENT_SEND_INTERVAL_TICKS) return;
         lastSpecialSendTick = nowTick;
 
         startSpecial(player, stack, instrument);
@@ -108,7 +134,7 @@ public final class BardSkillClientController {
         RaycastUtil.Result rc = RaycastUtil.perform(player, range);
 
         int target = 0;
-        if (rc.hasTarget() && rc.target() instanceof Player) {
+        if (rc.hasTarget() && rc.target() instanceof net.minecraft.world.entity.player.Player) {
             target = rc.target().getId();
         }
 

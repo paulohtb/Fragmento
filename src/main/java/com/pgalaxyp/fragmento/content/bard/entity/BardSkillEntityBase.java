@@ -2,9 +2,9 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.constants.BardSpiritConstants;
-import com.pgalaxyp.fragmento.core.controller.BounceController;
+import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import com.pgalaxyp.fragmento.core.controller.CollisionController;
-import com.pgalaxyp.fragmento.core.controller.FlightController;
+import com.pgalaxyp.fragmento.core.controller.ImpulseController;
 import com.pgalaxyp.fragmento.core.controller.OrientationController;
 import com.pgalaxyp.fragmento.core.controller.SpawnController;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
@@ -14,12 +14,12 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-
 import java.util.UUID;
 
 public abstract class BardSkillEntityBase extends SkillEntityBase {
@@ -41,18 +41,22 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
 
     protected SkillEntity behavior;
 
-    public final FlightController<BardSkillEntityBase> flightController;
+    public final AutoMovementController<BardSkillEntityBase> flightController;
     public final CollisionController<BardSkillEntityBase> collisionController;
     public final OrientationController<BardSkillEntityBase> orientationController;
-    public final BounceController<BardSkillEntityBase> bounceController;
+    public final ImpulseController<BardSkillEntityBase> impulseController;
     public final SpawnController<BardSkillEntityBase> spawnController;
 
     private Vec3 lookAtPos;
+    private int lifetimeTicks;
+
+    private Vec3 smoothPos;
+    private Vec3 smoothPosO;
 
     protected BardSkillEntityBase(EntityType<?> type, Level level) {
         super(type, level);
 
-        flightController = new FlightController<>(this, BardSkillEntityBase::getTarget, BardSkillEntityBase::getLifetime);
+        flightController = new AutoMovementController<>(this, BardSkillEntityBase::getTarget, BardSkillEntityBase::getLifetime);
         collisionController = new CollisionController<>(this, BardSkillEntityBase::getTarget);
 
         orientationController = new OrientationController<>(
@@ -61,13 +65,13 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
                 this::getLookAtPos
         );
 
-        bounceController = new BounceController<>(this, BardSkillEntityBase::getTarget);
+        impulseController = new ImpulseController<>(this);
         spawnController = new SpawnController<>(this, (self, t) -> setTarget(t));
 
         controllers.add(spawnController);
         controllers.add(flightController);
         controllers.add(collisionController);
-        controllers.add(bounceController);
+        controllers.add(impulseController);
         controllers.add(orientationController);
     }
 
@@ -82,12 +86,83 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
     }
 
     @Override
+    public void tick() {
+        if (level().isClientSide()) {
+            super.tick();
+            clientSmoothTick();
+            return;
+        }
+        super.tick();
+    }
+
+    private void clientSmoothTick() {
+        Vec3 cur = position();
+
+        if (smoothPos == null || smoothPosO == null) {
+            smoothPos = cur;
+            smoothPosO = cur;
+            return;
+        }
+
+        smoothPosO = smoothPos;
+
+        if (smoothPos.distanceToSqr(cur) > 64.0) {
+            smoothPos = cur;
+            smoothPosO = cur;
+            return;
+        }
+
+        smoothPos = smoothPos.add(cur.subtract(smoothPos).scale(0.35));
+    }
+
+    public final Vec3 getSmoothRenderPos(float partialTick) {
+        if (smoothPos == null || smoothPosO == null) {
+            return new Vec3(
+                    Mth.lerp(partialTick, xo, getX()),
+                    Mth.lerp(partialTick, yo, getY()),
+                    Mth.lerp(partialTick, zo, getZ())
+            );
+        }
+        return com.pgalaxyp.fragmento.core.util.MathUtil.lerp(smoothPosO, smoothPos, partialTick);
+    }
+
+    @Override
     protected void preControllerTick() {
+        if (state.castState() == BardSkillState.CastState.CHANNELING) {
+            LivingEntity owner = getOwner();
+            UUID source = state.sourceInstrumentUuid();
+            if (!(owner instanceof ServerPlayer sp)) {
+                requestDespawn();
+            } else if (source == null || BardCatalystIdService.findInPlayerInventory(sp, source).isEmpty()) {
+                requestDespawn();
+            }
+        }
+
+        lifetimeTicks++;
+        if (entityData.get(LIFETIME) != lifetimeTicks) {
+            entityData.set(LIFETIME, lifetimeTicks);
+        }
+
+        int castOrdinal = state.castState().ordinal();
+        if (entityData.get(CAST_STATE) != castOrdinal) {
+            entityData.set(CAST_STATE, castOrdinal);
+        }
+
+        if (lifecycle.tick((ServerLevel) level())) {
+            discard();
+            return;
+        }
+
+        if (behavior != null) {
+            behavior.tick();
+            if (isRemoved()) return;
+        }
+
         orientationController.setEnabled(!isOrientationLocked());
     }
 
     public final int getLifetime() {
-        return entityData.get(LIFETIME);
+        return lifetimeTicks;
     }
 
     public final void setAnimKey(byte key) {
@@ -172,41 +247,6 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
         return position();
     }
 
-    @Override
-    public void tick() {
-        super.tick();
-
-        if (level().isClientSide()) return;
-
-        if (state.castState() == BardSkillState.CastState.CHANNELING) {
-            LivingEntity owner = getOwner();
-            UUID source = state.sourceInstrumentUuid();
-            if (!(owner instanceof ServerPlayer sp)) {
-                requestDespawn();
-                return;
-            }
-            if (source == null || BardCatalystIdService.findInPlayerInventory(sp, source).isEmpty()) {
-                requestDespawn();
-                return;
-            }
-        }
-
-        entityData.set(LIFETIME, entityData.get(LIFETIME) + 1);
-        entityData.set(CAST_STATE, state.castState().ordinal());
-
-        if (lifecycle.tick((ServerLevel) level())) {
-            discard();
-            return;
-        }
-
-        if (behavior != null) {
-            behavior.tick();
-        }
-
-        Vec3 v = getDeltaMovement();
-        if (v.lengthSqr() > 0.0) move(net.minecraft.world.entity.MoverType.SELF, v);
-    }
-
     protected final void onCastedInternal() {
         SkillEntity b = behavior;
         if (b != null) b.onCasted();
@@ -214,7 +254,6 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
 
     protected final void onCancelledInternal() {
         SkillEntity b = behavior;
-        behavior = null;
         if (b != null) b.onCancelled();
     }
 
@@ -223,7 +262,7 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
             LivingEntity target,
             ServerLevel level,
             SkillMode mode,
-            ItemStack sourceStack
+            net.minecraft.world.item.ItemStack sourceStack
     ) {
         if (caster == null || level == null || mode == null) return 0;
 
@@ -242,5 +281,24 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
         );
 
         return getId();
+    }
+
+    @Override
+    public boolean isPickable() {
+        return false;
+    }
+
+    @Override
+    public boolean canBeCollidedWith() {
+        return false;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    public void push(Entity entity) {
     }
 }

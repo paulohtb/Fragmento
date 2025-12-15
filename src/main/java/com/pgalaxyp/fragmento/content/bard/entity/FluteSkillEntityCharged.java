@@ -1,7 +1,8 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
-import com.pgalaxyp.fragmento.core.controller.FlightController;
+import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import com.pgalaxyp.fragmento.core.controller.movement.TimedGoalMovement;
 import com.pgalaxyp.fragmento.core.controller.movement.TimedHomingMovement;
 import com.pgalaxyp.fragmento.core.controller.movement.TimedLinearMovement;
@@ -15,6 +16,8 @@ import java.util.UUID;
 public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEntityCharged.Phase> {
 
     enum Phase { SPAWN, TRAVEL, OVERSHOOT, ASCENT, HOVER, DESPAWN }
+
+    private static final double EPS = 0.00000001D;
 
     private boolean vortexSpawned;
 
@@ -31,7 +34,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
 
         spirit.flightController.setEnabled(false);
         spirit.collisionController.setEnabled(false);
-        spirit.bounceController.setEnabled(false);
 
         spirit.setOrientationLocked(false);
 
@@ -45,23 +47,28 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         BardSkillEntityBase s = spirit();
 
         switch (phase) {
-            case SPAWN -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.SPAWN);
+            case SPAWN:
+                s.setAnimKey(BardAnimKeys.SPAWN);
                 s.flightController.setEnabled(false);
                 s.collisionController.setEnabled(false);
-                s.bounceController.setEnabled(false);
                 s.setOrientationLocked(false);
                 s.setDeltaMovement(Vec3.ZERO);
-            }
-            case TRAVEL -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.TRAVEL);
+                break;
+
+            case TRAVEL:
+                s.setAnimKey(BardAnimKeys.TRAVEL);
                 s.setOrientationLocked(false);
 
                 s.flightController.setMovement(
                         new TimedHomingMovement<>(
                                 duration(),
                                 0,
-                                (self, target) -> target.getBoundingBox().getCenter()
+                                new TimedHomingMovement.GoalProvider<BardSkillEntityBase>() {
+                                    @Override
+                                    public Vec3 goal(BardSkillEntityBase self, LivingEntity target) {
+                                        return target.getBoundingBox().getCenter();
+                                    }
+                                }
                         )
                 );
                 s.flightController.setEnabled(true);
@@ -69,34 +76,40 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                 s.collisionController.setCollisionCheck(
                         s.collisionController.sweptDetectOnly(0.2)
                 );
-                s.collisionController.setScanIntervalTicks(2);
-                s.collisionController.setScanOtherEntities(true);
+                s.collisionController.setScanIntervalTicks(1);
+                s.collisionController.setScanOtherEntities(false);
                 s.collisionController.setEnabled(true);
-            }
-            case OVERSHOOT -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.TRAVEL);
+                break;
+
+            case OVERSHOOT:
+                s.setAnimKey(BardAnimKeys.TRAVEL);
                 s.setOrientationLocked(false);
 
-                LivingEntity t = s.getTarget();
-                Vec3 dir;
+                LivingEntity t1 = s.getTarget();
+                Vec3 dir1;
 
-                if (t != null) {
-                    Vec3 d = t.getBoundingBox().getCenter().subtract(s.position());
-                    dir = d.lengthSqr() < 1.0E-8 ? new Vec3(0, 0, 1) : d.normalize();
+                if (t1 != null) {
+                    Vec3 d = t1.getBoundingBox().getCenter().subtract(s.position());
+                    if (d.lengthSqr() < EPS) {
+                        dir1 = new Vec3(0.0, 0.0, 1.0);
+                    } else {
+                        dir1 = d.normalize();
+                    }
                 } else {
-                    dir = new Vec3(0, 0, 1);
+                    dir1 = new Vec3(0.0, 0.0, 1.0);
                 }
 
-                overshootDir = dir;
+                overshootDir = dir1;
                 overshootVelocity.setDir(overshootDir);
 
                 s.flightController.setMovement(new TimedLinearMovement<>(duration(), overshootVelocity));
                 s.flightController.setEnabled(true);
 
                 s.collisionController.setEnabled(false);
-            }
-            case ASCENT -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.TRAVEL);
+                break;
+
+            case ASCENT:
+                s.setAnimKey(BardAnimKeys.TRAVEL);
                 s.setOrientationLocked(false);
 
                 ascentBase = s.position();
@@ -110,18 +123,19 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                         )
                 );
                 s.flightController.setEnabled(true);
-            }
-            case HOVER -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.TRAVEL);
+                break;
 
-                LivingEntity t = s.getTarget();
-                if (t == null) {
+            case HOVER:
+                s.setAnimKey(BardAnimKeys.TRAVEL);
+
+                LivingEntity t2 = s.getTarget();
+                if (t2 == null) {
                     startPhase(Phase.DESPAWN, 8);
                     return;
                 }
 
                 Vec3 current = s.position();
-                Vec3 base = t.position();
+                Vec3 base = t2.position();
                 hoverOffset = current.subtract(base);
 
                 followOffset.setOffset(hoverOffset);
@@ -132,15 +146,15 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                 s.flightController.setEnabled(true);
 
                 s.setOrientationLocked(true);
-            }
-            case DESPAWN -> {
-                s.setAnimKey(com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys.DESPAWN);
+                break;
+
+            case DESPAWN:
+                s.setAnimKey(BardAnimKeys.DESPAWN);
                 s.setOrientationLocked(false);
                 s.flightController.setEnabled(false);
                 s.collisionController.setEnabled(false);
-                s.bounceController.setEnabled(false);
                 s.setDeltaMovement(Vec3.ZERO);
-            }
+                break;
         }
     }
 
@@ -154,10 +168,11 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         switch (phase) {
-            case SPAWN -> {
+            case SPAWN:
                 if (time() >= duration()) startPhase(Phase.TRAVEL, 8);
-            }
-            case TRAVEL -> {
+                break;
+
+            case TRAVEL:
                 if (s.collisionController.hasCollision()) {
                     LivingEntity hit = s.collisionController.getCollisionTarget();
                     s.collisionController.resetCollision();
@@ -169,23 +184,27 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                 }
 
                 if (time() >= duration()) startPhase(Phase.OVERSHOOT, 2);
-            }
-            case OVERSHOOT -> {
+                break;
+
+            case OVERSHOOT:
                 if (time() >= duration()) startPhase(Phase.ASCENT, 5);
-            }
-            case ASCENT -> {
+                break;
+
+            case ASCENT:
                 if (time() >= duration()) startPhase(Phase.HOVER, 10);
-            }
-            case HOVER -> {
+                break;
+
+            case HOVER:
                 if (!vortexSpawned && time() >= 5) {
                     spawnVortex();
                     vortexSpawned = true;
                 }
                 if (time() >= duration()) startPhase(Phase.DESPAWN, 8);
-            }
-            case DESPAWN -> {
+                break;
+
+            case DESPAWN:
                 if (time() >= duration()) s.discard();
-            }
+                break;
         }
     }
 
@@ -255,7 +274,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
     }
 
-    private static final class FollowOffsetMovement implements FlightController.Movement<BardSkillEntityBase> {
+    private static final class FollowOffsetMovement implements AutoMovementController.Movement<BardSkillEntityBase> {
         private Vec3 offset = Vec3.ZERO;
 
         void setOffset(Vec3 offset) {

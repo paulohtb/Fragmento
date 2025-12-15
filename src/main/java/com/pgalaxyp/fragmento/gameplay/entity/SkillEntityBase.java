@@ -5,8 +5,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
-
+import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,15 +25,27 @@ public abstract class SkillEntityBase extends Entity {
 
     @Override
     public void tick() {
-        super.tick();
-
-        if (!level().isClientSide()) {
-            preControllerTick();
-
-            for (EntityController<?> controller : controllers) {
-                controller.tick();
-            }
+        if (level().isClientSide()) {
+            super.tick();
+            return;
         }
+
+        preControllerTick();
+        if (isRemoved()) return;
+
+        for (EntityController<?> controller : controllers) {
+            controller.tick();
+            if (isRemoved()) return;
+        }
+
+        Vec3 motion = getDeltaMovement();
+        if (motion.lengthSqr() > 1.0E-10) {
+            move(MoverType.SELF, motion);
+            hasImpulse = true;
+            hurtMarked = true;
+        }
+
+        super.tick();
     }
 
     @Override

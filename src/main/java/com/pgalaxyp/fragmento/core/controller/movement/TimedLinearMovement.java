@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.core.controller.movement;
 
-import com.pgalaxyp.fragmento.core.controller.FlightController;
+import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
-public final class TimedLinearMovement<T extends Entity> implements FlightController.Movement<T> {
+public final class TimedLinearMovement<T extends Entity> implements AutoMovementController.Movement<T> {
 
     @FunctionalInterface
     public interface VelocityProvider {
