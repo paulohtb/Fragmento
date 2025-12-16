@@ -17,10 +17,10 @@ public final class VortexHelperRegistry {
             ENTITIES.register(
                     "minor_wind_vortex",
                     () -> EntityType.Builder
-                            .<MinorWindVortex>of(MinorWindVortex::new, MobCategory.MISC)
+                            .of(MinorWindVortex::new, MobCategory.MISC)
                             .sized(1.5f, 1.5f)
-                            .clientTrackingRange(8)
-                            .updateInterval(1)
+                            .clientTrackingRange(48)
+                            .updateInterval(3)
                             .build("fragmento:minor_wind_vortex")
             );
 
@@ -28,10 +28,10 @@ public final class VortexHelperRegistry {
             ENTITIES.register(
                     "medium_wind_vortex",
                     () -> EntityType.Builder
-                            .<MediumWindVortex>of(MediumWindVortex::new, MobCategory.MISC)
+                            .of(MediumWindVortex::new, MobCategory.MISC)
                             .sized(2.5f, 2.5f)
-                            .clientTrackingRange(10)
-                            .updateInterval(1)
+                            .clientTrackingRange(64)
+                            .updateInterval(3)
                             .build("fragmento:medium_wind_vortex")
             );
 

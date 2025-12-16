@@ -53,8 +53,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.TRAVEL) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMaxSpeedPerTick(TRAVEL_SPEED);
-            s.flightController.setAccelPerTick(0.65);
             s.flightController.setMovement(new ConstantSpeedHomingMovement<>(TRAVEL_SPEED));
             s.flightController.setEnabled(true);
 
@@ -73,8 +71,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         if (phase == Phase.OVERSHOOT) {
-            s.flightController.setMaxSpeedPerTick(OVERSHOOT_SPEED);
-            s.flightController.setAccelPerTick(0.65);
             s.flightController.setMovement((self, target) -> moveDir.scale(OVERSHOOT_SPEED));
             s.flightController.setEnabled(true);
             s.collisionController.setEnabled(false);
@@ -82,8 +78,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         if (phase == Phase.ASCENT) {
-            s.flightController.setMaxSpeedPerTick(ASCENT_SPEED);
-            s.flightController.setAccelPerTick(0.65);
             s.flightController.setMovement((self, target) -> new Vec3(0.0, ASCENT_SPEED, 0.0));
             s.flightController.setEnabled(true);
             return;
@@ -99,8 +93,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
             hoverOffset = s.position().subtract(t.position());
             vortexSpawned = false;
 
-            s.flightController.setMaxSpeedPerTick(FOLLOW_MAX_SPEED);
-            s.flightController.setAccelPerTick(0.85);
             s.flightController.setMovement((self, target) -> {
                 if (target == null) return Vec3.ZERO;
                 Vec3 desiredPos = target.position().add(hoverOffset);

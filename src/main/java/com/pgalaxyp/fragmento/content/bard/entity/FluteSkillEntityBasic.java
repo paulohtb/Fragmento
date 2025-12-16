@@ -39,8 +39,6 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
         if (phase == Phase.TRAVEL) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMaxSpeedPerTick(SPEED_PER_TICK);
-            s.flightController.setAccelPerTick(0.65);
             s.flightController.setMovement(new ConstantSpeedHomingMovement<>(SPEED_PER_TICK));
             s.flightController.setEnabled(true);
 

@@ -4,13 +4,15 @@ import com.pgalaxyp.fragmento.core.controller.EntityController;
 import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,14 +32,13 @@ public abstract class SkillEntityBase extends Entity {
 
     @Override
     public final void tick() {
+        prevPos = position();
 
         if (level().isClientSide()) {
             clientTick();
             super.tick();
             return;
         }
-
-        prevPos = position();
 
         serverPreControllers();
 
@@ -47,7 +48,14 @@ public abstract class SkillEntityBase extends Entity {
         }
 
         serverPostControllers();
+        if (isRemoved()) return;
 
+        Vec3 vel = getDeltaMovement();
+        if (vel.lengthSqr() > 0.000000000001) {
+            move(MoverType.SELF, vel);
+        }
+
+        setDeltaMovement(Vec3.ZERO);
         super.tick();
     }
 

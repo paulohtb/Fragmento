@@ -1,12 +1,12 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
+
 import java.util.function.Function;
 
-public final class AutoMovementController<T extends net.minecraft.world.entity.Entity>
-        extends EntityController<T> {
+public final class AutoMovementController<T extends Entity> extends EntityController<T> {
 
     public interface Movement<T> {
         Vec3 desiredVelocity(T self, LivingEntity target);
@@ -39,26 +39,6 @@ public final class AutoMovementController<T extends net.minecraft.world.entity.E
         }
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setMaxSpeedPerTick(double v) {
-        maxSpeedPerTick = Math.max(0.001, v);
-    }
-
-    public void setAccelPerTick(double v) {
-        accelPerTick = Math.max(0.001, v);
-    }
-
-    public double getMaxSpeedPerTick() {
-        return maxSpeedPerTick;
-    }
-
-    public double getAccelPerTick() {
-        return accelPerTick;
-    }
-
     @Override
     protected void onTick() {
         if (entity.level().isClientSide()) return;
@@ -66,6 +46,17 @@ public final class AutoMovementController<T extends net.minecraft.world.entity.E
         if (movement == null) return;
 
         LivingEntity target = targetGetter != null ? targetGetter.apply(entity) : null;
+        if (target == null || !target.isAlive()) return;
+
+        Vec3 targetCenter = target.getBoundingBox().getCenter();
+        Vec3 toTarget = targetCenter.subtract(entity.position());
+
+        double dist = toTarget.length();
+        if (dist <= maxSpeedPerTick) {
+            entity.setPos(targetCenter.x, targetCenter.y, targetCenter.z);
+            entity.setDeltaMovement(Vec3.ZERO);
+            return;
+        }
 
         Vec3 desired = movement.desiredVelocity(entity, target);
         if (desired == null) return;
@@ -76,23 +67,12 @@ public final class AutoMovementController<T extends net.minecraft.world.entity.E
         Vec3 deltaV = desired.subtract(cur);
 
         double deltaLen = deltaV.length();
-        if (deltaLen > accelPerTick) {
-            if (deltaLen > 0.00000001) {
-                deltaV = deltaV.scale(accelPerTick / deltaLen);
-            } else {
-                deltaV = Vec3.ZERO;
-            }
+        if (deltaLen > accelPerTick && deltaLen > 0.00000001) {
+            deltaV = deltaV.scale(accelPerTick / deltaLen);
         }
 
         Vec3 nextVel = cur.add(deltaV);
-
-        if (nextVel.lengthSqr() < 0.000000000001) {
-            entity.setDeltaMovement(Vec3.ZERO);
-            return;
-        }
-
         entity.setDeltaMovement(nextVel);
-        entity.move(MoverType.SELF, nextVel);
     }
 
     private static Vec3 clampLength(Vec3 v, double maxLen) {

@@ -56,8 +56,6 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.ORBIT) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMaxSpeedPerTick(FOLLOW_MAX_SPEED);
-            s.flightController.setAccelPerTick(0.95);
             s.flightController.setMovement((self, target) -> {
                 if (!(target instanceof Player p)) return Vec3.ZERO;
 
@@ -72,8 +70,6 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.CASTED_MOVE_TO_VORTEX || phase == Phase.CASTED_HOVER) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMaxSpeedPerTick(0.80);
-            s.flightController.setAccelPerTick(0.95);
             s.flightController.setMovement((self, target) -> {
                 Vec3 desiredPos = resolveVortexTop();
                 Vec3 delta = desiredPos.subtract(self.position());

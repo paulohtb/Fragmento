@@ -1,10 +1,8 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 
-public final class ImpulseController<T extends net.minecraft.world.entity.Entity>
-        extends EntityController<T> {
+public final class ImpulseController<T extends net.minecraft.world.entity.Entity> extends EntityController<T> {
 
     private Vec3 pending;
 
@@ -28,9 +26,7 @@ public final class ImpulseController<T extends net.minecraft.world.entity.Entity
 
         Vec3 cur = entity.getDeltaMovement();
         Vec3 next = cur.add(pending);
-
         entity.setDeltaMovement(next);
-        entity.move(MoverType.SELF, next);
 
         pending = null;
     }
