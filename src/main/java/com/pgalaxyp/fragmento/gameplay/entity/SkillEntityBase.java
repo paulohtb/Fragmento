@@ -12,60 +12,50 @@ import java.util.List;
 
 public abstract class SkillEntityBase extends Entity {
 
-    protected final List<EntityController<?>> controllers = new ArrayList<>(6);
+    protected final List<EntityController<?>> controllers =
+            new ArrayList<>(6);
 
-    private Vec3 logicPos;
-    private Vec3 prevLogicPos;
+    private Vec3 prevPos;
 
     protected SkillEntityBase(EntityType<?> type, Level level) {
         super(type, level);
         this.noPhysics = true;
-    }
-
-    protected void preControllerTick() {
-    }
-
-    public final Vec3 getLogicPos() {
-        return logicPos != null ? logicPos : position();
-    }
-
-    public final Vec3 getPrevLogicPos() {
-        return prevLogicPos != null ? prevLogicPos : getLogicPos();
-    }
-
-    public final void setLogicPos(Vec3 pos) {
-        if (pos == null) return;
-        logicPos = pos;
+        this.setNoGravity(true);
     }
 
     @Override
-    public final void tick() {
+    public void tick() {
         if (level().isClientSide()) {
+            clientTick();
             super.tick();
             return;
         }
 
-        prevLogicPos = logicPos;
-        if (logicPos == null) logicPos = position();
+        prevPos = position();
 
-        preControllerTick();
-        if (isRemoved()) return;
+        serverPreControllers();
 
         for (EntityController<?> controller : controllers) {
             controller.tick();
             if (isRemoved()) return;
         }
 
+        serverPostControllers();
+
         super.tick();
     }
 
-    @Override
-    public final void setPos(double x, double y, double z) {
-        super.setPos(x, y, z);
-        if (logicPos == null) {
-            logicPos = new Vec3(x, y, z);
-            prevLogicPos = logicPos;
-        }
+    protected void clientTick() {
+    }
+
+    protected void serverPreControllers() {
+    }
+
+    protected void serverPostControllers() {
+    }
+
+    public final Vec3 getPrevPos() {
+        return prevPos != null ? prevPos : position();
     }
 
     @Override
@@ -82,6 +72,21 @@ public abstract class SkillEntityBase extends Entity {
 
     @Override
     public boolean shouldBeSaved() {
+        return false;
+    }
+
+    @Override
+    public boolean isPickable() {
+        return false;
+    }
+
+    @Override
+    public boolean canBeCollidedWith() {
+        return false;
+    }
+
+    @Override
+    public boolean isPushable() {
         return false;
     }
 }

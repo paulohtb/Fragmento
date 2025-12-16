@@ -1,31 +1,28 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 import java.util.function.Function;
 
-public final class AutoMovementController<T extends SkillEntityBase>
+public final class AutoMovementController<T extends net.minecraft.world.entity.Entity>
         extends EntityController<T> {
 
-    public interface Movement<T extends SkillEntityBase> {
-        Vec3 compute(T self, LivingEntity target, int age);
+    public interface Movement<T> {
+        Vec3 compute(T self, LivingEntity target);
     }
 
     private Movement<T> movement;
     private boolean enabled = true;
 
     private final Function<T, LivingEntity> targetGetter;
-    private final Function<T, Integer> ageGetter;
 
     public AutoMovementController(
             T entity,
-            Function<T, LivingEntity> targetGetter,
-            Function<T, Integer> ageGetter
+            Function<T, LivingEntity> targetGetter
     ) {
         super(entity);
         this.targetGetter = targetGetter;
-        this.ageGetter = ageGetter;
     }
 
     public void setMovement(Movement<T> movement) {
@@ -34,6 +31,9 @@ public final class AutoMovementController<T extends SkillEntityBase>
 
     public void setEnabled(boolean value) {
         enabled = value;
+        if (!enabled) {
+            entity.setDeltaMovement(Vec3.ZERO);
+        }
     }
 
     @Override
@@ -41,11 +41,15 @@ public final class AutoMovementController<T extends SkillEntityBase>
         if (!enabled || movement == null) return;
 
         LivingEntity target = targetGetter != null ? targetGetter.apply(entity) : null;
-        int age = ageGetter != null ? ageGetter.apply(entity) : 0;
-
-        Vec3 next = movement.compute(entity, target, age);
+        Vec3 next = movement.compute(entity, target);
         if (next == null) return;
 
-        entity.setLogicPos(next);
+        Vec3 cur = entity.position();
+        Vec3 delta = next.subtract(cur);
+
+        if (delta.lengthSqr() < 1.0E-12) return;
+
+        entity.setDeltaMovement(delta);
+        entity.move(MoverType.SELF, delta);
     }
 }

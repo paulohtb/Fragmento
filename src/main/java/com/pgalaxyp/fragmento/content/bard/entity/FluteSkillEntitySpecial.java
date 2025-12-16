@@ -50,7 +50,7 @@ public final class FluteSkillEntitySpecial
             case ORBIT -> {
                 orbitAngle = 0.0;
                 s.flightController.setMovement(
-                        (self, target, age) -> {
+                        (self, target) -> {
                             if (!(target instanceof Player p)) return self.position();
                             orbitAngle += 0.15;
                             double r = 2.5;
@@ -66,7 +66,7 @@ public final class FluteSkillEntitySpecial
 
             case CASTED_MOVE_TO_VORTEX, CASTED_HOVER -> {
                 s.flightController.setMovement(
-                        (self, target, age) -> resolveVortexTop()
+                        (self, target) -> resolveVortexTop()
                 );
                 s.flightController.setEnabled(true);
                 s.setLookAtPos(vortexPos);

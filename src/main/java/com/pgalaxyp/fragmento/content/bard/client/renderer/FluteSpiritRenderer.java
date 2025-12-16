@@ -6,8 +6,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 public final class FluteSpiritRenderer extends GeoEntityRenderer<FluteSkillEntity> {
@@ -25,18 +23,5 @@ public final class FluteSpiritRenderer extends GeoEntityRenderer<FluteSkillEntit
             float partialTick
     ) {
         return RenderType.entityTranslucent(texture);
-    }
-
-    @Override
-    public Vec3 getRenderOffset(FluteSkillEntity entity, float partialTick) {
-        Vec3 smooth = entity.getSmoothRenderPos(partialTick);
-
-        Vec3 vanilla = new Vec3(
-                Mth.lerp(partialTick, entity.xo, entity.getX()),
-                Mth.lerp(partialTick, entity.yo, entity.getY()),
-                Mth.lerp(partialTick, entity.zo, entity.getZ())
-        );
-
-        return smooth.subtract(vanilla);
     }
 }

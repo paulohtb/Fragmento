@@ -3,25 +3,43 @@ package com.pgalaxyp.fragmento.core.controller;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.ClipContext;
+
 import java.util.function.Function;
 
-public final class CollisionController<T extends SkillEntityBase>
-        extends EntityController<T> {
+public final class CollisionController<T extends SkillEntityBase> extends EntityController<T> {
 
     @FunctionalInterface
-    public interface CollisionCheck<T extends SkillEntityBase> {
+    public interface CollisionCheck {
         LivingEntity hit(Vec3 from, Vec3 to, LivingEntity target);
     }
 
-    private CollisionCheck<T> check;
+    private CollisionCheck check;
+
     private LivingEntity lastHit;
+    private boolean blockHit;
+    private Vec3 blockHitPos;
+
+    private boolean enabled;
 
     private final Function<T, LivingEntity> targetGetter;
 
     public CollisionController(T entity, Function<T, LivingEntity> targetGetter) {
         super(entity);
         this.targetGetter = targetGetter;
+    }
+
+    public void setEnabled(boolean value) {
+        if (!value) resetCollision();
+        enabled = value;
+    }
+
+    public void resetCollision() {
+        lastHit = null;
+        blockHit = false;
+        blockHitPos = null;
     }
 
     public boolean hasCollision() {
@@ -32,31 +50,56 @@ public final class CollisionController<T extends SkillEntityBase>
         return lastHit;
     }
 
-    public void resetCollision() {
-        lastHit = null;
+    public boolean hasBlockCollision() {
+        return blockHit;
     }
 
-    public void setCollisionCheck(CollisionCheck<T> check) {
+    public Vec3 getBlockHitPos() {
+        return blockHitPos;
+    }
+
+    public boolean hasAnyCollision() {
+        return lastHit != null || blockHit;
+    }
+
+    public void setCollisionCheck(CollisionCheck check) {
         this.check = check;
+        resetCollision();
     }
 
     @Override
     protected void onTick() {
-        if (check == null || lastHit != null) return;
+        if (!enabled) return;
+        if (check == null) return;
+        if (lastHit != null || blockHit) return;
 
-        Vec3 from = entity.getPrevLogicPos();
-        Vec3 to = entity.getLogicPos();
+        Vec3 from = entity.getPrevPos();
+        Vec3 to = entity.position();
 
-        LivingEntity target = targetGetter.apply(entity);
-        if (target != null && target.isAlive()) {
-            LivingEntity hit = check.hit(from, to, target);
-            if (hit != null) {
-                lastHit = hit;
-            }
+        HitResult block = entity.level().clip(
+                new ClipContext(
+                        from,
+                        to,
+                        ClipContext.Block.COLLIDER,
+                        ClipContext.Fluid.NONE,
+                        entity
+                )
+        );
+
+        if (block.getType() != HitResult.Type.MISS) {
+            blockHit = true;
+            blockHitPos = block.getLocation();
+            return;
         }
+
+        LivingEntity target = targetGetter != null ? targetGetter.apply(entity) : null;
+        if (target == null || !target.isAlive()) return;
+
+        LivingEntity hit = check.hit(from, to, target);
+        if (hit != null) lastHit = hit;
     }
 
-    public CollisionCheck<T> segment(double inflate) {
+    public static CollisionCheck segmentHit(double inflate) {
         return (from, to, target) -> {
             AABB box = target.getBoundingBox().inflate(inflate);
             return box.clip(from, to).isPresent() ? target : null;

@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -39,7 +40,7 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
     }
 
     @Override
-    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
     }
 
     @Override
@@ -48,6 +49,17 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+    }
+
+    @Override
+    public AABB getBoundingBoxForCulling() {
+        Vec3 p = position();
+        double r = radius();
+
+        return new AABB(
+                p.x - r, p.y - r, p.z - r,
+                p.x + r, p.y + r, p.z + r
+        );
     }
 
     protected abstract WindVortexLimitService.VortexTier tier();

@@ -1,8 +1,6 @@
 package com.pgalaxyp.fragmento.core.controller;
 
-import net.minecraft.world.entity.Entity;
-
-public abstract class EntityController<T extends Entity> {
+public abstract class EntityController<T extends net.minecraft.world.entity.Entity> {
 
     protected final T entity;
 
