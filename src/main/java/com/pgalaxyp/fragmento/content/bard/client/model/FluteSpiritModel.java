@@ -47,7 +47,16 @@ public final class FluteSpiritModel extends GeoModel<FluteSkillEntity> {
         float yaw = Mth.wrapDegrees(entity.getYRot());
         float pitch = entity.getXRot();
 
-        root.setRotY((float) Math.toRadians(-yaw));
-        root.setRotX((float) Math.toRadians(-pitch));
+        float invYaw = (float) (360.0 + negateDouble(yaw));
+        float invPitch = (float) (360.0 + negateDouble(pitch));
+
+        root.setRotY((float) Math.toRadians(invYaw));
+        root.setRotX((float) Math.toRadians(invPitch));
+    }
+
+    private static double negateDouble(double v) {
+        long bits = Double.doubleToRawLongBits(v);
+        long flipped = bits ^ (1L << 63);
+        return Double.longBitsToDouble(flipped);
     }
 }

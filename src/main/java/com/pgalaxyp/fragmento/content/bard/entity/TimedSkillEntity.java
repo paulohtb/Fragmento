@@ -7,7 +7,11 @@ public abstract class TimedSkillEntity<P extends Enum<P>> extends SkillEntity {
     protected TimedSkillEntity(BardSkillEntityBase spirit) {
         super(spirit);
         this.machine = new PhaseMachine<>(
-                (phase, duration) -> onEnterPhase(phase),
+                (phase, duration) -> {
+                    if (!spirit().level().isClientSide()) {
+                        onEnterPhase(phase);
+                    }
+                },
                 (phase, time, duration) -> {
                     if (!spirit().level().isClientSide()) {
                         onTickPhase(phase);
@@ -17,6 +21,9 @@ public abstract class TimedSkillEntity<P extends Enum<P>> extends SkillEntity {
     }
 
     protected final void startPhase(P next, int duration) {
+        if (spirit().level().isClientSide()) {
+            return;
+        }
         machine.start(next, duration);
     }
 
@@ -34,6 +41,9 @@ public abstract class TimedSkillEntity<P extends Enum<P>> extends SkillEntity {
 
     @Override
     protected final void tickSkill() {
+        if (spirit().level().isClientSide()) {
+            return;
+        }
         machine.step();
     }
 

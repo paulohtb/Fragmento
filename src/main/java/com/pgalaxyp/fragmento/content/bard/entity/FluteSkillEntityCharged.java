@@ -23,8 +23,13 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
 
     private static final double TRAVEL_SPEED = 0.55;
     private static final double OVERSHOOT_SPEED = 0.35;
+    private static final double ASCENT_SPEED = 0.25;
+    private static final double FOLLOW_MAX_SPEED = 0.70;
 
-    private Vec3 moveDir = Vec3.ZERO;
+    private static final double BOUNCE_IMPULSE = 0.30;
+    private static final double BOUNCE_UP = 0.08;
+
+    private Vec3 moveDir = new Vec3(0.0, 0.0, 1.0);
     private Vec3 hoverOffset = Vec3.ZERO;
     private boolean vortexSpawned;
 
@@ -38,64 +43,78 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
     protected void onEnterPhase(Phase phase) {
         BardSkillEntityBase s = spirit();
 
-        switch (phase) {
-            case SPAWN -> {
-                s.setAnimKey(BardAnimKeys.SPAWN);
-                s.flightController.setEnabled(false);
-                s.collisionController.setEnabled(false);
+        if (phase == Phase.SPAWN) {
+            s.setAnimKey(BardAnimKeys.SPAWN);
+            s.flightController.setEnabled(false);
+            s.collisionController.setEnabled(false);
+            return;
+        }
+
+        if (phase == Phase.TRAVEL) {
+            s.setAnimKey(BardAnimKeys.TRAVEL);
+
+            s.flightController.setMaxSpeedPerTick(TRAVEL_SPEED);
+            s.flightController.setAccelPerTick(0.65);
+            s.flightController.setMovement(new ConstantSpeedHomingMovement<>(TRAVEL_SPEED));
+            s.flightController.setEnabled(true);
+
+            s.collisionController.setCollisionCheck(
+                    CollisionController.adaptiveHomingHit(
+                            s,
+                            0.35,
+                            1.10,
+                            0.20
+                    )
+            );
+
+            s.collisionController.resetCollision();
+            s.collisionController.setEnabled(true);
+            return;
+        }
+
+        if (phase == Phase.OVERSHOOT) {
+            s.flightController.setMaxSpeedPerTick(OVERSHOOT_SPEED);
+            s.flightController.setAccelPerTick(0.65);
+            s.flightController.setMovement((self, target) -> moveDir.scale(OVERSHOOT_SPEED));
+            s.flightController.setEnabled(true);
+            s.collisionController.setEnabled(false);
+            return;
+        }
+
+        if (phase == Phase.ASCENT) {
+            s.flightController.setMaxSpeedPerTick(ASCENT_SPEED);
+            s.flightController.setAccelPerTick(0.65);
+            s.flightController.setMovement((self, target) -> new Vec3(0.0, ASCENT_SPEED, 0.0));
+            s.flightController.setEnabled(true);
+            return;
+        }
+
+        if (phase == Phase.HOVER) {
+            LivingEntity t = s.getTarget();
+            if (t == null) {
+                startPhase(Phase.DESPAWN, 8);
+                return;
             }
 
-            case TRAVEL -> {
-                s.setAnimKey(BardAnimKeys.TRAVEL);
+            hoverOffset = s.position().subtract(t.position());
+            vortexSpawned = false;
 
-                s.flightController.setMovement(
-                        new ConstantSpeedHomingMovement<>(TRAVEL_SPEED)
-                );
-                s.flightController.setEnabled(true);
+            s.flightController.setMaxSpeedPerTick(FOLLOW_MAX_SPEED);
+            s.flightController.setAccelPerTick(0.85);
+            s.flightController.setMovement((self, target) -> {
+                if (target == null) return Vec3.ZERO;
+                Vec3 desiredPos = target.position().add(hoverOffset);
+                Vec3 delta = desiredPos.subtract(self.position());
+                return clamp(delta, FOLLOW_MAX_SPEED);
+            });
+            s.flightController.setEnabled(true);
+            return;
+        }
 
-                s.collisionController.setCollisionCheck(
-                        CollisionController.segmentHit(0.35)
-                );
-                s.collisionController.resetCollision();
-                s.collisionController.setEnabled(true);
-            }
-
-            case OVERSHOOT -> {
-                s.flightController.setMovement(
-                        (self, target) -> self.position().add(moveDir.scale(OVERSHOOT_SPEED))
-                );
-                s.flightController.setEnabled(true);
-                s.collisionController.setEnabled(false);
-            }
-
-            case ASCENT -> {
-                s.flightController.setMovement(
-                        (self, target) -> self.position().add(0.0, 0.25, 0.0)
-                );
-                s.flightController.setEnabled(true);
-            }
-
-            case HOVER -> {
-                LivingEntity t = s.getTarget();
-                if (t == null) {
-                    startPhase(Phase.DESPAWN, 8);
-                    return;
-                }
-
-                hoverOffset = s.position().subtract(t.position());
-                vortexSpawned = false;
-
-                s.flightController.setMovement(
-                        (self, target) -> target.position().add(hoverOffset)
-                );
-                s.flightController.setEnabled(true);
-            }
-
-            case DESPAWN -> {
-                s.setAnimKey(BardAnimKeys.DESPAWN);
-                s.flightController.setEnabled(false);
-                s.collisionController.setEnabled(false);
-            }
+        if (phase == Phase.DESPAWN) {
+            s.setAnimKey(BardAnimKeys.DESPAWN);
+            s.flightController.setEnabled(false);
+            s.collisionController.setEnabled(false);
         }
     }
 
@@ -108,52 +127,90 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
             return;
         }
 
-        switch (phase) {
-            case SPAWN -> {
-                if (time() >= duration()) startPhase(Phase.TRAVEL, 12);
-            }
-
-            case TRAVEL -> {
-                if (s.collisionController.hasCollision()) {
-                    LivingEntity hit = s.collisionController.getCollisionTarget();
-                    if (hit != null) {
-                        hit.hurt(hit.damageSources().magic(), BardInstrumentConstants.CHARGED_DAMAGE);
-                    }
-
-                    Vec3 d = s.getDeltaMovement();
-                    if (d.lengthSqr() > 1.0E-8) moveDir = d.normalize();
-
-                    startPhase(Phase.OVERSHOOT, 4);
-                    return;
-                }
-
-                if (time() >= duration()) {
-                    Vec3 d = s.getDeltaMovement();
-                    if (d.lengthSqr() > 1.0E-8) moveDir = d.normalize();
-                    startPhase(Phase.OVERSHOOT, 4);
-                }
-            }
-
-            case OVERSHOOT -> {
-                if (time() >= duration()) startPhase(Phase.ASCENT, 6);
-            }
-
-            case ASCENT -> {
-                if (time() >= duration()) startPhase(Phase.HOVER, 14);
-            }
-
-            case HOVER -> {
-                if (!vortexSpawned && time() >= 5) {
-                    spawnVortex();
-                    vortexSpawned = true;
-                }
-                if (time() >= duration()) startPhase(Phase.DESPAWN, 8);
-            }
-
-            case DESPAWN -> {
-                if (time() >= duration()) s.discard();
-            }
+        if (phase == Phase.SPAWN) {
+            if (time() >= duration()) startPhase(Phase.TRAVEL, 12);
+            return;
         }
+
+        if (phase == Phase.TRAVEL) {
+            if (s.collisionController.hasAnyCollision()) {
+                LivingEntity hit = s.collisionController.getCollisionTarget();
+                if (hit != null) {
+                    hit.hurt(hit.damageSources().magic(), BardInstrumentConstants.CHARGED_DAMAGE);
+                }
+
+                captureMoveDir(s);
+                applyBounce(s);
+                startPhase(Phase.OVERSHOOT, 4);
+                return;
+            }
+
+            if (time() >= duration()) {
+                captureMoveDir(s);
+                startPhase(Phase.OVERSHOOT, 4);
+            }
+            return;
+        }
+
+        if (phase == Phase.OVERSHOOT) {
+            if (time() >= duration()) startPhase(Phase.ASCENT, 6);
+            return;
+        }
+
+        if (phase == Phase.ASCENT) {
+            if (time() >= duration()) startPhase(Phase.HOVER, 14);
+            return;
+        }
+
+        if (phase == Phase.HOVER) {
+            if (!vortexSpawned && time() >= 5) {
+                spawnVortex();
+                vortexSpawned = true;
+            }
+            if (time() >= duration()) startPhase(Phase.DESPAWN, 8);
+            return;
+        }
+
+        if (phase == Phase.DESPAWN) {
+            if (time() >= duration()) s.discard();
+        }
+    }
+
+    private void captureMoveDir(BardSkillEntityBase s) {
+        Vec3 d = s.getDeltaMovement();
+        if (d.lengthSqr() > 0.00000001) {
+            moveDir = d.normalize();
+        }
+    }
+
+    private static void applyBounce(BardSkillEntityBase s) {
+        Vec3 d = s.getDeltaMovement();
+        Vec3 dir;
+        if (d.lengthSqr() > 0.00000001) {
+            dir = d.normalize();
+        } else {
+            dir = new Vec3(0.0, 0.0, 1.0);
+        }
+
+        Vec3 back = negateVec3(dir).scale(BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
+        s.impulseController.addImpulse(back);
+    }
+
+    private static Vec3 clamp(Vec3 v, double maxLen) {
+        double len = v.length();
+        if (len <= maxLen) return v;
+        if (len <= 0.00000001) return Vec3.ZERO;
+        return v.scale(maxLen / len);
+    }
+
+    private static Vec3 negateVec3(Vec3 v) {
+        return new Vec3(negateDouble(v.x), negateDouble(v.y), negateDouble(v.z));
+    }
+
+    private static double negateDouble(double v) {
+        long bits = Double.doubleToRawLongBits(v);
+        long flipped = bits ^ (1L << 63);
+        return Double.longBitsToDouble(flipped);
     }
 
     private void spawnVortex() {

@@ -1,14 +1,19 @@
 package com.pgalaxyp.fragmento.gameplay.entity;
 
 import com.pgalaxyp.fragmento.core.controller.EntityController;
+import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public abstract class SkillEntityBase extends Entity {
 
@@ -24,7 +29,8 @@ public abstract class SkillEntityBase extends Entity {
     }
 
     @Override
-    public void tick() {
+    public final void tick() {
+
         if (level().isClientSide()) {
             clientTick();
             super.tick();
@@ -56,6 +62,43 @@ public abstract class SkillEntityBase extends Entity {
 
     public final Vec3 getPrevPos() {
         return prevPos != null ? prevPos : position();
+    }
+
+    public void onCastedInternal() {
+    }
+
+    public void onCancelledInternal() {
+    }
+
+    public LivingEntity getOwner() {
+        return null;
+    }
+
+    public UUID getOwnerUuid() {
+        LivingEntity owner = getOwner();
+        return owner != null ? owner.getUUID() : null;
+    }
+
+    public UUID getSourceInstrumentUuid() {
+        return null;
+    }
+
+    public Vec3 resolveAnchorPosition() {
+        return position();
+    }
+
+    public int summon(
+            LivingEntity owner,
+            LivingEntity target,
+            ServerLevel level,
+            SkillMode mode,
+            ItemStack sourceItem
+    ) {
+        if (level == null) return 0;
+
+        if (!level.addFreshEntity(this)) return 0;
+
+        return getId();
     }
 
     @Override

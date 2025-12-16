@@ -69,6 +69,7 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
 
     @Override
     protected void onTick() {
+        if (entity.level().isClientSide()) return;
         if (!enabled) return;
         if (check == null) return;
         if (lastHit != null || blockHit) return;
@@ -104,5 +105,52 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
             AABB box = target.getBoundingBox().inflate(inflate);
             return box.clip(from, to).isPresent() ? target : null;
         };
+    }
+
+    public static CollisionCheck adaptiveHomingHit(
+            SkillEntityBase self,
+            double baseInflate,
+            double speedInflateFactor,
+            double endPointExtraRadius
+    ) {
+        return (from, to, target) -> {
+            if (self == null || target == null || !target.isAlive()) return null;
+
+            double speed = self.getDeltaMovement().length();
+            double inflate = Math.max(0.0, baseInflate + speed * Math.max(0.0, speedInflateFactor));
+
+            AABB box = target.getBoundingBox().inflate(inflate);
+
+            if (box.clip(from, to).isPresent()) {
+                return target;
+            }
+
+            if (endPointExtraRadius > 0.0) {
+                double r = inflate + endPointExtraRadius;
+                double d2 = distanceSqrPointToAabb(to, box);
+                if (d2 <= r * r) {
+                    return target;
+                }
+            }
+
+            return null;
+        };
+    }
+
+    private static double distanceSqrPointToAabb(Vec3 p, AABB aabb) {
+        double cx = clamp(p.x, aabb.minX, aabb.maxX);
+        double cy = clamp(p.y, aabb.minY, aabb.maxY);
+        double cz = clamp(p.z, aabb.minZ, aabb.maxZ);
+
+        double dx = p.x - cx;
+        double dy = p.y - cy;
+        double dz = p.z - cz;
+
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    private static double clamp(double v, double min, double max) {
+        if (v < min) return min;
+        return Math.min(v, max);
     }
 }

@@ -2,11 +2,7 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.constants.BardSpiritConstants;
-import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
-import com.pgalaxyp.fragmento.core.controller.CollisionController;
-import com.pgalaxyp.fragmento.core.controller.ImpulseController;
-import com.pgalaxyp.fragmento.core.controller.OrientationController;
-import com.pgalaxyp.fragmento.core.controller.SpawnController;
+import com.pgalaxyp.fragmento.core.controller.*;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -16,7 +12,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -48,37 +43,22 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
     public final SpawnController<BardSkillEntityBase> spawnController;
 
     private Vec3 lookAtPos;
-
     private int lifetimeTicks;
 
-    private LivingEntity cachedOwner;
     private LivingEntity cachedTarget;
 
     protected BardSkillEntityBase(EntityType<?> type, Level level) {
         super(type, level);
 
-        flightController = new AutoMovementController<>(
-                this,
-                BardSkillEntityBase::getTarget
-        );
+        this.noPhysics = true;
+        this.setNoGravity(true);
 
-        collisionController = new CollisionController<>(
-                this,
-                BardSkillEntityBase::getTarget
-        );
-
-        orientationController = new OrientationController<>(
-                this,
-                BardSkillEntityBase::getTarget,
-                this::getLookAtPos
-        );
-
+        flightController = new AutoMovementController<>(this, BardSkillEntityBase::getTarget);
+        collisionController = new CollisionController<>(this, BardSkillEntityBase::getTarget);
+        orientationController =
+                new OrientationController<>(this, BardSkillEntityBase::getTarget, this::getLookAtPos);
         impulseController = new ImpulseController<>(this);
-
-        spawnController = new SpawnController<>(
-                this,
-                BardSkillEntityBase::setTarget
-        );
+        spawnController = new SpawnController<>(this, BardSkillEntityBase::setTarget);
 
         controllers.add(spawnController);
         controllers.add(flightController);
@@ -99,7 +79,8 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
     }
 
     @Override
-    protected final void serverPreControllers() {
+    protected void serverPreControllers() {
+
         lifetimeTicks++;
         syncInt(LIFETIME, lifetimeTicks);
         syncInt(CAST_STATE, state.castState().ordinal());
@@ -118,6 +99,31 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
         }
     }
 
+    @Override
+    public int summon(
+            LivingEntity owner,
+            LivingEntity target,
+            ServerLevel level,
+            SkillMode mode,
+            ItemStack sourceItem
+    ) {
+        if (level == null) return 0;
+
+        state.setOwnerUuid(owner != null ? owner.getUUID() : null);
+        state.setTargetEntityId(target != null ? target.getId() : 0);
+        state.setSourceInstrumentUuid(
+                BardCatalystIdService.getOrCreate(sourceItem)
+        );
+
+        spawnController.applyInitialPlacement(owner, target, level);
+
+        behavior = createBehavior(mode);
+
+        if (!level.addFreshEntity(this)) return 0;
+
+        return getId();
+    }
+
     private void syncInt(EntityDataAccessor<Integer> key, int value) {
         if (entityData.get(key) != value) {
             entityData.set(key, value);
@@ -126,45 +132,6 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
 
     public final int getLifetime() {
         return lifetimeTicks;
-    }
-
-    public final UUID getOwnerUuid() {
-        return state.ownerUuid();
-    }
-
-    public final UUID getSourceInstrumentUuid() {
-        return state.sourceInstrumentUuid();
-    }
-
-    public final LivingEntity getOwner() {
-        UUID id = state.ownerUuid();
-        if (id == null) {
-            cachedOwner = null;
-            return null;
-        }
-
-        if (cachedOwner != null && cachedOwner.isAlive() && id.equals(cachedOwner.getUUID())) {
-            return cachedOwner;
-        }
-
-        if (!(level() instanceof ServerLevel sl)) {
-            cachedOwner = null;
-            return null;
-        }
-
-        Player p = sl.getPlayerByUUID(id);
-        if (p != null && p.isAlive()) {
-            cachedOwner = p;
-            return cachedOwner;
-        }
-
-        cachedOwner = null;
-        return null;
-    }
-
-    public final void setOwner(LivingEntity owner) {
-        cachedOwner = owner;
-        state.setOwnerUuid(owner != null ? owner.getUUID() : null);
     }
 
     public final LivingEntity getTarget() {
@@ -198,11 +165,6 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
         state.setTargetEntityId(target != null ? target.getId() : 0);
     }
 
-    public final Vec3 resolveAnchorPosition() {
-        Vec3 a = state.castAnchorPos();
-        return a != null ? a : position();
-    }
-
     public final boolean isCasted() {
         return lifecycle.isCasted();
     }
@@ -221,67 +183,6 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
         if (level().isClientSide()) return;
         lifecycle.requestDespawn(Math.max(0, delayTicks));
         syncInt(CAST_STATE, state.castState().ordinal());
-    }
-
-    final void onCastedInternal() {
-        if (behavior != null) {
-            behavior.onCasted();
-        }
-    }
-
-    final void onCancelledInternal() {
-        if (behavior != null) {
-            behavior.onCancelled();
-        }
-    }
-
-    public final int summon(
-            LivingEntity caster,
-            LivingEntity target,
-            ServerLevel level,
-            SkillMode mode,
-            ItemStack sourceStack
-    ) {
-        if (caster == null || level == null || mode == null) return 0;
-
-        setOwner(caster);
-        setTarget(target);
-
-        UUID sourceId = null;
-        if (sourceStack != null && !sourceStack.isEmpty()) {
-            sourceId = BardCatalystIdService.getOrCreate(sourceStack);
-        }
-        state.setSourceInstrumentUuid(sourceId);
-
-        lifetimeTicks = 0;
-        syncInt(LIFETIME, 0);
-
-        if (mode == SkillMode.SPECIAL) {
-            state.setCastState(BardSkillState.CastState.CHANNELING);
-            state.setCastAnchorPos(null);
-        } else {
-            state.setCastState(BardSkillState.CastState.CASTED);
-            Vec3 anchor = target != null ? target.position() : caster.position();
-            state.setCastAnchorPos(anchor);
-        }
-        syncInt(CAST_STATE, state.castState().ordinal());
-
-        behavior = createBehavior(mode);
-        if (behavior == null) {
-            return 0;
-        }
-
-        spawnController.applyInitialPlacement(
-                caster,
-                target,
-                level
-        );
-
-        if (!level.addFreshEntity(this)) {
-            return 0;
-        }
-
-        return getId();
     }
 
     public final void setAnimKey(byte key) {
@@ -317,6 +218,49 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
     }
 
     @Override
+    public void onCastedInternal() {
+        if (behavior != null) {
+            behavior.onCasted();
+        }
+    }
+
+    @Override
+    public void onCancelledInternal() {
+        if (behavior != null) {
+            behavior.onCancelled();
+        }
+    }
+
+    @Override
     public void push(Entity entity) {
+    }
+
+    @Override
+    public LivingEntity getOwner() {
+        UUID id = state.ownerUuid();
+        if (id == null) return null;
+
+        if (level() instanceof ServerLevel sl) {
+            Entity e = sl.getEntity(id);
+            if (e instanceof LivingEntity l && l.isAlive()) return l;
+        }
+
+        return null;
+    }
+
+    @Override
+    public UUID getOwnerUuid() {
+        return state.ownerUuid();
+    }
+
+    @Override
+    public UUID getSourceInstrumentUuid() {
+        return state.sourceInstrumentUuid();
+    }
+
+    @Override
+    public Vec3 resolveAnchorPosition() {
+        Vec3 p = state.castAnchorPos();
+        return p != null ? p : position();
     }
 }

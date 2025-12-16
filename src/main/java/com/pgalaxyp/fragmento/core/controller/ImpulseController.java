@@ -1,11 +1,12 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 
 public final class ImpulseController<T extends net.minecraft.world.entity.Entity>
         extends EntityController<T> {
 
-    private Vec3 impulse;
+    private Vec3 pending;
 
     public ImpulseController(T entity) {
         super(entity);
@@ -13,15 +14,24 @@ public final class ImpulseController<T extends net.minecraft.world.entity.Entity
 
     public void addImpulse(Vec3 impulse) {
         if (impulse == null) return;
-        this.impulse = this.impulse == null ? impulse : this.impulse.add(impulse);
+        pending = pending == null ? impulse : pending.add(impulse);
+    }
+
+    public void clear() {
+        pending = null;
     }
 
     @Override
     protected void onTick() {
-        if (impulse == null) return;
+        if (entity.level().isClientSide()) return;
+        if (pending == null) return;
 
-        Vec3 pos = entity.position().add(impulse);
-        entity.setPos(pos.x, pos.y, pos.z);
-        impulse = null;
+        Vec3 cur = entity.getDeltaMovement();
+        Vec3 next = cur.add(pending);
+
+        entity.setDeltaMovement(next);
+        entity.move(MoverType.SELF, next);
+
+        pending = null;
     }
 }

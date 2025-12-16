@@ -30,11 +30,12 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
         float yaw = caster.getYRot();
         double rad = Math.toRadians(yaw);
 
-        Vec3 forward = new Vec3(-Math.sin(rad), 0.0, Math.cos(rad)).normalize();
-        Vec3 right = new Vec3(forward.z, 0.0, -forward.x);
+        double sin = Math.sin(rad);
+        Vec3 forward = new Vec3(negateDouble(sin), 0.0, Math.cos(rad)).normalize();
+        Vec3 right = new Vec3(forward.z, 0.0, negateDouble(forward.x));
 
         RandomSource r = level.getRandom();
-        double side = r.nextBoolean() ? 1.3 : -1.3;
+        double side = r.nextBoolean() ? 1.3 : negateDouble(1.3);
 
         Vec3 spawn = eye.add(forward).add(right.scale(side));
 
@@ -45,5 +46,11 @@ public final class SpawnController<T extends Entity> extends EntityController<T>
         entity.setPos(spawn.x, spawn.y, spawn.z);
         entity.yRotO = yaw;
         entity.xRotO = caster.getXRot();
+    }
+
+    private static double negateDouble(double v) {
+        long bits = Double.doubleToRawLongBits(v);
+        long flipped = bits ^ (1L << 63);
+        return Double.longBitsToDouble(flipped);
     }
 }

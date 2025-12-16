@@ -20,6 +20,9 @@ public abstract class SkillEntity extends EntityController<BardSkillEntityBase> 
 
     @Override
     protected final void onTick() {
+        if (spirit().level().isClientSide()) {
+            return;
+        }
         tickSkill();
     }
 

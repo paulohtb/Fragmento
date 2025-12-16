@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.core.controller.movement;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class ConstantSpeedHomingMovement<T extends SkillEntityBase>
@@ -15,21 +16,36 @@ public final class ConstantSpeedHomingMovement<T extends SkillEntityBase>
     }
 
     @Override
-    public Vec3 compute(T self, LivingEntity target) {
-        if (target == null || !target.isAlive()) {
-            return self.position();
+    public Vec3 desiredVelocity(T self, LivingEntity target) {
+        if (self == null || target == null || !target.isAlive()) {
+            return Vec3.ZERO;
         }
 
-        Vec3 cur = self.position();
-        Vec3 goal = target.getBoundingBox().getCenter();
-        Vec3 delta = goal.subtract(cur);
+        Vec3 from = self.position();
+        AABB box = target.getBoundingBox();
+
+        double tx = clamp(from.x, box.minX, box.maxX);
+        double ty = clamp(from.y, box.minY, box.maxY);
+        double tz = clamp(from.z, box.minZ, box.maxZ);
+
+        Vec3 closest = new Vec3(tx, ty, tz);
+        Vec3 delta = closest.subtract(from);
 
         double dist = delta.length();
-        if (dist <= speedPerTick) {
-            return goal;
+        if (dist <= 0.00000001) {
+            return Vec3.ZERO;
         }
 
-        Vec3 step = delta.normalize().scale(speedPerTick);
-        return cur.add(step);
+        if (dist <= speedPerTick) {
+            return delta;
+        }
+
+        return delta.scale(speedPerTick / dist);
+    }
+
+    private static double clamp(double v, double min, double max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
     }
 }
