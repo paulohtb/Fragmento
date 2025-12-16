@@ -1,13 +1,12 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import java.util.function.Function;
+import java.util.function.Supplier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
-public final class OrientationController<T extends net.minecraft.world.entity.Entity>
-        extends EntityController<T> {
+public final class OrientationController<T extends net.minecraft.world.entity.Entity> extends EntityController<T> {
 
     private final Function<T, LivingEntity> targetGetter;
     private final Supplier<Vec3> lookAtGetter;
@@ -47,20 +46,14 @@ public final class OrientationController<T extends net.minecraft.world.entity.En
         double dz = dir.z;
         double dy = dir.y;
 
-        float yaw = (float) Math.toDegrees(Math.atan2(dz, dx));
-        yaw = Mth.wrapDegrees(yaw + 270.0F);
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+        yaw = Mth.wrapDegrees(yaw);
 
         double horiz = Math.sqrt(dx * dx + dz * dz);
-        float pitchRaw = (float) Math.toDegrees(Math.atan2(dy, horiz));
-        float pitch = Mth.wrapDegrees((float) (360.0 + negateDouble(pitchRaw)));
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, horiz)));
+        pitch = Mth.wrapDegrees(pitch);
 
         entity.setYRot(yaw);
         entity.setXRot(pitch);
-    }
-
-    private static double negateDouble(double v) {
-        long bits = Double.doubleToRawLongBits(v);
-        long flipped = bits ^ (1L << 63);
-        return Double.longBitsToDouble(flipped);
     }
 }

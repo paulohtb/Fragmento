@@ -3,10 +3,11 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
 import com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry;
-import com.pgalaxyp.fragmento.core.controller.CollisionController;
 import com.pgalaxyp.fragmento.core.controller.movement.ConstantSpeedHomingMovement;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -25,7 +26,6 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
     private static final double OVERSHOOT_SPEED = 0.35;
     private static final double ASCENT_SPEED = 0.25;
     private static final double FOLLOW_MAX_SPEED = 0.70;
-
     private static final double BOUNCE_IMPULSE = 0.30;
     private static final double BOUNCE_UP = 0.08;
 
@@ -59,7 +59,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
             s.flightController.setEnabled(true);
 
             s.collisionController.setCollisionCheck(
-                    CollisionController.adaptiveHomingHit(
+                    com.pgalaxyp.fragmento.core.controller.CollisionController.adaptiveHomingHit(
                             s,
                             0.35,
                             1.10,
@@ -105,7 +105,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                 if (target == null) return Vec3.ZERO;
                 Vec3 desiredPos = target.position().add(hoverOffset);
                 Vec3 delta = desiredPos.subtract(self.position());
-                return clamp(delta, FOLLOW_MAX_SPEED);
+                return MathUtil.clampLength(delta, FOLLOW_MAX_SPEED);
             });
             s.flightController.setEnabled(true);
             return;
@@ -185,32 +185,10 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
 
     private static void applyBounce(BardSkillEntityBase s) {
         Vec3 d = s.getDeltaMovement();
-        Vec3 dir;
-        if (d.lengthSqr() > 0.00000001) {
-            dir = d.normalize();
-        } else {
-            dir = new Vec3(0.0, 0.0, 1.0);
-        }
+        Vec3 dir = d.lengthSqr() > 0.00000001 ? d.normalize() : new Vec3(0.0, 0.0, 1.0);
 
-        Vec3 back = negateVec3(dir).scale(BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
+        Vec3 back = dir.scale(-BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
         s.impulseController.addImpulse(back);
-    }
-
-    private static Vec3 clamp(Vec3 v, double maxLen) {
-        double len = v.length();
-        if (len <= maxLen) return v;
-        if (len <= 0.00000001) return Vec3.ZERO;
-        return v.scale(maxLen / len);
-    }
-
-    private static Vec3 negateVec3(Vec3 v) {
-        return new Vec3(negateDouble(v.x), negateDouble(v.y), negateDouble(v.z));
-    }
-
-    private static double negateDouble(double v) {
-        long bits = Double.doubleToRawLongBits(v);
-        long flipped = bits ^ (1L << 63);
-        return Double.longBitsToDouble(flipped);
     }
 
     private void spawnVortex() {
@@ -226,11 +204,9 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                 WindVortexLimitService.VortexTier.MINOR
         )) return;
 
-        MinorWindVortex vortex = new MinorWindVortex(
-                VortexHelperRegistry.WIND_VORTEX.get(),
-                level
-        );
+        EntityType<?> type = VortexHelperRegistry.WIND_VORTEX.get();
 
+        MinorWindVortex vortex = new MinorWindVortex(type, level);
         vortex.setOwner(owner);
         vortex.markReservedCount();
 

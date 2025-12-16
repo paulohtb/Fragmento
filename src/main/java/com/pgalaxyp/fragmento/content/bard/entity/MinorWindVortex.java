@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import com.pgalaxyp.fragmento.content.bard.constants.BardVortexConstants;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -9,7 +10,6 @@ import net.minecraft.world.phys.Vec3;
 public final class MinorWindVortex extends WindVortexBase {
 
     private static final int PULSE_TICK = 20;
-    private static final int LIFETIME_TICKS = 25;
 
     private int suckTicks;
 
@@ -24,27 +24,27 @@ public final class MinorWindVortex extends WindVortexBase {
 
     @Override
     protected int lifetimeLimitTicks() {
-        return LIFETIME_TICKS;
+        return BardVortexConstants.MINOR_LIFETIME_TICKS;
     }
 
     @Override
     protected double radius() {
-        return 2.0;
+        return BardVortexConstants.MINOR_RADIUS;
     }
 
     @Override
     protected double pullStrength() {
-        return suckTicks < PULSE_TICK ? 0.15 : 0.0;
+        return suckTicks < PULSE_TICK ? BardVortexConstants.MINOR_PULL_STRENGTH : 0.0;
     }
 
     @Override
     protected int scanIntervalTicks() {
-        return 1;
+        return BardVortexConstants.MINOR_SCAN_INTERVAL_TICKS;
     }
 
     @Override
     protected int maxAffectedPerScan() {
-        return 8;
+        return BardVortexConstants.MINOR_MAX_AFFECTED_PER_SCAN;
     }
 
     @Override

@@ -1,17 +1,16 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import java.util.UUID;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardChargeData;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
-import com.pgalaxyp.fragmento.core.controller.CollisionController;
 import com.pgalaxyp.fragmento.core.controller.movement.ConstantSpeedHomingMovement;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
-import java.util.UUID;
 
 public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEntityBasic.Phase> {
 
@@ -46,7 +45,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
             s.flightController.setEnabled(true);
 
             s.collisionController.setCollisionCheck(
-                    CollisionController.adaptiveHomingHit(
+                    com.pgalaxyp.fragmento.core.controller.CollisionController.adaptiveHomingHit(
                             s,
                             0.35,
                             1.10,
@@ -118,33 +117,20 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
     private static void applyBounce(BardSkillEntityBase s) {
         Vec3 v = s.getDeltaMovement();
         Vec3 dir;
+
         if (v.lengthSqr() > 0.00000001) {
             dir = v.normalize();
         } else {
             LivingEntity t = s.getTarget();
             if (t != null) {
                 Vec3 d = s.position().subtract(t.getBoundingBox().getCenter());
-                if (d.lengthSqr() > 0.00000001) {
-                    dir = d.normalize();
-                } else {
-                    dir = new Vec3(0.0, 0.0, 1.0);
-                }
+                dir = d.lengthSqr() > 0.00000001 ? d.normalize() : new Vec3(0.0, 0.0, 1.0);
             } else {
                 dir = new Vec3(0.0, 0.0, 1.0);
             }
         }
 
-        Vec3 back = negateVec3(dir).scale(BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
+        Vec3 back = dir.scale(-BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
         s.impulseController.addImpulse(back);
-    }
-
-    private static Vec3 negateVec3(Vec3 v) {
-        return new Vec3(negateDouble(v.x), negateDouble(v.y), negateDouble(v.z));
-    }
-
-    private static double negateDouble(double v) {
-        long bits = Double.doubleToRawLongBits(v);
-        long flipped = bits ^ (1L << 63);
-        return Double.longBitsToDouble(flipped);
     }
 }

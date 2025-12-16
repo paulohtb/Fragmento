@@ -1,30 +1,27 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.syncher.SynchedEntityData;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
-import java.util.List;
-import java.util.UUID;
 
 public abstract class WindVortexBase extends Entity implements GeoEntity {
 
-    private final AnimatableInstanceCache cache =
-            GeckoLibUtil.createInstanceCache(this);
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    private static final RawAnimation FULL =
-            RawAnimation.begin().thenLoop("vortex");
+    private static final RawAnimation FULL = RawAnimation.begin().thenLoop("vortex");
 
     private int lifetime;
     private int scanCounter;
@@ -34,9 +31,10 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
 
     private boolean reservedCount;
 
-    protected WindVortexBase(EntityType<?> type, Level level) {
+    protected WindVortexBase(EntityType<?> type, net.minecraft.world.level.Level level) {
         super(type, level);
         this.noPhysics = true;
+        this.setNoGravity(true);
     }
 
     @Override
@@ -45,10 +43,23 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        if (tag.hasUUID("Owner")) ownerUuid = tag.getUUID("Owner");
+        lifetime = Math.max(0, tag.getInt("Lifetime"));
+        scanCounter = Math.max(0, tag.getInt("ScanCounter"));
+        reservedCount = tag.getBoolean("Reserved");
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        if (ownerUuid != null) tag.putUUID("Owner", ownerUuid);
+        tag.putInt("Lifetime", lifetime);
+        tag.putInt("ScanCounter", scanCounter);
+        tag.putBoolean("Reserved", reservedCount);
+    }
+
+    @Override
+    public boolean shouldBeSaved() {
+        return false;
     }
 
     @Override
@@ -103,6 +114,7 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
 
     protected LivingEntity resolveOwner() {
         if (owner != null && owner.isAlive()) return owner;
+
         if (ownerUuid != null && level() instanceof ServerLevel sl) {
             Player p = sl.getPlayerByUUID(ownerUuid);
             if (p != null && p.isAlive()) {
@@ -110,6 +122,7 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
                 return owner;
             }
         }
+
         owner = null;
         return null;
     }
@@ -126,8 +139,10 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
         lifetime++;
 
         int limit = lifetimeLimitTicks();
-
-        if (lifetime > limit) {
+        if (lifetime >= limit) {
+            if (shouldProcessThisTick(lifetime)) {
+                doScanAndApply();
+            }
             releaseReservationIfNeeded();
             discard();
             return;
@@ -135,11 +150,6 @@ public abstract class WindVortexBase extends Entity implements GeoEntity {
 
         if (shouldProcessThisTick(lifetime)) {
             doScanAndApply();
-        }
-
-        if (lifetime >= limit) {
-            releaseReservationIfNeeded();
-            discard();
         }
     }
 

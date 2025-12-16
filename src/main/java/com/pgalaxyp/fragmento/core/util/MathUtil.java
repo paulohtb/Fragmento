@@ -22,4 +22,21 @@ public final class MathUtil {
         if (v > 1) return 1;
         return v;
     }
+
+    public static double negate(double v) {
+        return -v;
+    }
+
+    public static Vec3 negate(Vec3 v) {
+        if (v == null) return Vec3.ZERO;
+        return v.scale(-1.0);
+    }
+
+    public static Vec3 clampLength(Vec3 v, double maxLen) {
+        if (v == null) return Vec3.ZERO;
+        double len = v.length();
+        if (len <= maxLen) return v;
+        if (len <= 0.00000001) return Vec3.ZERO;
+        return v.scale(maxLen / len);
+    }
 }

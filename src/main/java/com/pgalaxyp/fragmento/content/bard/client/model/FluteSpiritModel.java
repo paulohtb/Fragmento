@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.content.bard.client.model;
 
-import com.pgalaxyp.fragmento.content.bard.entity.FluteSkillEntity;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.cache.object.GeoBone;
-import software.bernie.geckolib.model.GeoModel;
+import com.pgalaxyp.fragmento.content.bard.entity.FluteSkillEntity;
 
 public final class FluteSpiritModel extends GeoModel<FluteSkillEntity> {
 
@@ -45,18 +45,9 @@ public final class FluteSpiritModel extends GeoModel<FluteSkillEntity> {
         if (root == null) return;
 
         float yaw = Mth.wrapDegrees(entity.getYRot());
-        float pitch = entity.getXRot();
+        float pitch = Mth.wrapDegrees(entity.getXRot());
 
-        float invYaw = (float) (360.0 + negateDouble(yaw));
-        float invPitch = (float) (360.0 + negateDouble(pitch));
-
-        root.setRotY((float) Math.toRadians(invYaw));
-        root.setRotX((float) Math.toRadians(invPitch));
-    }
-
-    private static double negateDouble(double v) {
-        long bits = Double.doubleToRawLongBits(v);
-        long flipped = bits ^ (1L << 63);
-        return Double.longBitsToDouble(flipped);
+        root.setRotY((float) Math.toRadians(-yaw));
+        root.setRotX((float) Math.toRadians(-pitch));
     }
 }

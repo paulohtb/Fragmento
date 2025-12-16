@@ -30,7 +30,7 @@ public final class MediumWindVortex extends WindVortexBase {
 
     @Override
     protected double radius() {
-        return 2.5;
+        return BardVortexConstants.MEDIUM_RADIUS;
     }
 
     @Override
@@ -40,7 +40,7 @@ public final class MediumWindVortex extends WindVortexBase {
 
     @Override
     protected int scanIntervalTicks() {
-        return 1;
+        return BardVortexConstants.MEDIUM_SCAN_INTERVAL_TICKS;
     }
 
     @Override
@@ -52,7 +52,7 @@ public final class MediumWindVortex extends WindVortexBase {
     protected void applyPlayerBuff(Player p) {
         var cur = p.getEffect(MobEffects.GLOWING);
         if (cur == null || cur.getDuration() <= 12) {
-            p.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40));
+            p.addEffect(new MobEffectInstance(MobEffects.GLOWING, BardVortexConstants.MEDIUM_GLOWING_TICKS));
         }
     }
 

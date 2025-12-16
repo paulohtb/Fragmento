@@ -1,16 +1,18 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
+import java.util.UUID;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
+import com.pgalaxyp.fragmento.content.bard.constants.BardVortexConstants;
+import com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import java.util.UUID;
 
-public final class FluteSkillEntitySpecial
-        extends TimedSkillEntity<FluteSkillEntitySpecial.Phase> {
+public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEntitySpecial.Phase> {
 
     enum Phase {
         SPAWN,
@@ -61,7 +63,7 @@ public final class FluteSkillEntitySpecial
 
                 Vec3 desiredPos = resolveFixedFront(p);
                 Vec3 delta = desiredPos.subtract(self.position());
-                return clamp(delta, FOLLOW_MAX_SPEED);
+                return MathUtil.clampLength(delta, FOLLOW_MAX_SPEED);
             });
             s.flightController.setEnabled(true);
             return;
@@ -75,7 +77,7 @@ public final class FluteSkillEntitySpecial
             s.flightController.setMovement((self, target) -> {
                 Vec3 desiredPos = resolveVortexTop();
                 Vec3 delta = desiredPos.subtract(self.position());
-                return clamp(delta, 0.80);
+                return MathUtil.clampLength(delta, 0.80);
             });
             s.flightController.setEnabled(true);
             s.setLookAtPos(vortexPos);
@@ -128,7 +130,7 @@ public final class FluteSkillEntitySpecial
         }
 
         if (phase == Phase.CASTED_MOVE_TO_VORTEX) {
-            if (time() >= duration()) startPhase(Phase.CASTED_HOVER, 80);
+            if (time() >= duration()) startPhase(Phase.CASTED_HOVER, BardVortexConstants.MEDIUM_LIFETIME_TICKS);
             return;
         }
 
@@ -159,7 +161,7 @@ public final class FluteSkillEntitySpecial
         Vec3 c = spirit.resolveAnchorPosition();
 
         MediumWindVortex vortex = new MediumWindVortex(
-                com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry.MEDIUM_WIND_VORTEX.get(),
+                VortexHelperRegistry.MEDIUM_WIND_VORTEX.get(),
                 level
         );
 
@@ -188,12 +190,5 @@ public final class FluteSkillEntitySpecial
     private static Vec3 resolveFixedFront(Player p) {
         Vec3 forward = p.getLookAngle().normalize();
         return p.position().add(forward.scale(1.2)).add(0.0, 1.0, 0.0);
-    }
-
-    private static Vec3 clamp(Vec3 v, double maxLen) {
-        double len = v.length();
-        if (len <= maxLen) return v;
-        if (len <= 0.00000001) return Vec3.ZERO;
-        return v.scale(maxLen / len);
     }
 }

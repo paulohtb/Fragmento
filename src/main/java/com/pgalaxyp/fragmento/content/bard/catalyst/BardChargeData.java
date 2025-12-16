@@ -11,28 +11,31 @@ public final class BardChargeData {
     }
 
     public static int getCharge(ItemStack stack) {
-        CustomData data =
-                stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+        if (stack == null || stack.isEmpty()) return 0;
+
+        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
         if (data.isEmpty()) return 0;
+
         return data.copyTag().getInt(BardInstrumentConstants.NBT_CHARGE);
     }
 
     public static void setCharge(ItemStack stack, int value) {
+        if (stack == null || stack.isEmpty()) return;
+
         CustomData.update(
                 DataComponents.CUSTOM_DATA,
                 stack,
-                tag -> tag.putInt(
-                        BardInstrumentConstants.NBT_CHARGE,
-                        clamp(value)
-                )
+                tag -> tag.putInt(BardInstrumentConstants.NBT_CHARGE, clamp(value))
         );
     }
 
     public static void increment(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return;
         setCharge(stack, getCharge(stack) + 1);
     }
 
     public static void reset(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return;
         setCharge(stack, 0);
     }
 

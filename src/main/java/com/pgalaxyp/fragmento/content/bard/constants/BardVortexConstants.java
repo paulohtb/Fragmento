@@ -9,17 +9,17 @@ public final class BardVortexConstants {
     public static final int MEDIUM_LIFETIME_TICKS = 80;
 
     public static final double MINOR_RADIUS = 2.0;
-    public static final double MEDIUM_RADIUS = 2.0;
+    public static final double MEDIUM_RADIUS = 2.5;
 
-    public static final double MINOR_PULL_STRENGTH = 0.1;
-    public static final double MEDIUM_PULL_STRENGTH = 0.1;
+    public static final double MINOR_PULL_STRENGTH = 0.15;
+    public static final double MEDIUM_PULL_STRENGTH = 0.10;
 
     public static final int MEDIUM_GLOWING_TICKS = 40;
 
     public static final int MINOR_SCAN_INTERVAL_TICKS = 1;
     public static final int MEDIUM_SCAN_INTERVAL_TICKS = 1;
 
-    public static final int MINOR_MAX_AFFECTED_PER_SCAN = 6;
+    public static final int MINOR_MAX_AFFECTED_PER_SCAN = 8;
     public static final int MEDIUM_MAX_AFFECTED_PER_SCAN = 12;
 
     public static final int MINOR_MAX_ACTIVE_PER_OWNER = 2;
