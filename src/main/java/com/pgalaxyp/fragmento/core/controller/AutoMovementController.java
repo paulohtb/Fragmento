@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.core.controller;
 import java.util.function.Function;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 
 public final class AutoMovementController<T extends Entity> extends EntityController<T> {
@@ -76,7 +77,10 @@ public final class AutoMovementController<T extends Entity> extends EntityContro
         desired = clampLength(desired, maxSpeedPerTick);
 
         if (snapToDesired) {
-            entity.setDeltaMovement(desired);
+            if (desired.lengthSqr() > 0.000000000001) {
+                entity.move(MoverType.SELF, desired);
+            }
+            entity.setDeltaMovement(Vec3.ZERO);
             return;
         }
 

@@ -3,20 +3,19 @@ package com.pgalaxyp.fragmento.system.entity;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.pgalaxyp.fragmento.core.controller.EntityController;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
-import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.world.phys.Vec3;
-import com.pgalaxyp.fragmento.core.controller.EntityController;
-import com.pgalaxyp.fragmento.core.util.MathUtil;
-import net.minecraft.server.level.ServerLevel;
-import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.syncher.SynchedEntityData;
 
 public abstract class SkillEntityBase extends Entity {
 
@@ -91,7 +90,7 @@ public abstract class SkillEntityBase extends Entity {
         clientLerpZ = z;
         clientLerpYRot = yRot;
         clientLerpXRot = xRot;
-        clientLerpSteps = Math.max(1, steps);
+        clientLerpSteps = 1;
     }
 
     @Override
@@ -126,9 +125,11 @@ public abstract class SkillEntityBase extends Entity {
 
         if (clientLerpMotion != null) {
             setDeltaMovement(clientLerpMotion);
+        } else {
+            setDeltaMovement(Vec3.ZERO);
         }
 
-        clientLerpSteps--;
+        clientLerpSteps = 0;
     }
 
     protected void clientTick() {
@@ -167,7 +168,7 @@ public abstract class SkillEntityBase extends Entity {
         return position();
     }
 
-    public int summon(LivingEntity owner, LivingEntity target, ServerLevel level, SkillMode mode, ItemStack sourceItem) {
+    public int summon(LivingEntity owner, LivingEntity target, ServerLevel level, com.pgalaxyp.fragmento.system.skill.SkillMode mode, ItemStack sourceItem) {
         if (level == null) return 0;
         if (!level.addFreshEntity(this)) return 0;
         return getId();

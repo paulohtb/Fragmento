@@ -95,7 +95,7 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         Vec3 seg = to.subtract(from);
 
         collisionMotionDir = null;
-        if (seg.lengthSqr() > 0.000000000001) {
+        if (seg.lengthSqr() > 1.0E-12) {
             collisionMotionDir = seg.normalize();
         }
 
@@ -136,15 +136,13 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         entity.setDeltaMovement(Vec3.ZERO);
     }
 
-    public static CollisionCheck segmentHit(double extraRadius) {
-        double extra = Math.max(0.0, extraRadius);
+    public static CollisionCheck segmentHit() {
         return new CollisionCheck() {
             @Override
             public CollisionResult hit(Vec3 from, Vec3 to, LivingEntity target) {
                 if (from == null || to == null || target == null || !target.isAlive()) return null;
 
                 AABB box = target.getBoundingBox();
-                if (extra > 0.0) box = expand(box, extra);
 
                 double t = segmentAabbFirstHitT(from, to, box);
                 if (Double.isNaN(t)) return null;
@@ -154,30 +152,13 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         };
     }
 
-    public static CollisionCheck adaptiveHomingHit(
-            SkillEntityBase self,
-            double baseInflate,
-            double speedInflateFactor,
-            double endPointExtraRadius
-    ) {
-        final double base = Math.max(0.0, baseInflate);
-        final double speedFactor = Math.max(0.0, speedInflateFactor);
-        final double endExtra = Math.max(0.0, endPointExtraRadius);
-
+    public static CollisionCheck adaptiveHomingHit(SkillEntityBase self) {
         return new CollisionCheck() {
             @Override
             public CollisionResult hit(Vec3 from, Vec3 to, LivingEntity target) {
                 if (self == null || from == null || to == null || target == null || !target.isAlive()) return null;
 
-                double width = self.getBbWidth();
-                double height = self.getBbHeight();
-                double selfRadius = 0.5 * Math.max(width, height);
-
-                double speed = to.subtract(from).length();
-                double inflate = selfRadius + base + (speed * speedFactor) + endExtra;
-
                 AABB box = target.getBoundingBox();
-                if (inflate > 0.0) box = expand(box, inflate);
 
                 double t = segmentAabbFirstHitT(from, to, box);
                 if (Double.isNaN(t)) return null;
@@ -185,16 +166,6 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
                 return new CollisionResult(target, t);
             }
         };
-    }
-
-    private static AABB expand(AABB box, double amount) {
-        if (box == null) return null;
-        if (amount <= 0.0) return box;
-        double a = amount;
-        return new AABB(
-                box.minX + MathUtil.negate(a), box.minY + MathUtil.negate(a), box.minZ + MathUtil.negate(a),
-                box.maxX + a, box.maxY + a, box.maxZ + a
-        );
     }
 
     private static double segmentAabbFirstHitT(Vec3 from, Vec3 to, AABB box) {
@@ -247,7 +218,7 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
     }
 
     private static double axisInterval(double origin, double d, double min, double max) {
-        double eps = 0.000000000001;
+        double eps = 1.0E-12;
         if (Math.abs(d) <= eps) {
             if (origin < min || origin > max) return Double.NaN;
             return 0.0;
@@ -267,7 +238,7 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
     }
 
     private static double axisIntervalMax(double origin, double d, double min, double max) {
-        double eps = 0.000000000001;
+        double eps = 1.0E-12;
         if (Math.abs(d) <= eps) {
             if (origin < min || origin > max) return Double.NaN;
             return 1.0;
