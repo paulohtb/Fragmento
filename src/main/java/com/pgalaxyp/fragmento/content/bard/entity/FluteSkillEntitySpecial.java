@@ -1,9 +1,8 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
-import java.util.UUID;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardVortexConstants;
-import com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry;
+import com.pgalaxyp.fragmento.core.controller.movement.TimeboxedPositionMovement;
 import com.pgalaxyp.fragmento.core.util.MathUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,6 +42,7 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.SPAWN) {
             s.setAnimKey(BardAnimKeys.SPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
 
             LivingEntity owner = s.getOwner();
             if (owner != null) {
@@ -56,6 +56,9 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.ORBIT) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
+            s.flightController.setMaxSpeedPerTick(1.10);
+            s.flightController.setAccelPerTick(0.26);
+            s.flightController.setSnapToDesired(false);
             s.flightController.setMovement((self, target) -> {
                 if (!(target instanceof Player p)) return Vec3.ZERO;
 
@@ -70,11 +73,16 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.CASTED_MOVE_TO_VORTEX || phase == Phase.CASTED_HOVER) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMovement((self, target) -> {
-                Vec3 desiredPos = resolveVortexTop();
-                Vec3 delta = desiredPos.subtract(self.position());
-                return MathUtil.clampLength(delta, 0.80);
-            });
+            s.flightController.setMaxSpeedPerTick(1.20);
+            s.flightController.setAccelPerTick(0.0);
+            s.flightController.setSnapToDesired(true);
+            s.flightController.setMovement(
+                    new TimeboxedPositionMovement<>(
+                            this::remainingTicksForMovement,
+                            this::resolveVortexTop,
+                            0.90
+                    )
+            );
             s.flightController.setEnabled(true);
             s.setLookAtPos(vortexPos);
             return;
@@ -83,6 +91,7 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.DESPAWN) {
             s.setAnimKey(BardAnimKeys.DESPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
             s.clearLookAtPos();
         }
     }
@@ -151,13 +160,13 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
         LivingEntity owner = spirit.getOwner();
         if (owner == null) return;
 
-        UUID ownerId = owner.getUUID();
+        var ownerId = owner.getUUID();
         if (!WindVortexLimitService.tryReserve(level, ownerId, WindVortexLimitService.VortexTier.MEDIUM)) return;
 
         Vec3 c = spirit.resolveAnchorPosition();
 
         MediumWindVortex vortex = new MediumWindVortex(
-                VortexHelperRegistry.MEDIUM_WIND_VORTEX.get(),
+                com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry.MEDIUM_WIND_VORTEX.get(),
                 level
         );
 
@@ -176,6 +185,14 @@ public final class FluteSkillEntitySpecial extends TimedSkillEntity<FluteSkillEn
     @Override
     protected void onCancelled() {
         startPhase(Phase.DESPAWN, 6);
+    }
+
+    private int remainingTicksForMovement() {
+        int t = time();
+        int d = duration();
+        int rem = t <= 0 ? d : (d - t + 1);
+        if (rem <= 0) rem = 1;
+        return rem;
     }
 
     private Vec3 resolveVortexTop() {

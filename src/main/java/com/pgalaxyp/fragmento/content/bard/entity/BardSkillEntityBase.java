@@ -1,10 +1,15 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
-import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.constants.BardSpiritConstants;
-import com.pgalaxyp.fragmento.core.controller.*;
+import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
+import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
+import com.pgalaxyp.fragmento.core.controller.CollisionController;
+import com.pgalaxyp.fragmento.core.controller.ImpulseController;
+import com.pgalaxyp.fragmento.core.controller.OrientationController;
+import com.pgalaxyp.fragmento.core.controller.SpawnController;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
 import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
+import java.util.UUID;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -15,7 +20,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import java.util.UUID;
 
 public abstract class BardSkillEntityBase extends SkillEntityBase {
 
@@ -62,8 +66,8 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
 
         controllers.add(spawnController);
         controllers.add(flightController);
-        controllers.add(collisionController);
         controllers.add(impulseController);
+        controllers.add(collisionController);
         controllers.add(orientationController);
     }
 
@@ -80,17 +84,20 @@ public abstract class BardSkillEntityBase extends SkillEntityBase {
 
     @Override
     protected void serverPreControllers() {
-
         lifetimeTicks++;
         syncInt(LIFETIME, lifetimeTicks);
         syncInt(CAST_STATE, state.castState().ordinal());
+        orientationController.setEnabled(!isOrientationLocked());
+    }
 
+    @Override
+    protected void serverPostControllers() {
         if (behavior != null) {
             behavior.tick();
-            if (isRemoved()) return;
+            if (isRemoved()) {
+                return;
+            }
         }
-
-        orientationController.setEnabled(!isOrientationLocked());
 
         if (level() instanceof ServerLevel sl) {
             if (lifecycle.tick(sl)) {

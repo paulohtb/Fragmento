@@ -1,28 +1,36 @@
 package com.pgalaxyp.fragmento.gameplay.entity;
 
 import com.pgalaxyp.fragmento.core.controller.EntityController;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 public abstract class SkillEntityBase extends Entity {
 
-    protected final List<EntityController<?>> controllers =
-            new ArrayList<>(6);
+    protected final List<EntityController<?>> controllers = new ArrayList<>(6);
 
     private Vec3 prevPos;
+
+    private int clientLerpSteps;
+    private double clientLerpX;
+    private double clientLerpY;
+    private double clientLerpZ;
+    private float clientLerpYRot;
+    private float clientLerpXRot;
+    private Vec3 clientLerpMotion;
 
     protected SkillEntityBase(EntityType<?> type, Level level) {
         super(type, level);
@@ -35,6 +43,7 @@ public abstract class SkillEntityBase extends Entity {
         prevPos = position();
 
         if (level().isClientSide()) {
+            applyClientLerp();
             clientTick();
             super.tick();
             return;
@@ -57,6 +66,69 @@ public abstract class SkillEntityBase extends Entity {
 
         setDeltaMovement(Vec3.ZERO);
         super.tick();
+    }
+
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (!level().isClientSide()) {
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+            return;
+        }
+
+        if (steps <= 0) {
+            clientLerpSteps = 0;
+            clientLerpMotion = null;
+            setPos(x, y, z);
+            setYRot(yRot);
+            setXRot(xRot);
+            yRotO = yRot;
+            xRotO = xRot;
+            return;
+        }
+
+        clientLerpX = x;
+        clientLerpY = y;
+        clientLerpZ = z;
+        clientLerpYRot = yRot;
+        clientLerpXRot = xRot;
+        clientLerpSteps = Math.max(3, steps);
+    }
+
+    @Override
+    public void lerpMotion(double x, double y, double z) {
+        if (!level().isClientSide()) {
+            super.lerpMotion(x, y, z);
+            return;
+        }
+        clientLerpMotion = new Vec3(x, y, z);
+    }
+
+    private void applyClientLerp() {
+        if (clientLerpSteps <= 0) return;
+
+        double t = 1.0 / (double) clientLerpSteps;
+
+        Vec3 cur = position();
+        Vec3 tgt = new Vec3(clientLerpX, clientLerpY, clientLerpZ);
+        Vec3 next = MathUtil.lerp(cur, tgt, t);
+
+        setPos(next.x, next.y, next.z);
+
+        float f = (float) t;
+        float y = Mth.rotLerp(f, getYRot(), clientLerpYRot);
+        float x = Mth.lerp(f, getXRot(), clientLerpXRot);
+
+        setYRot(Mth.wrapDegrees(y));
+        setXRot(Mth.wrapDegrees(x));
+
+        yRotO = getYRot();
+        xRotO = getXRot();
+
+        if (clientLerpMotion != null) {
+            setDeltaMovement(clientLerpMotion);
+        }
+
+        clientLerpSteps--;
     }
 
     protected void clientTick() {
@@ -95,17 +167,9 @@ public abstract class SkillEntityBase extends Entity {
         return position();
     }
 
-    public int summon(
-            LivingEntity owner,
-            LivingEntity target,
-            ServerLevel level,
-            SkillMode mode,
-            ItemStack sourceItem
-    ) {
+    public int summon(LivingEntity owner, LivingEntity target, ServerLevel level, SkillMode mode, ItemStack sourceItem) {
         if (level == null) return 0;
-
         if (!level.addFreshEntity(this)) return 0;
-
         return getId();
     }
 

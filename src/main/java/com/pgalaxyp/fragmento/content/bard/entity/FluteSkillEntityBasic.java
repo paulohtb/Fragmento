@@ -1,11 +1,13 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
-import java.util.UUID;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardChargeData;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
-import com.pgalaxyp.fragmento.core.controller.movement.ConstantSpeedHomingMovement;
+import com.pgalaxyp.fragmento.core.controller.CollisionController;
+import com.pgalaxyp.fragmento.core.controller.movement.TimeboxedHomingMovement;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
+import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,7 +18,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
 
     enum Phase { SPAWN, TRAVEL, DESPAWN }
 
-    private static final double SPEED_PER_TICK = 0.55;
+    private static final double TRAVEL_MAX_SPEED = 2.25;
     private static final double BOUNCE_IMPULSE = 0.28;
     private static final double BOUNCE_UP = 0.06;
 
@@ -32,6 +34,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
         if (phase == Phase.SPAWN) {
             s.setAnimKey(BardAnimKeys.SPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
             s.collisionController.setEnabled(false);
             return;
         }
@@ -39,15 +42,23 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
         if (phase == Phase.TRAVEL) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMovement(new ConstantSpeedHomingMovement<>(SPEED_PER_TICK));
+            s.flightController.setMaxSpeedPerTick(TRAVEL_MAX_SPEED);
+            s.flightController.setAccelPerTick(0.0);
+            s.flightController.setSnapToDesired(true);
+            s.flightController.setMovement(
+                    new TimeboxedHomingMovement<>(
+                            this::remainingTicksForMovement,
+                            TRAVEL_MAX_SPEED
+                    )
+            );
             s.flightController.setEnabled(true);
 
             s.collisionController.setCollisionCheck(
-                    com.pgalaxyp.fragmento.core.controller.CollisionController.adaptiveHomingHit(
+                    CollisionController.adaptiveHomingHit(
                             s,
-                            0.35,
-                            1.10,
-                            0.20
+                            0.10,
+                            0.18,
+                            0.12
                     )
             );
 
@@ -59,6 +70,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
         if (phase == Phase.DESPAWN) {
             s.setAnimKey(BardAnimKeys.DESPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
             s.collisionController.setEnabled(false);
         }
     }
@@ -69,7 +81,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
 
         if (phase == Phase.SPAWN) {
             if (time() >= duration()) {
-                startPhase(Phase.TRAVEL, 12);
+                startPhase(Phase.TRAVEL, 10);
             }
             return;
         }
@@ -94,7 +106,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
                     }
                 }
 
-                applyBounce(s);
+                applyBounceNow(s);
                 startPhase(Phase.DESPAWN, 8);
                 return;
             }
@@ -112,7 +124,15 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
         }
     }
 
-    private static void applyBounce(BardSkillEntityBase s) {
+    private int remainingTicksForMovement() {
+        int t = time();
+        int d = duration();
+        int rem = t <= 0 ? d : (d - t + 1);
+        if (rem <= 0) rem = 1;
+        return rem;
+    }
+
+    private static void applyBounceNow(BardSkillEntityBase s) {
         Vec3 v = s.getDeltaMovement();
         Vec3 dir;
 
@@ -128,7 +148,7 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
             }
         }
 
-        Vec3 back = dir.scale(-BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
-        s.impulseController.addImpulse(back);
+        Vec3 back = dir.scale(MathUtil.negate(BOUNCE_IMPULSE)).add(0.0, BOUNCE_UP, 0.0);
+        s.setDeltaMovement(back);
     }
 }

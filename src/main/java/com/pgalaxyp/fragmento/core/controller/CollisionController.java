@@ -1,13 +1,13 @@
 package com.pgalaxyp.fragmento.core.controller;
 
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
+import java.util.function.Function;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.ClipContext;
-
-import java.util.function.Function;
 
 public final class CollisionController<T extends SkillEntityBase> extends EntityController<T> {
 
@@ -75,7 +75,7 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         if (lastHit != null || blockHit) return;
 
         Vec3 from = entity.getPrevPos();
-        Vec3 to = entity.position();
+        Vec3 to = entity.position().add(entity.getDeltaMovement());
 
         HitResult block = entity.level().clip(
                 new ClipContext(
@@ -101,8 +101,9 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
     }
 
     public static CollisionCheck segmentHit(double inflate) {
+        double extra = Math.max(0.0, inflate);
         return (from, to, target) -> {
-            AABB box = target.getBoundingBox().inflate(inflate);
+            AABB box = target.getBoundingBox().inflate(extra);
             return box.clip(from, to).isPresent() ? target : null;
         };
     }
@@ -116,8 +117,17 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         return (from, to, target) -> {
             if (self == null || target == null || !target.isAlive()) return null;
 
+            double width = self.getBbWidth();
+            double height = self.getBbHeight();
+            double selfRadius = 0.5 * Math.max(width, height);
+
             double speed = self.getDeltaMovement().length();
-            double inflate = Math.max(0.0, baseInflate + speed * Math.max(0.0, speedInflateFactor));
+            double speedScale = Math.max(0.0, speedInflateFactor);
+            double speedExtra = speed * speedScale;
+            double speedCap = 0.45;
+            double speedInflate = Math.min(speedExtra, speedCap);
+
+            double inflate = Math.max(0.0, baseInflate) + selfRadius + speedInflate;
 
             AABB box = target.getBoundingBox().inflate(inflate);
 
@@ -125,8 +135,9 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
                 return target;
             }
 
-            if (endPointExtraRadius > 0.0) {
-                double r = inflate + endPointExtraRadius;
+            double endExtra = Math.max(0.0, endPointExtraRadius);
+            if (endExtra > 0.0) {
+                double r = inflate + endExtra;
                 double d2 = distanceSqrPointToAabb(to, box);
                 if (d2 <= r * r) {
                     return target;
@@ -142,9 +153,9 @@ public final class CollisionController<T extends SkillEntityBase> extends Entity
         double cy = clamp(p.y, aabb.minY, aabb.maxY);
         double cz = clamp(p.z, aabb.minZ, aabb.maxZ);
 
-        double dx = p.x - cx;
-        double dy = p.y - cy;
-        double dz = p.z - cz;
+        double dx = p.x + MathUtil.negate(cx);
+        double dy = p.y + MathUtil.negate(cy);
+        double dz = p.z + MathUtil.negate(cz);
 
         return dx * dx + dy * dy + dz * dz;
     }

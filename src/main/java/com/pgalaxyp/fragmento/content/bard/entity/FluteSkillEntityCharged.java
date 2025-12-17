@@ -3,7 +3,8 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
 import com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry;
-import com.pgalaxyp.fragmento.core.controller.movement.ConstantSpeedHomingMovement;
+import com.pgalaxyp.fragmento.core.controller.CollisionController;
+import com.pgalaxyp.fragmento.core.controller.movement.TimeboxedHomingMovement;
 import com.pgalaxyp.fragmento.core.util.MathUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,7 +23,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         DESPAWN
     }
 
-    private static final double TRAVEL_SPEED = 0.55;
+    private static final double TRAVEL_MAX_SPEED = 2.25;
     private static final double OVERSHOOT_SPEED = 0.35;
     private static final double ASCENT_SPEED = 0.25;
     private static final double FOLLOW_MAX_SPEED = 0.70;
@@ -46,6 +47,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.SPAWN) {
             s.setAnimKey(BardAnimKeys.SPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
             s.collisionController.setEnabled(false);
             return;
         }
@@ -53,15 +55,23 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.TRAVEL) {
             s.setAnimKey(BardAnimKeys.TRAVEL);
 
-            s.flightController.setMovement(new ConstantSpeedHomingMovement<>(TRAVEL_SPEED));
+            s.flightController.setMaxSpeedPerTick(TRAVEL_MAX_SPEED);
+            s.flightController.setAccelPerTick(0.0);
+            s.flightController.setSnapToDesired(true);
+            s.flightController.setMovement(
+                    new TimeboxedHomingMovement<>(
+                            this::remainingTicksForMovement,
+                            TRAVEL_MAX_SPEED
+                    )
+            );
             s.flightController.setEnabled(true);
 
             s.collisionController.setCollisionCheck(
-                    com.pgalaxyp.fragmento.core.controller.CollisionController.adaptiveHomingHit(
+                    CollisionController.adaptiveHomingHit(
                             s,
-                            0.35,
-                            1.10,
-                            0.20
+                            0.12,
+                            0.20,
+                            0.15
                     )
             );
 
@@ -71,6 +81,9 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         if (phase == Phase.OVERSHOOT) {
+            s.flightController.setMaxSpeedPerTick(0.90);
+            s.flightController.setAccelPerTick(0.0);
+            s.flightController.setSnapToDesired(true);
             s.flightController.setMovement((self, target) -> moveDir.scale(OVERSHOOT_SPEED));
             s.flightController.setEnabled(true);
             s.collisionController.setEnabled(false);
@@ -78,6 +91,9 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         if (phase == Phase.ASCENT) {
+            s.flightController.setMaxSpeedPerTick(0.90);
+            s.flightController.setAccelPerTick(0.0);
+            s.flightController.setSnapToDesired(true);
             s.flightController.setMovement((self, target) -> new Vec3(0.0, ASCENT_SPEED, 0.0));
             s.flightController.setEnabled(true);
             return;
@@ -93,6 +109,9 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
             hoverOffset = s.position().subtract(t.position());
             vortexSpawned = false;
 
+            s.flightController.setMaxSpeedPerTick(0.90);
+            s.flightController.setAccelPerTick(0.22);
+            s.flightController.setSnapToDesired(false);
             s.flightController.setMovement((self, target) -> {
                 if (target == null) return Vec3.ZERO;
                 Vec3 desiredPos = target.position().add(hoverOffset);
@@ -106,6 +125,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         if (phase == Phase.DESPAWN) {
             s.setAnimKey(BardAnimKeys.DESPAWN);
             s.flightController.setEnabled(false);
+            s.flightController.setSnapToDesired(false);
             s.collisionController.setEnabled(false);
         }
     }
@@ -120,7 +140,7 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
 
         if (phase == Phase.SPAWN) {
-            if (time() >= duration()) startPhase(Phase.TRAVEL, 12);
+            if (time() >= duration()) startPhase(Phase.TRAVEL, 10);
             return;
         }
 
@@ -131,14 +151,14 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
                     hit.hurt(hit.damageSources().magic(), BardInstrumentConstants.CHARGED_DAMAGE);
                 }
 
-                captureMoveDir(s);
-                applyBounce(s);
+                captureMoveDirFromCurrentDelta(s);
+                applyBounceNow(s);
                 startPhase(Phase.OVERSHOOT, 4);
                 return;
             }
 
             if (time() >= duration()) {
-                captureMoveDir(s);
+                captureMoveDirFromCurrentDelta(s);
                 startPhase(Phase.OVERSHOOT, 4);
             }
             return;
@@ -168,19 +188,27 @@ public final class FluteSkillEntityCharged extends TimedSkillEntity<FluteSkillEn
         }
     }
 
-    private void captureMoveDir(BardSkillEntityBase s) {
+    private int remainingTicksForMovement() {
+        int t = time();
+        int d = duration();
+        int rem = t <= 0 ? d : (d - t + 1);
+        if (rem <= 0) rem = 1;
+        return rem;
+    }
+
+    private void captureMoveDirFromCurrentDelta(BardSkillEntityBase s) {
         Vec3 d = s.getDeltaMovement();
         if (d.lengthSqr() > 0.00000001) {
             moveDir = d.normalize();
         }
     }
 
-    private static void applyBounce(BardSkillEntityBase s) {
+    private static void applyBounceNow(BardSkillEntityBase s) {
         Vec3 d = s.getDeltaMovement();
         Vec3 dir = d.lengthSqr() > 0.00000001 ? d.normalize() : new Vec3(0.0, 0.0, 1.0);
 
-        Vec3 back = dir.scale(-BOUNCE_IMPULSE).add(0.0, BOUNCE_UP, 0.0);
-        s.impulseController.addImpulse(back);
+        Vec3 back = dir.scale(MathUtil.negate(BOUNCE_IMPULSE)).add(0.0, BOUNCE_UP, 0.0);
+        s.setDeltaMovement(back);
     }
 
     private void spawnVortex() {
