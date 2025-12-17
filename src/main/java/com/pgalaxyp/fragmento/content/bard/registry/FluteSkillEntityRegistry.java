@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.content.bard.registry;
 
-import com.pgalaxyp.fragmento.content.bard.entity.FluteSkillEntity;
+import com.pgalaxyp.fragmento.system.entity.host.BardSpiritEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -12,11 +12,11 @@ public final class FluteSkillEntityRegistry {
     public static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(Registries.ENTITY_TYPE, "fragmento");
 
-    public static final DeferredHolder<EntityType<?>, EntityType<FluteSkillEntity>> FLUTE_SPIRIT =
+    public static final DeferredHolder<EntityType<?>, EntityType<BardSpiritEntity>> FLUTE_SPIRIT =
             ENTITIES.register(
                     "flute_spirit",
                     () -> EntityType.Builder
-                            .of(FluteSkillEntity::new, MobCategory.MISC)
+                            .of(BardSpiritEntity::new, MobCategory.MISC)
                             .sized(0.6f, 0.6f)
                             .clientTrackingRange(96)
                             .updateInterval(1)

@@ -1,6 +1,5 @@
-package com.pgalaxyp.fragmento.content.bard.channel;
+package com.pgalaxyp.fragmento.system.channel;
 
-import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
 import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
 import net.minecraft.server.level.ServerLevel;
 

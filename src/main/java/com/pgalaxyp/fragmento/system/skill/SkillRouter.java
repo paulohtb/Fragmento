@@ -1,8 +1,7 @@
 package com.pgalaxyp.fragmento.system.skill;
 
-import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystCooldownService;
 import com.pgalaxyp.fragmento.system.channel.ChannelingService;
-import com.pgalaxyp.fragmento.network.SkillPacket;
+import com.pgalaxyp.fragmento.system.gameplay.BardCatalystCooldownService;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -11,37 +10,28 @@ public final class SkillRouter {
     private SkillRouter() {
     }
 
-    public static void handlePacket(ServerPlayer player, SkillPacket packet) {
-        SkillSlot slot = SkillSlot.fromId(packet.slotId());
+    public static void handleIntent(
+            ServerPlayer player,
+            int slotId,
+            int targetId
+    ) {
+        SkillSlot slot = SkillSlot.fromId(slotId);
         if (slot == null) return;
 
-        SkillAction action = mapAction(packet.action());
-        if (action == null) return;
+        if (!SkillRateLimitService.allow(player, slot, SkillAction.START)) return;
 
-        if (!SkillRateLimitService.allow(player, slot, action)) return;
+        ItemStack stack = player.getMainHandItem();
+        if (stack.isEmpty()) return;
 
-        if (action == SkillAction.START) {
-            ItemStack stack = player.getMainHandItem();
-            if (stack.isEmpty()) return;
+        if (BardCatalystCooldownService.isOnCooldown(player, stack.getItem())) return;
 
-            if (BardCatalystCooldownService.isOnCooldown(player, stack.getItem())) return;
-
-            if (slot == SkillSlot.SPECIAL && ChannelingService.hasActive(player)) return;
-        }
+        if (slot == SkillSlot.SPECIAL && ChannelingService.hasActive(player)) return;
 
         SkillDispatchService.dispatch(
                 player,
                 slot,
-                action,
-                packet.targetId()
+                SkillAction.START,
+                targetId
         );
-    }
-
-    private static SkillAction mapAction(SkillPacket.Action action) {
-        if (action == null) return null;
-        return switch (action) {
-            case START -> SkillAction.START;
-            case CANCEL -> SkillAction.CANCEL;
-        };
     }
 }

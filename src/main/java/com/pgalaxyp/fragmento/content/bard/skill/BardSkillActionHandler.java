@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.content.bard.skill;
 
+import com.pgalaxyp.fragmento.system.skill.BardSkillServerController;
 import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import com.pgalaxyp.fragmento.system.skill.SkillAction;
 import com.pgalaxyp.fragmento.system.skill.SkillActionHandler;

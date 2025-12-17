@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.system.core;
 
-import com.pgalaxyp.fragmento.content.bard.BardModule;
+import com.pgalaxyp.fragmento.content.bard.module.BardModule;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 

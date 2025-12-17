@@ -1,0 +1,276 @@
+package com.pgalaxyp.fragmento.system.entity.host;
+
+import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
+import com.pgalaxyp.fragmento.system.entity.event.SpiritEventSource;
+import com.pgalaxyp.fragmento.system.entity.resolve.SpiritResolve;
+import com.pgalaxyp.fragmento.system.entity.event.SpiritSelf;
+import com.pgalaxyp.fragmento.system.entity.controller.EntityController;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+import java.util.UUID;
+
+public abstract class NewwSpiritEntityBase extends SkillEntityBase implements SpiritSelf, SpiritEventSource {
+
+    public static final EntityDataAccessor<Integer> LIFETIME =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.INT);
+
+    public static final EntityDataAccessor<Boolean> CASTED =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.BOOLEAN);
+
+    public static final EntityDataAccessor<Byte> ANIM_KEY =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.BYTE);
+
+    private int lifetimeTicks;
+
+    private UUID ownerUuid;
+    private int targetEntityId;
+    private UUID sourceInstrumentUuid;
+
+    private LivingEntity cachedOwner;
+    private LivingEntity cachedTarget;
+
+    private boolean pendingCasted;
+    private boolean pendingCancelled;
+
+    private int despawnTicksRemaining;
+
+    private boolean controllerInitialized;
+
+    protected NewwSpiritEntityBase(EntityType<?> type, Level level) {
+        super(type, level);
+    }
+
+    @Override
+    protected final void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(LIFETIME, 0);
+        builder.define(CASTED, false);
+        builder.define(ANIM_KEY, (byte) 0);
+    }
+
+    @Override
+    protected final void readAdditionalSaveData(CompoundTag tag) {
+    }
+
+    @Override
+    protected final void addAdditionalSaveData(CompoundTag tag) {
+    }
+
+    @Override
+    public final boolean shouldBeSaved() {
+        return false;
+    }
+
+    @Override
+    public final boolean isPickable() {
+        return false;
+    }
+
+    @Override
+    public final boolean canBeCollidedWith() {
+        return false;
+    }
+
+    @Override
+    public final boolean isPushable() {
+        return false;
+    }
+
+    public final int summon(
+            LivingEntity owner,
+            LivingEntity target,
+            ServerLevel level,
+            SkillMode mode,
+            ItemStack sourceItem
+    ) {
+        if (level == null) return 0;
+
+        lifetimeTicks = 0;
+        setLifetimeSynced(0);
+
+        pendingCasted = false;
+        pendingCancelled = false;
+
+        despawnTicksRemaining = 0;
+        setCastedSynced(false);
+
+        ownerUuid = owner != null ? owner.getUUID() : null;
+        targetEntityId = target != null ? target.getId() : 0;
+        sourceInstrumentUuid = resolveSourceInstrumentUuid(sourceItem);
+
+        cachedOwner = null;
+        cachedTarget = null;
+
+        onSummoned(mode);
+
+        if (owner != null) {
+            var eye = owner.getEyePosition();
+            setPos(eye.x, eye.y, eye.z);
+            setYRot(owner.getYRot());
+            setXRot(owner.getXRot());
+            yRotO = getYRot();
+            xRotO = getXRot();
+        }
+
+        level.addFreshEntity(this);
+        return getId();
+    }
+
+    protected abstract void onSummoned(SkillMode mode);
+
+    @Override
+    protected final void serverPreControllers() {
+        lifetimeTicks++;
+        setLifetimeSynced(lifetimeTicks);
+
+        if (despawnTicksRemaining > 0) {
+            despawnTicksRemaining--;
+            if (despawnTicksRemaining <= 0) {
+                remove(RemovalReason.DISCARDED);
+                return;
+            }
+        }
+
+        if (level() instanceof ServerLevel sl) {
+            cachedOwner = SpiritResolve.resolveOwner(sl, ownerUuid, cachedOwner);
+            cachedTarget = SpiritResolve.resolveTarget(sl, targetEntityId, cachedTarget);
+        }
+    }
+
+    @Override
+    protected void clientTick() {
+    }
+
+    public final LivingEntity getOwner() {
+        return cachedOwner;
+    }
+
+    public final LivingEntity getTarget() {
+        return cachedTarget;
+    }
+
+    public final UUID getOwnerUuid() {
+        return ownerUuid;
+    }
+
+    public final int getTargetEntityId() {
+        return targetEntityId;
+    }
+
+    public final UUID getSourceInstrumentUuid() {
+        return sourceInstrumentUuid;
+    }
+
+    public final int getLifetime() {
+        return entityData.get(LIFETIME);
+    }
+
+    public final boolean isCasted() {
+        return entityData.get(CASTED);
+    }
+
+    @Override
+    public final void setAnimKey(byte key) {
+        if (entityData.get(ANIM_KEY) != key) {
+            entityData.set(ANIM_KEY, key);
+        }
+    }
+
+    public final byte getAnimKey() {
+        return entityData.get(ANIM_KEY);
+    }
+
+    @Override
+    public final void markCasted() {
+        if (level().isClientSide()) return;
+
+        if (!entityData.get(CASTED)) {
+            setCastedSynced(true);
+        }
+        pendingCasted = true;
+    }
+
+    @Override
+    public final void markCancelled() {
+        if (level().isClientSide()) return;
+        pendingCancelled = true;
+    }
+
+    @Override
+    public final boolean consumeCasted() {
+        if (!pendingCasted) return false;
+        pendingCasted = false;
+        return true;
+    }
+
+    @Override
+    public final boolean consumeCancelled() {
+        if (!pendingCancelled) return false;
+        pendingCancelled = false;
+        return true;
+    }
+
+    @Override
+    public final void requestDespawn() {
+        requestDespawn(0);
+    }
+
+    @Override
+    public final void requestDespawn(int delayTicks) {
+        if (level().isClientSide()) return;
+
+        int d = Math.max(0, delayTicks);
+        if (despawnTicksRemaining == 0 || d < despawnTicksRemaining) {
+            despawnTicksRemaining = d;
+        }
+
+        pendingCancelled = true;
+
+        if (despawnTicksRemaining == 0) {
+            remove(RemovalReason.DISCARDED);
+        }
+    }
+
+    public final void moveServer(net.minecraft.world.phys.Vec3 delta) {
+        if (level().isClientSide()) return;
+        if (delta == null) return;
+        if (delta.lengthSqr() <= 1.0E-12) return;
+        setDeltaMovement(delta);
+    }
+
+    protected final void ensureControllerRegistered(EntityController<?> controller) {
+        if (controllerInitialized) return;
+        controllers.add(controller);
+        controllerInitialized = true;
+    }
+
+    protected final void resetControllers() {
+        controllers.clear();
+        controllerInitialized = false;
+    }
+
+    private void setLifetimeSynced(int value) {
+        if (entityData.get(LIFETIME) != value) {
+            entityData.set(LIFETIME, value);
+        }
+    }
+
+    private void setCastedSynced(boolean value) {
+        if (entityData.get(CASTED) != value) {
+            entityData.set(CASTED, value);
+        }
+    }
+
+    private static UUID resolveSourceInstrumentUuid(ItemStack sourceItem) {
+        if (sourceItem == null || sourceItem.isEmpty()) return null;
+        return BardCatalystIdService.getOrCreate(sourceItem);
+    }
+}

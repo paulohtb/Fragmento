@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.core.controller;
+package com.pgalaxyp.fragmento.system.animation;
 
 import com.pgalaxyp.fragmento.system.entity.controller.EntityController;
 import net.minecraft.world.entity.Entity;

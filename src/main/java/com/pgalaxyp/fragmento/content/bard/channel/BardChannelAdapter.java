@@ -1,7 +1,9 @@
 package com.pgalaxyp.fragmento.content.bard.channel;
 
-import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
-import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
+
+import com.pgalaxyp.fragmento.system.channel.BardChannelEntity;
+import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
+import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
 import com.pgalaxyp.fragmento.system.channel.ChannelAdapter;
 import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
 import com.pgalaxyp.fragmento.system.channel.ChannelFingerprint;
@@ -28,7 +30,7 @@ public final class BardChannelAdapter implements ChannelAdapter {
         }
 
         Entity e = level.getEntity(entityId);
-        if (e instanceof BardSkillEntityBase spirit) {
+        if (e instanceof NewwSpiritEntityBase spirit) {
             return new BardChannelEntity(spirit);
         }
 
@@ -41,11 +43,7 @@ public final class BardChannelAdapter implements ChannelAdapter {
     }
 
     @Override
-    public boolean isStillHolding(
-            ServerPlayer player,
-            InteractionHand hand,
-            ChannelFingerprint fingerprint
-    ) {
+    public boolean isStillHolding(ServerPlayer player, InteractionHand hand, ChannelFingerprint fingerprint) {
         if (fingerprint == null || player == null) {
             return false;
         }
