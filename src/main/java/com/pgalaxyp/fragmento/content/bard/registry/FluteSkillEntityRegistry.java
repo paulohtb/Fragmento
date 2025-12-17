@@ -19,7 +19,7 @@ public final class FluteSkillEntityRegistry {
                             .of(FluteSkillEntity::new, MobCategory.MISC)
                             .sized(0.6f, 0.6f)
                             .clientTrackingRange(96)
-                            .updateInterval(2)
+                            .updateInterval(1)
                             .build("fragmento:flute_spirit")
             );
 

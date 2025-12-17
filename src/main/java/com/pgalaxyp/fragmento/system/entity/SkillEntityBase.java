@@ -1,22 +1,22 @@
 package com.pgalaxyp.fragmento.system.entity;
 
-import com.pgalaxyp.fragmento.core.controller.EntityController;
-import com.pgalaxyp.fragmento.core.util.MathUtil;
-import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.phys.Vec3;
+import com.pgalaxyp.fragmento.core.controller.EntityController;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
+import net.minecraft.server.level.ServerLevel;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import net.minecraft.world.item.ItemStack;
 
 public abstract class SkillEntityBase extends Entity {
 
@@ -91,7 +91,7 @@ public abstract class SkillEntityBase extends Entity {
         clientLerpZ = z;
         clientLerpYRot = yRot;
         clientLerpXRot = xRot;
-        clientLerpSteps = Math.max(3, steps);
+        clientLerpSteps = Math.max(1, steps);
     }
 
     @Override
