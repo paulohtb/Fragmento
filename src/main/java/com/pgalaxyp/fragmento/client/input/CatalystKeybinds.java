@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.platform.events.input;
+package com.pgalaxyp.fragmento.client.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;

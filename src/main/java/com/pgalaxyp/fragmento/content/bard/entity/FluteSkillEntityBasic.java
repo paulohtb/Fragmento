@@ -5,14 +5,15 @@ import com.pgalaxyp.fragmento.content.bard.catalyst.BardChargeData;
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
 import com.pgalaxyp.fragmento.core.controller.CollisionController;
-import com.pgalaxyp.fragmento.core.controller.movement.TimeboxedHomingMovement;
+import com.pgalaxyp.fragmento.core.controller.movement.ConstantSpeedHomingMovement;
 import com.pgalaxyp.fragmento.core.util.MathUtil;
-import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.UUID;
 
 public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEntityBasic.Phase> {
 
@@ -46,19 +47,16 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
             s.flightController.setAccelPerTick(0.0);
             s.flightController.setSnapToDesired(true);
             s.flightController.setMovement(
-                    new TimeboxedHomingMovement<>(
-                            this::remainingTicksForMovement,
-                            TRAVEL_MAX_SPEED
-                    )
+                    new ConstantSpeedHomingMovement<>(TRAVEL_MAX_SPEED)
             );
             s.flightController.setEnabled(true);
 
             s.collisionController.setCollisionCheck(
                     CollisionController.adaptiveHomingHit(
                             s,
-                            0.10,
-                            0.18,
-                            0.12
+                            0.02,
+                            0.0,
+                            0.0
                     )
             );
 
@@ -127,28 +125,34 @@ public final class FluteSkillEntityBasic extends TimedSkillEntity<FluteSkillEnti
     private int remainingTicksForMovement() {
         int t = time();
         int d = duration();
-        int rem = t <= 0 ? d : (d - t + 1);
+        int rem = t <= 0 ? d : (d + negateInt(t) + 1);
         if (rem <= 0) rem = 1;
         return rem;
     }
 
     private static void applyBounceNow(BardSkillEntityBase s) {
-        Vec3 v = s.getDeltaMovement();
-        Vec3 dir;
+        Vec3 dir = s.collisionController.getCollisionMotionDir();
 
-        if (v.lengthSqr() > 0.00000001) {
-            dir = v.normalize();
-        } else {
-            LivingEntity t = s.getTarget();
-            if (t != null) {
-                Vec3 d = s.position().subtract(t.getBoundingBox().getCenter());
-                dir = d.lengthSqr() > 0.00000001 ? d.normalize() : new Vec3(0.0, 0.0, 1.0);
+        if (dir == null) {
+            Vec3 v = s.getDeltaMovement();
+            if (v.lengthSqr() > 0.00000001) {
+                dir = v.normalize();
             } else {
-                dir = new Vec3(0.0, 0.0, 1.0);
+                LivingEntity t = s.getTarget();
+                if (t != null) {
+                    Vec3 d = s.position().subtract(t.getBoundingBox().getCenter());
+                    dir = d.lengthSqr() > 0.00000001 ? d.normalize() : new Vec3(0.0, 0.0, 1.0);
+                } else {
+                    dir = new Vec3(0.0, 0.0, 1.0);
+                }
             }
         }
 
         Vec3 back = dir.scale(MathUtil.negate(BOUNCE_IMPULSE)).add(0.0, BOUNCE_UP, 0.0);
         s.setDeltaMovement(back);
+    }
+
+    private static int negateInt(int v) {
+        return (int) MathUtil.negate((double) v);
     }
 }

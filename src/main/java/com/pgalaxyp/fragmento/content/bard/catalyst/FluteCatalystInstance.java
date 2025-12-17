@@ -5,8 +5,8 @@ import com.pgalaxyp.fragmento.content.bard.skill.BardNormalSkill;
 import com.pgalaxyp.fragmento.content.bard.skill.BardSpecialSkill;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
 import com.pgalaxyp.fragmento.content.bard.registry.FluteSkillEntityRegistry;
-import com.pgalaxyp.fragmento.gameplay.skill.Skill;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;

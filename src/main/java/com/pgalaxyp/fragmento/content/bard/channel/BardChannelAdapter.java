@@ -2,9 +2,9 @@ package com.pgalaxyp.fragmento.content.bard.channel;
 
 import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
 import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelAdapter;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelEntity;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelFingerprint;
+import com.pgalaxyp.fragmento.system.channel.ChannelAdapter;
+import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
+import com.pgalaxyp.fragmento.system.channel.ChannelFingerprint;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;

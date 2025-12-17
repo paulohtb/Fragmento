@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.gameplay.cooldown;
 
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;

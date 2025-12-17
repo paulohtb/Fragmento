@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.core.controller.movement;
 
-import com.pgalaxyp.fragmento.gameplay.entity.SkillEntityBase;
+import com.pgalaxyp.fragmento.system.entity.SkillEntityBase;
 import com.pgalaxyp.fragmento.core.controller.AutoMovementController;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;

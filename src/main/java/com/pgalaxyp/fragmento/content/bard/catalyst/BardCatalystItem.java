@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.catalyst;
 
-import com.pgalaxyp.fragmento.gameplay.skill.Skill;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 

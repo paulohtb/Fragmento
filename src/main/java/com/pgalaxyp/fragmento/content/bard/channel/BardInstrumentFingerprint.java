@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.channel;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelFingerprint;
+import com.pgalaxyp.fragmento.system.channel.ChannelFingerprint;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;

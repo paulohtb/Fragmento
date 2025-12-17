@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.platform.network.packet;
+package com.pgalaxyp.fragmento.network;
 
-import com.pgalaxyp.fragmento.gameplay.skill.SkillRouter;
+import com.pgalaxyp.fragmento.system.skill.SkillRouter;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;

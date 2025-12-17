@@ -1,7 +1,7 @@
-package com.pgalaxyp.fragmento.gameplay.channel;
+package com.pgalaxyp.fragmento.system.channel;
 
 import com.pgalaxyp.fragmento.gameplay.cooldown.PlayerSkillCooldownService;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

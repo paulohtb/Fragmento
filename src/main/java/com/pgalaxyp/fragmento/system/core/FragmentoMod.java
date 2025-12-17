@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento;
+package com.pgalaxyp.fragmento.system.core;
 
 import com.pgalaxyp.fragmento.content.bard.BardModule;
 import net.neoforged.bus.api.IEventBus;

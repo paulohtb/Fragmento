@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.gameplay.channel;
+package com.pgalaxyp.fragmento.system.channel;
 
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;

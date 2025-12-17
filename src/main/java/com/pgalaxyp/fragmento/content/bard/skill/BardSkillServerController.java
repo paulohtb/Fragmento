@@ -4,19 +4,23 @@ import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
 import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
 import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import com.pgalaxyp.fragmento.gameplay.cooldown.PlayerSkillCooldownService;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillResult;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillTargetingService;
-import com.pgalaxyp.fragmento.gameplay.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.SkillResult;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.SkillTargetingService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.AABB;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Predicate;
 
 public final class BardSkillServerController {
 
@@ -105,11 +109,21 @@ public final class BardSkillServerController {
     }
 
     private static BardSkillEntityBase findLatestOwnedSpirit(ServerLevel level, ServerPlayer player) {
-        AABB area = player.getBoundingBox().inflate(8);
-        var list = level.getEntitiesOfClass(
+        AABB area = expand(player.getBoundingBox(), 8.0);
+
+        Predicate<BardSkillEntityBase> filter = new Predicate<>() {
+            @Override
+            public boolean test(BardSkillEntityBase e) {
+                if (e == null) return false;
+                UUID id = e.getOwnerUuid();
+                return id != null && id.equals(player.getUUID());
+            }
+        };
+
+        List<BardSkillEntityBase> list = level.getEntitiesOfClass(
                 BardSkillEntityBase.class,
                 area,
-                e -> e.getOwnerUuid() != null && e.getOwnerUuid().equals(player.getUUID())
+                filter
         );
 
         if (list.isEmpty()) return null;
@@ -127,5 +141,15 @@ public final class BardSkillServerController {
         }
 
         return best;
+    }
+
+    private static AABB expand(AABB box, double amount) {
+        if (box == null) return null;
+        if (amount <= 0.0) return box;
+        double a = amount;
+        return new AABB(
+                box.minX + MathUtil.negate(a), box.minY + MathUtil.negate(a), box.minZ + MathUtil.negate(a),
+                box.maxX + a, box.maxY + a, box.maxZ + a
+        );
     }
 }

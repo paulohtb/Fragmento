@@ -2,10 +2,10 @@ package com.pgalaxyp.fragmento.content.bard.skill;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.core.util.RaycastUtil;
-import com.pgalaxyp.fragmento.gameplay.skill.Skill;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
-import com.pgalaxyp.fragmento.platform.events.input.CatalystKeybinds;
-import com.pgalaxyp.fragmento.platform.network.packet.SkillPacket;
+import com.pgalaxyp.fragmento.system.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
+import com.pgalaxyp.fragmento.client.input.CatalystKeybinds;
+import com.pgalaxyp.fragmento.network.SkillPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.item.ItemStack;

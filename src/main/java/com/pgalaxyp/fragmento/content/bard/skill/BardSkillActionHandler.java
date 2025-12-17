@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.content.bard.skill;
 
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillAction;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillActionHandler;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
+import com.pgalaxyp.fragmento.system.skill.SkillAction;
+import com.pgalaxyp.fragmento.system.skill.SkillActionHandler;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class BardSkillActionHandler implements SkillActionHandler {

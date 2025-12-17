@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.gameplay.channel;
+package com.pgalaxyp.fragmento.system.channel;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

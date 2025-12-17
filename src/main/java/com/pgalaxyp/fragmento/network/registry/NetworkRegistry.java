@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.platform.network;
+package com.pgalaxyp.fragmento.network.registry;
 
-import com.pgalaxyp.fragmento.platform.network.packet.SkillPacket;
+import com.pgalaxyp.fragmento.network.SkillPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

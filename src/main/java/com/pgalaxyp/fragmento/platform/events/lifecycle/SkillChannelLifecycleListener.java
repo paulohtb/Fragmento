@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.platform.events.lifecycle;
 
 import com.pgalaxyp.fragmento.content.bard.entity.WindVortexLimitService;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillRateLimitService;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
+import com.pgalaxyp.fragmento.system.skill.SkillRateLimitService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;

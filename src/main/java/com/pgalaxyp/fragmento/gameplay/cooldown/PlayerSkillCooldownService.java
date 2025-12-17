@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.gameplay.cooldown;
 
-import com.pgalaxyp.fragmento.gameplay.skill.SkillSlot;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 

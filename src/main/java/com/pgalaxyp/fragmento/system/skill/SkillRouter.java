@@ -1,8 +1,8 @@
-package com.pgalaxyp.fragmento.gameplay.skill;
+package com.pgalaxyp.fragmento.system.skill;
 
 import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystCooldownService;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
-import com.pgalaxyp.fragmento.platform.network.packet.SkillPacket;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
+import com.pgalaxyp.fragmento.network.SkillPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 

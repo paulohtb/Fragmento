@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.gameplay.skill;
+package com.pgalaxyp.fragmento.system.skill;
 
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;

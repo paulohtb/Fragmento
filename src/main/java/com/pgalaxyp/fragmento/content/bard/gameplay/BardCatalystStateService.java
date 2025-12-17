@@ -1,6 +1,8 @@
 package com.pgalaxyp.fragmento.content.bard.gameplay;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardChargeData;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import net.minecraft.world.item.ItemStack;
 
 public final class BardCatalystStateService {
@@ -8,18 +10,18 @@ public final class BardCatalystStateService {
     private BardCatalystStateService() {
     }
 
-    public static com.pgalaxyp.fragmento.gameplay.skill.SkillMode resolveMode(
+    public static SkillMode resolveMode(
             ItemStack stack,
-            com.pgalaxyp.fragmento.gameplay.skill.SkillSlot slot
+            SkillSlot slot
     ) {
-        if (slot == com.pgalaxyp.fragmento.gameplay.skill.SkillSlot.SPECIAL) {
-            return com.pgalaxyp.fragmento.gameplay.skill.SkillMode.SPECIAL;
+        if (slot == SkillSlot.SPECIAL) {
+            return SkillMode.SPECIAL;
         }
 
         if (BardChargeData.isCharged(stack)) {
-            return com.pgalaxyp.fragmento.gameplay.skill.SkillMode.CHARGED;
+            return SkillMode.CHARGED;
         }
 
-        return com.pgalaxyp.fragmento.gameplay.skill.SkillMode.BASIC;
+        return SkillMode.BASIC;
     }
 }

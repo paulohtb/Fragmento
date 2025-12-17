@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.platform.events.tick;
 
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

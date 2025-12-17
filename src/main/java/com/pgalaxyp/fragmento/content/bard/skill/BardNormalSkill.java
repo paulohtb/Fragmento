@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.content.bard.skill;
 
 import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
-import com.pgalaxyp.fragmento.gameplay.skill.Skill;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillContext;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillResult;
+import com.pgalaxyp.fragmento.system.skill.Skill;
+import com.pgalaxyp.fragmento.system.skill.SkillContext;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import com.pgalaxyp.fragmento.system.skill.SkillResult;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import java.util.function.Function;

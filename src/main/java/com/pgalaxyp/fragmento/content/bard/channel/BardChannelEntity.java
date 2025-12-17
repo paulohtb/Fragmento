@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.channel;
 
 import com.pgalaxyp.fragmento.content.bard.entity.BardSkillEntityBase;
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelEntity;
+import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
 import net.minecraft.server.level.ServerLevel;
 
 public final class BardChannelEntity implements ChannelEntity {

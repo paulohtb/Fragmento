@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import software.bernie.geckolib.animatable.GeoEntity;

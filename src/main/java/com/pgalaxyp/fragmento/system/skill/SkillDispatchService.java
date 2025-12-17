@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.gameplay.skill;
+package com.pgalaxyp.fragmento.system.skill;
 
-import com.pgalaxyp.fragmento.gameplay.channel.ChannelingService;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 

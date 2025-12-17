@@ -1,8 +1,8 @@
-package com.pgalaxyp.fragmento.gameplay.entity;
+package com.pgalaxyp.fragmento.system.entity;
 
 import com.pgalaxyp.fragmento.core.controller.EntityController;
 import com.pgalaxyp.fragmento.core.util.MathUtil;
-import com.pgalaxyp.fragmento.gameplay.skill.SkillMode;
+import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
