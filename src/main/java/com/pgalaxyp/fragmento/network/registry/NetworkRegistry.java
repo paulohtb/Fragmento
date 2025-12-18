@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.network.registry;
 
+import com.pgalaxyp.fragmento.network.c2s.SkillCancelPacket;
 import com.pgalaxyp.fragmento.network.c2s.SkillIntentPacket;
 import com.pgalaxyp.fragmento.network.s2c.SkillStateSnapshotPacket;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -21,6 +22,12 @@ public final class NetworkRegistry {
                 SkillIntentPacket.TYPE,
                 SkillIntentPacket.STREAM_CODEC,
                 SkillIntentPacket::handle
+        );
+
+        registrar.playToServer(
+                SkillCancelPacket.TYPE,
+                SkillCancelPacket.STREAM_CODEC,
+                SkillCancelPacket::handle
         );
 
         registrar.playToClient(

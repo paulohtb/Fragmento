@@ -13,7 +13,7 @@ public final class BardInstrumentConstants {
 
     public static final int BASIC_COOLDOWN = 35;
     public static final int CHARGED_COOLDOWN = 50;
-    public static final int SPECIAL_COOLDOWN = 100;
+    public static final int SPECIAL_COOLDOWN = 200;
 
     public static final float BASIC_DAMAGE = 2.0F;
     public static final float CHARGED_DAMAGE = 3.0F;

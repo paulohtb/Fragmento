@@ -2,9 +2,7 @@ package com.pgalaxyp.fragmento.system.entity.host;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.system.entity.event.SpiritEventSource;
-import com.pgalaxyp.fragmento.system.entity.resolve.SpiritResolve;
 import com.pgalaxyp.fragmento.system.entity.event.SpiritSelf;
-import com.pgalaxyp.fragmento.system.entity.controller.EntityController;
 import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -15,6 +13,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
 
@@ -140,8 +139,8 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
         }
 
         if (level() instanceof ServerLevel sl) {
-            cachedOwner = SpiritResolve.resolveOwner(sl, ownerUuid, cachedOwner);
-            cachedTarget = SpiritResolve.resolveTarget(sl, targetEntityId, cachedTarget);
+            cachedOwner = com.pgalaxyp.fragmento.system.entity.resolve.SpiritResolve.resolveOwner(sl, ownerUuid, cachedOwner);
+            cachedTarget = com.pgalaxyp.fragmento.system.entity.resolve.SpiritResolve.resolveTarget(sl, targetEntityId, cachedTarget);
         }
     }
 
@@ -239,14 +238,20 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
         }
     }
 
-    public final void moveServer(net.minecraft.world.phys.Vec3 delta) {
+    public final void moveServer(Vec3 delta) {
         if (level().isClientSide()) return;
         if (delta == null) return;
         if (delta.lengthSqr() <= 1.0E-12) return;
         setDeltaMovement(delta);
     }
 
-    protected final void ensureControllerRegistered(EntityController<?> controller) {
+    public final void clearTarget() {
+        if (level().isClientSide()) return;
+        targetEntityId = 0;
+        cachedTarget = null;
+    }
+
+    protected final void ensureControllerRegistered(com.pgalaxyp.fragmento.system.entity.controller.EntityController<?> controller) {
         if (controllerInitialized) return;
         controllers.add(controller);
         controllerInitialized = true;

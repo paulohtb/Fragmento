@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.client.input;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.core.util.RaycastUtil;
+import com.pgalaxyp.fragmento.network.c2s.SkillCancelPacket;
 import com.pgalaxyp.fragmento.network.c2s.SkillIntentPacket;
 import com.pgalaxyp.fragmento.system.skill.Skill;
 import com.pgalaxyp.fragmento.system.skill.SkillSlot;
@@ -14,6 +15,8 @@ public final class BardSkillClientController {
 
     private static long lastSendTick;
 
+    private static boolean specialWasDown;
+
     private static final int CLIENT_SEND_INTERVAL_TICKS = 2;
 
     private BardSkillClientController() {
@@ -21,6 +24,7 @@ public final class BardSkillClientController {
 
     public static void reset() {
         lastSendTick = 0L;
+        specialWasDown = false;
     }
 
     public static void tick(
@@ -35,6 +39,7 @@ public final class BardSkillClientController {
         }
 
         if (instrument == null) {
+            specialWasDown = false;
             return;
         }
 
@@ -44,18 +49,28 @@ public final class BardSkillClientController {
         }
 
         if (CatalystKeybinds.NORMAL_USE != null && CatalystKeybinds.NORMAL_USE.consumeClick()) {
-            sendIntent(player, stack, instrument, SkillSlot.BASIC);
+            sendStart(player, stack, instrument, SkillSlot.BASIC);
             lastSendTick = now;
             return;
         }
 
-        if (CatalystKeybinds.SPECIAL_USE != null && CatalystKeybinds.SPECIAL_USE.isDown()) {
-            sendIntent(player, stack, instrument, SkillSlot.SPECIAL);
+        boolean specialDown = CatalystKeybinds.SPECIAL_USE != null && CatalystKeybinds.SPECIAL_USE.isDown();
+
+        if (specialDown && !specialWasDown) {
+            sendStart(player, stack, instrument, SkillSlot.SPECIAL);
+            specialWasDown = true;
+            lastSendTick = now;
+            return;
+        }
+
+        if (!specialDown && specialWasDown) {
+            sendCancel(SkillSlot.SPECIAL);
+            specialWasDown = false;
             lastSendTick = now;
         }
     }
 
-    private static void sendIntent(
+    private static void sendStart(
             LocalPlayer player,
             ItemStack stack,
             BardCatalystItem instrument,
@@ -64,7 +79,9 @@ public final class BardSkillClientController {
         Skill skill = instrument.getSkill(slot);
         double range = skill != null ? skill.getRange(stack) : 12.0;
 
-        RaycastUtil.Result rc = RaycastUtil.perform(player, range);
+        RaycastUtil.Result rc = slot == SkillSlot.SPECIAL
+                ? RaycastUtil.performPlayersOnly(player, range)
+                : RaycastUtil.perform(player, range);
 
         int targetId = 0;
         if (rc.hasTarget()) {
@@ -73,6 +90,12 @@ public final class BardSkillClientController {
 
         PacketDistributor.sendToServer(
                 new SkillIntentPacket(slot.id(), targetId)
+        );
+    }
+
+    private static void sendCancel(SkillSlot slot) {
+        PacketDistributor.sendToServer(
+                new SkillCancelPacket(slot.id())
         );
     }
 }
