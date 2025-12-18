@@ -10,15 +10,23 @@ public final class SkillRouter {
     private SkillRouter() {
     }
 
-    public static void handleIntent(
+    public static void handlePacket(
             ServerPlayer player,
+            SkillAction action,
             int slotId,
             int targetId
     ) {
+        if (player == null || action == null) return;
+
         SkillSlot slot = SkillSlot.fromId(slotId);
         if (slot == null) return;
 
-        if (!SkillRateLimitService.allow(player, slot, SkillAction.START)) return;
+        if (!SkillRateLimitService.allow(player, slot, action)) return;
+
+        if (action == SkillAction.CANCEL) {
+            ChannelingService.cancel(player);
+            return;
+        }
 
         ItemStack stack = player.getMainHandItem();
         if (stack.isEmpty()) return;

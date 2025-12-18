@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.network.c2s;
 
+import com.pgalaxyp.fragmento.system.skill.SkillAction;
 import com.pgalaxyp.fragmento.system.skill.SkillRouter;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -8,8 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record SkillIntentPacket(int slotId, int targetId)
-        implements CustomPacketPayload {
+public record SkillIntentPacket(
+        int slotId,
+        int targetId
+) implements CustomPacketPayload {
 
     public static final ResourceLocation ID =
             ResourceLocation.fromNamespaceAndPath("fragmento", "skill_intent");
@@ -36,7 +39,12 @@ public record SkillIntentPacket(int slotId, int targetId)
     public static void handle(SkillIntentPacket packet, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (ctx.player() instanceof ServerPlayer player) {
-                SkillRouter.handleIntent(player, packet.slotId(), packet.targetId());
+                SkillRouter.handlePacket(
+                        player,
+                        SkillAction.START,
+                        packet.slotId(),
+                        packet.targetId()
+                );
             }
         });
     }

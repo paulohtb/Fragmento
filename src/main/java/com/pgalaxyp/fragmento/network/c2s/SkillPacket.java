@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.network.c2s;
 
+import com.pgalaxyp.fragmento.system.skill.SkillAction;
 import com.pgalaxyp.fragmento.system.skill.SkillRouter;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -8,13 +9,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record SkillPacket(Action action, int slotId, int targetId)
-        implements CustomPacketPayload {
-
-    public enum Action {
-        START,
-        CANCEL
-    }
+public record SkillPacket(
+        SkillAction action,
+        int slotId,
+        int targetId
+) implements CustomPacketPayload {
 
     public static final ResourceLocation ID =
             ResourceLocation.fromNamespaceAndPath("fragmento", "skill");
@@ -29,7 +28,7 @@ public record SkillPacket(Action action, int slotId, int targetId)
                         buf.writeVarInt(p.targetId());
                     },
                     buf -> new SkillPacket(
-                            buf.readEnum(Action.class),
+                            buf.readEnum(SkillAction.class),
                             buf.readVarInt(),
                             buf.readVarInt()
                     )
@@ -43,7 +42,12 @@ public record SkillPacket(Action action, int slotId, int targetId)
     public static void handle(SkillPacket packet, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (ctx.player() instanceof ServerPlayer player) {
-                SkillRouter.handlePacket(player, packet);
+                SkillRouter.handlePacket(
+                        player,
+                        packet.action(),
+                        packet.slotId(),
+                        packet.targetId()
+                );
             }
         });
     }

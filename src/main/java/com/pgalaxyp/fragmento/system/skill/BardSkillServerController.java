@@ -1,13 +1,14 @@
 package com.pgalaxyp.fragmento.system.skill;
 
+import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
+import com.pgalaxyp.fragmento.system.charge.ChargeSystem;
 import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
 import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
-import com.pgalaxyp.fragmento.core.util.MathUtil;
-import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import com.pgalaxyp.fragmento.system.gameplay.BardSkillService;
 import com.pgalaxyp.fragmento.system.gameplay.cooldown.PlayerSkillCooldownService;
+import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -27,9 +28,11 @@ public final class BardSkillServerController {
     }
 
     public static void handleStart(ServerPlayer player, SkillSlot slot, int targetId) {
+        if (player == null || slot == null) return;
         if (!(player.level() instanceof ServerLevel level)) return;
 
         ItemStack stack = player.getMainHandItem();
+        if (stack.isEmpty()) return;
         if (!(stack.getItem() instanceof BardCatalystItem instrument)) return;
 
         if (!PlayerSkillCooldownService.canUse(player, slot)) return;
@@ -60,8 +63,13 @@ public final class BardSkillServerController {
                 SkillTargetingService.resolveBasicLivingTarget(level, player, range, targetId);
         if (target == null) return;
 
+        UUID instrumentId = BardCatalystIdService.getOrCreate(stack);
+        if (instrumentId == null) return;
+
+        ChargeSystem charges = ServerSkillStateServices.charges(player.getServer());
+
         SkillResult result =
-                BardSkillService.execute(player, stack, SkillSlot.BASIC, target);
+                BardSkillService.execute(charges, player, stack, SkillSlot.BASIC, target);
 
         if (!result.success()) return;
 
@@ -70,6 +78,8 @@ public final class BardSkillServerController {
             PlayerSkillCooldownService.apply(player, SkillSlot.BASIC, cd);
             BardCatalystVisualCooldownService.apply(player, cd);
         }
+
+        SkillStateSnapshotDispatch.send(player, instrumentId);
     }
 
     private static void handleSpecialStart(
@@ -85,8 +95,13 @@ public final class BardSkillServerController {
         ServerPlayer finalTarget =
                 SkillTargetingService.resolveSpecialPlayerTargetOrSelf(level, player, range, targetId);
 
+        UUID instrumentId = BardCatalystIdService.getOrCreate(stack);
+        if (instrumentId == null) return;
+
+        ChargeSystem charges = ServerSkillStateServices.charges(player.getServer());
+
         SkillResult result =
-                BardSkillService.execute(player, stack, SkillSlot.SPECIAL, finalTarget);
+                BardSkillService.execute(charges, player, stack, SkillSlot.SPECIAL, finalTarget);
 
         if (!result.success()) return;
 
@@ -103,6 +118,8 @@ public final class BardSkillServerController {
                 BardInstrumentConstants.SPECIAL_COOLDOWN,
                 SPECIAL_CANCEL_COOLDOWN
         );
+
+        SkillStateSnapshotDispatch.send(player, instrumentId);
     }
 
     private static NewwSpiritEntityBase findLatestOwnedSpirit(ServerLevel level, ServerPlayer player) {
@@ -145,7 +162,7 @@ public final class BardSkillServerController {
         if (amount <= 0.0) return box;
         double a = amount;
         return new AABB(
-                box.minX + MathUtil.negate(a), box.minY + MathUtil.negate(a), box.minZ + MathUtil.negate(a),
+                box.minX - a, box.minY - a, box.minZ - a,
                 box.maxX + a, box.maxY + a, box.maxZ + a
         );
     }

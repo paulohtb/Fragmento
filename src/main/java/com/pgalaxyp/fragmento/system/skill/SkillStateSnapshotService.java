@@ -5,8 +5,8 @@ import com.pgalaxyp.fragmento.network.s2c.SkillStateSnapshotPacket;
 import com.pgalaxyp.fragmento.system.charge.ChargeInstance;
 import com.pgalaxyp.fragmento.system.charge.ChargeSystem;
 import com.pgalaxyp.fragmento.system.gameplay.cooldown.PlayerSkillCooldownSavedData;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-
 import java.util.EnumMap;
 import java.util.UUID;
 
@@ -22,10 +22,16 @@ public final class SkillStateSnapshotService {
         EnumMap<SkillSlot, Integer> cds = new EnumMap<>(SkillSlot.class);
 
         long now = player.level().getGameTime();
-        var saved = PlayerSkillCooldownSavedData.get(player.server);
-
-        for (SkillSlot slot : SkillSlot.values()) {
-            cds.put(slot, saved.remainingTicks(player.getUUID(), slot, now));
+        MinecraftServer server = player.getServer();
+        if (server == null) {
+            for (SkillSlot slot : SkillSlot.values()) {
+                cds.put(slot, 0);
+            }
+        } else {
+            var saved = PlayerSkillCooldownSavedData.get(server);
+            for (SkillSlot slot : SkillSlot.values()) {
+                cds.put(slot, saved.remainingTicks(player.getUUID(), slot, now));
+            }
         }
 
         ChargeInstance c = charges.getOrCreate(instrumentId, BardInstrumentConstants.MAX_CHARGE);

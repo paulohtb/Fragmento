@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.client.tick;
 
+import com.pgalaxyp.fragmento.client.hud.ClientSkillState;
 import com.pgalaxyp.fragmento.client.input.BardSkillClientController;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import net.minecraft.client.Minecraft;
@@ -10,12 +11,11 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
-@EventBusSubscriber(
-        modid = "fragmento",
-        value = Dist.CLIENT,
-        bus = EventBusSubscriber.Bus.GAME
-)
+@EventBusSubscriber(modid = "fragmento", value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class CatalystInputClient {
+
+    private CatalystInputClient() {
+    }
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Pre event) {
@@ -23,7 +23,8 @@ public final class CatalystInputClient {
         LocalPlayer player = mc.player;
 
         if (mc.level == null || player == null) {
-            BardSkillClientController.resetClientState();
+            BardSkillClientController.reset();
+            ClientSkillState.clear();
             return;
         }
 

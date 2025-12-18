@@ -1,12 +1,11 @@
 package com.pgalaxyp.fragmento.content.bard.channel;
 
-
-import com.pgalaxyp.fragmento.system.channel.BardChannelEntity;
-import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
-import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
 import com.pgalaxyp.fragmento.system.channel.ChannelAdapter;
 import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
 import com.pgalaxyp.fragmento.system.channel.ChannelFingerprint;
+import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
+import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
+import com.pgalaxyp.fragmento.system.skill.SkillStateSnapshotDispatch;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -31,7 +30,7 @@ public final class BardChannelAdapter implements ChannelAdapter {
 
         Entity e = level.getEntity(entityId);
         if (e instanceof NewwSpiritEntityBase spirit) {
-            return new BardChannelEntity(spirit);
+            return new com.pgalaxyp.fragmento.system.channel.BardChannelEntity(spirit);
         }
 
         return null;
@@ -40,6 +39,7 @@ public final class BardChannelAdapter implements ChannelAdapter {
     @Override
     public void applyVisualCooldown(ServerPlayer player, int ticks) {
         BardCatalystVisualCooldownService.apply(player, ticks);
+        SkillStateSnapshotDispatch.sendForHeldInstrument(player);
     }
 
     @Override
