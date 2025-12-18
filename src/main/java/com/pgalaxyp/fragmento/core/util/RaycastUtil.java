@@ -2,13 +2,13 @@ package com.pgalaxyp.fragmento.core.util;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 
 import java.util.function.Predicate;
 
@@ -52,16 +52,13 @@ public final class RaycastUtil {
         Vec3 limitedEnd = eye.add(look.scale(max));
 
         AABB broad = caster.getBoundingBox().expandTowards(look.scale(max));
-        broad = expand(broad, 1.0);
+        broad = AabbUtil.expand(broad, 1.0);
 
-        Predicate<Entity> filter = new Predicate<>() {
-            @Override
-            public boolean test(Entity e) {
-                if (e == null) return false;
-                if (e == caster) return false;
-                if (!(e instanceof LivingEntity l)) return false;
-                return l.isAlive();
-            }
+        Predicate<Entity> filter = e -> {
+            if (e == null) return false;
+            if (e == caster) return false;
+            if (!(e instanceof LivingEntity l)) return false;
+            return l.isAlive();
         };
 
         EntityHitResult hit = ProjectileUtil.getEntityHitResult(
@@ -78,15 +75,5 @@ public final class RaycastUtil {
         }
 
         return new Result(null, limitedEnd);
-    }
-
-    private static AABB expand(AABB box, double amount) {
-        if (box == null) return null;
-        if (amount <= 0.0) return box;
-        double a = amount;
-        return new AABB(
-                box.minX + MathUtil.negate(a), box.minY + MathUtil.negate(a), box.minZ + MathUtil.negate(a),
-                box.maxX + a, box.maxY + a, box.maxZ + a
-        );
     }
 }

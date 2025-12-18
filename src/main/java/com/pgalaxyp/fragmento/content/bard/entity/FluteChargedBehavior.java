@@ -2,14 +2,16 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
-import com.pgalaxyp.fragmento.system.entity.behavior.SpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
+import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
+import com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 
-public final class FluteChargedBehavior implements SpiritBehavior {
+public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteChargedBehavior.Phase> {
+
+    enum Phase { SPAWN, TRAVEL, ASCENT, HOVER, DESPAWN }
 
     private static final int SPAWN_TICKS = 8;
     private static final int TRAVEL_TICKS = 10;
@@ -17,104 +19,109 @@ public final class FluteChargedBehavior implements SpiritBehavior {
     private static final int HOVER_TICKS = 12;
     private static final int DESPAWN_TICKS = 8;
 
-    private Phase phase = Phase.SPAWN;
-    private int phaseTime = 0;
+    @Override
+    protected void startInitialPhase(SpiritContext ctx) {
+        startPhase(Phase.SPAWN, SPAWN_TICKS);
+    }
 
     @Override
-    public void tick(SpiritContext ctx, MovementPlan movement, LookPlan look) {
-        LivingEntity target = ctx.target;
-        phaseTime++;
+    public void tickInternal(SpiritContext ctx, MovementPlan movement, LookPlan look) {
+        Phase p = phase();
 
-        if (target == null || !target.isAlive()) {
-            ctx.self.requestDespawn();
-            return;
-        }
-
-        if (phase == Phase.SPAWN) {
+        if (p == Phase.SPAWN) {
             ctx.self.setAnimKey(BardAnimKeys.SPAWN);
-
-            if (phaseTime >= SPAWN_TICKS) {
-                startPhase(Phase.TRAVEL);
+            if (time() >= duration()) {
+                startPhase(Phase.TRAVEL, TRAVEL_TICKS);
             }
             return;
         }
 
-        if (phase == Phase.TRAVEL) {
+        if (p == Phase.TRAVEL) {
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
 
-            Vec3 targetPos = target.getBoundingBox().getCenter();
-            Vec3 toTarget = targetPos.subtract(ctx.pos);
+            LivingEntity target = ctx.target;
+            if (!SpiritMovementPatterns.chaseLivingTarget(
+                    ctx,
+                    movement,
+                    look,
+                    target,
+                    time(),
+                    duration(),
+                    0.0,
+                    false
+            )) {
+                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                return;
+            }
 
-            movement.kind = MovementPlan.Kind.VELOCITY;
-            movement.desiredVelocity = toTarget.normalize().scale(0.6);
-
-            look.kind = LookPlan.Kind.TO_POS;
-            look.lookAtPos = targetPos;
-
-            if (phaseTime >= TRAVEL_TICKS) {
-                startPhase(Phase.ASCENT);
+            if (time() >= duration()) {
+                startPhase(Phase.ASCENT, ASCENT_TICKS);
             }
             return;
         }
 
-        if (phase == Phase.ASCENT) {
+        if (p == Phase.ASCENT) {
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
 
-            Vec3 ascentPos = target.getBoundingBox().getCenter().add(0.0, 2.0, 0.0);
-            Vec3 delta = ascentPos.subtract(ctx.pos);
+            LivingEntity target = ctx.target;
+            if (!SpiritMovementPatterns.chaseLivingTarget(
+                    ctx,
+                    movement,
+                    look,
+                    target,
+                    time(),
+                    duration(),
+                    2.0,
+                    true
+            )) {
+                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                return;
+            }
 
-            movement.kind = MovementPlan.Kind.VELOCITY;
-            movement.desiredVelocity = delta.scale(0.25);
-
-            look.kind = LookPlan.Kind.TO_POS;
-            look.lookAtPos = target.getBoundingBox().getCenter();
-
-            if (phaseTime >= ASCENT_TICKS) {
-                startPhase(Phase.HOVER);
+            if (time() >= duration()) {
+                startPhase(Phase.HOVER, HOVER_TICKS);
             }
             return;
         }
 
-        if (phase == Phase.HOVER) {
+        if (p == Phase.HOVER) {
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
+
+            LivingEntity target = ctx.target;
+            if (target == null || !target.isAlive()) {
+                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                return;
+            }
 
             movement.kind = MovementPlan.Kind.NONE;
 
             look.kind = LookPlan.Kind.TO_POS;
             look.lookAtPos = target.getBoundingBox().getCenter();
 
-            if (phaseTime >= HOVER_TICKS) {
-                startPhase(Phase.DESPAWN);
+            if (time() >= duration()) {
+                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
             }
             return;
         }
 
-        if (phase == Phase.DESPAWN) {
-            ctx.self.setAnimKey(BardAnimKeys.DESPAWN);
-
-            if (phaseTime >= DESPAWN_TICKS) {
-                ctx.self.requestDespawn();
-            }
+        ctx.self.setAnimKey(BardAnimKeys.DESPAWN);
+        if (time() >= duration()) {
+            ctx.self.requestDespawn();
         }
     }
 
     @Override
     public void onImpact(SpiritContext ctx, ImpactResult impact) {
-        if (phase == Phase.TRAVEL) {
-            startPhase(Phase.ASCENT);
+        if (phase() == Phase.TRAVEL) {
+            startPhase(Phase.ASCENT, ASCENT_TICKS);
         }
     }
 
-    private void startPhase(Phase next) {
-        phase = next;
-        phaseTime = 0;
+    @Override
+    protected void onTickPhase(Phase phase, int time, int duration) {
     }
 
-    enum Phase {
-        SPAWN,
-        TRAVEL,
-        ASCENT,
-        HOVER,
-        DESPAWN
+    @Override
+    protected void onEnterPhase(Phase phase) {
     }
 }

@@ -4,7 +4,7 @@ import com.pgalaxyp.fragmento.system.channel.ChannelAdapter;
 import com.pgalaxyp.fragmento.system.channel.ChannelEntity;
 import com.pgalaxyp.fragmento.system.channel.ChannelFingerprint;
 import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
-import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
+import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
 import com.pgalaxyp.fragmento.system.skill.SkillStateSnapshotDispatch;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

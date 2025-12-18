@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.client.hud;
+package com.pgalaxyp.fragmento.client.data;
 
 import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 

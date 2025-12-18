@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.network.s2c;
 
+import com.pgalaxyp.fragmento.client.data.ClientSkillState;
 import com.pgalaxyp.fragmento.system.skill.SkillSlot;
 import com.pgalaxyp.fragmento.system.skill.SkillStateSnapshot;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -70,7 +71,7 @@ public record SkillStateSnapshotPacket(
     public static void handle(SkillStateSnapshotPacket packet, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (ctx.flow().isClientbound()) {
-                com.pgalaxyp.fragmento.client.hud.ClientSkillState.update(
+                ClientSkillState.update(
                         packet.cooldowns(),
                         packet.instrumentId(),
                         packet.charge(),

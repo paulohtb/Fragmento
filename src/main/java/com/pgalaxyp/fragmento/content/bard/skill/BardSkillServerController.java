@@ -1,21 +1,21 @@
-package com.pgalaxyp.fragmento.system.skill;
+package com.pgalaxyp.fragmento.content.bard.skill;
 
-import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
-import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
-import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
+import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystVisualCooldownService;
+import com.pgalaxyp.fragmento.core.util.AabbUtil;
 import com.pgalaxyp.fragmento.system.charge.ChargeSystem;
-import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
-import com.pgalaxyp.fragmento.system.gameplay.BardCatalystVisualCooldownService;
 import com.pgalaxyp.fragmento.system.gameplay.BardSkillService;
 import com.pgalaxyp.fragmento.system.gameplay.cooldown.PlayerSkillCooldownService;
 import com.pgalaxyp.fragmento.system.channel.ChannelingService;
+import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
+import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
+import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
+import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
+import com.pgalaxyp.fragmento.system.skill.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -31,7 +31,7 @@ public final class BardSkillServerController {
         if (player == null || slot == null) return;
         if (!(player.level() instanceof ServerLevel level)) return;
 
-        ItemStack stack = player.getMainHandItem();
+        var stack = player.getMainHandItem();
         if (stack.isEmpty()) return;
         if (!(stack.getItem() instanceof BardCatalystItem instrument)) return;
 
@@ -55,7 +55,7 @@ public final class BardSkillServerController {
     private static void handleBasicStart(
             ServerPlayer player,
             ServerLevel level,
-            ItemStack stack,
+            net.minecraft.world.item.ItemStack stack,
             double range,
             int targetId
     ) {
@@ -85,7 +85,7 @@ public final class BardSkillServerController {
     private static void handleSpecialStart(
             ServerPlayer player,
             ServerLevel level,
-            ItemStack stack,
+            net.minecraft.world.item.ItemStack stack,
             double range,
             int targetId
     ) {
@@ -123,15 +123,12 @@ public final class BardSkillServerController {
     }
 
     private static NewwSpiritEntityBase findLatestOwnedSpirit(ServerLevel level, ServerPlayer player) {
-        AABB area = expand(player.getBoundingBox(), 8.0);
+        AABB area = AabbUtil.expand(player.getBoundingBox(), 8.0);
 
-        Predicate<NewwSpiritEntityBase> filter = new Predicate<>() {
-            @Override
-            public boolean test(NewwSpiritEntityBase e) {
-                if (e == null) return false;
-                UUID id = e.getOwnerUuid();
-                return id != null && id.equals(player.getUUID());
-            }
+        Predicate<NewwSpiritEntityBase> filter = e -> {
+            if (e == null) return false;
+            UUID id = e.getOwnerUuid();
+            return id != null && id.equals(player.getUUID());
         };
 
         List<NewwSpiritEntityBase> list = level.getEntitiesOfClass(
@@ -145,8 +142,7 @@ public final class BardSkillServerController {
         NewwSpiritEntityBase best = null;
         int bestLife = Integer.MIN_VALUE;
 
-        for (int i = 0; i < list.size(); i++) {
-            NewwSpiritEntityBase e = list.get(i);
+        for (NewwSpiritEntityBase e : list) {
             int life = e.getLifetime();
             if (life >= bestLife) {
                 bestLife = life;
@@ -155,15 +151,5 @@ public final class BardSkillServerController {
         }
 
         return best;
-    }
-
-    private static AABB expand(AABB box, double amount) {
-        if (box == null) return null;
-        if (amount <= 0.0) return box;
-        double a = amount;
-        return new AABB(
-                box.minX - a, box.minY - a, box.minZ - a,
-                box.maxX + a, box.maxY + a, box.maxZ + a
-        );
     }
 }

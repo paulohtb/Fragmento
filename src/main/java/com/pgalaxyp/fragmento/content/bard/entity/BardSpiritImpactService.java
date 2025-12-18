@@ -34,16 +34,15 @@ public final class BardSpiritImpactService {
         }
 
         spirit.markCasted();
-        spirit.requestDespawn();
     }
 
     private static float resolveDamage(SkillMode mode) {
         if (mode == SkillMode.BASIC) {
-            return 4.0F;
+            return 2.0F;
         }
 
         if (mode == SkillMode.CHARGED) {
-            return 7.0F;
+            return 3.0F;
         }
 
         if (mode == SkillMode.SPECIAL) {

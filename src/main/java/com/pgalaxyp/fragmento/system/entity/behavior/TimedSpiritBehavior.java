@@ -11,7 +11,7 @@ public abstract class TimedSpiritBehavior<P extends Enum<P>> implements SpiritBe
     protected TimedSpiritBehavior() {
         this.machine = new BehaviorPhaseMachine<>(
                 (phase, duration) -> onEnterPhase(phase),
-                (phase, time, duration) -> onTickPhase(phase, time, duration)
+                this::onTickPhase
         );
     }
 

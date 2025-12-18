@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.client.tick;
 
-import com.pgalaxyp.fragmento.client.hud.ClientSkillState;
+import com.pgalaxyp.fragmento.client.data.ClientSkillState;
 import com.pgalaxyp.fragmento.client.input.BardSkillClientController;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import net.minecraft.client.Minecraft;

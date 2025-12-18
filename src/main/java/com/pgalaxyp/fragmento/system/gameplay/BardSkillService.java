@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.system.gameplay;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;
+import com.pgalaxyp.fragmento.content.bard.gameplay.BardCatalystStateService;
 import com.pgalaxyp.fragmento.system.charge.ChargeInstance;
 import com.pgalaxyp.fragmento.system.charge.ChargeSystem;
 import com.pgalaxyp.fragmento.system.skill.Skill;

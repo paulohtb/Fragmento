@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.system.gameplay;
+package com.pgalaxyp.fragmento.content.bard.gameplay;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
 import com.pgalaxyp.fragmento.content.bard.constants.BardInstrumentConstants;

@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.system.gameplay;
+package com.pgalaxyp.fragmento.content.bard.gameplay;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
