@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.content.bard.module;
 
+import com.pgalaxyp.fragmento.client.render.SpiritClientSetup;
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystItem;
 import com.pgalaxyp.fragmento.content.bard.channel.BardChannelAdapter;
-import com.pgalaxyp.fragmento.content.bard.registry.FluteSkillEntityRegistry;
-import com.pgalaxyp.fragmento.client.render.SpiritClientSetup;
 import com.pgalaxyp.fragmento.content.bard.registry.BardRegistries;
+import com.pgalaxyp.fragmento.content.bard.registry.FluteSkillEntityRegistry;
 import com.pgalaxyp.fragmento.content.bard.skill.BardSkillActionHandler;
 import com.pgalaxyp.fragmento.system.channel.ChannelingService;
 import com.pgalaxyp.fragmento.system.skill.SkillActionRegistry;
@@ -19,7 +19,6 @@ public final class BardModule {
 
     public static void init(IEventBus modBus) {
         FluteSkillEntityRegistry.ENTITIES.register(modBus);
-//        VortexHelperRegistry.ENTITIES.register(modBus);
 
         BardRegistries.registerAll();
         BardRegistries.ITEMS.register(modBus);

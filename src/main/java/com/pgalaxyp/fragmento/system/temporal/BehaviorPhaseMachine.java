@@ -1,23 +1,23 @@
 package com.pgalaxyp.fragmento.system.temporal;
 
-public final class BehaviorPhaseMachine<P extends Enum<P>> {
+public final class BehaviorPhaseMachine<C, P extends Enum<P>> {
 
-    public interface Enter<P extends Enum<P>> {
-        void enter(P phase, int duration);
+    public interface Enter<C, P extends Enum<P>> {
+        void enter(C ctx, P phase, int duration);
     }
 
-    public interface Tick<P extends Enum<P>> {
-        void tick(P phase, int time, int duration);
+    public interface Tick<C, P extends Enum<P>> {
+        void tick(C ctx, P phase, int time, int duration);
     }
 
     private P phase;
     private int time;
     private int duration;
 
-    private final Enter<P> enter;
-    private final Tick<P> tick;
+    private final Enter<C, P> enter;
+    private final Tick<C, P> tick;
 
-    public BehaviorPhaseMachine(Enter<P> enter, Tick<P> tick) {
+    public BehaviorPhaseMachine(Enter<C, P> enter, Tick<C, P> tick) {
         this.enter = enter;
         this.tick = tick;
     }
@@ -34,15 +34,15 @@ public final class BehaviorPhaseMachine<P extends Enum<P>> {
         return duration;
     }
 
-    public void start(P next, int nextDuration) {
+    public void start(C ctx, P next, int nextDuration) {
         phase = next;
         time = 0;
         duration = Math.max(1, nextDuration);
-        enter.enter(next, duration);
+        enter.enter(ctx, next, duration);
     }
 
-    public void step() {
+    public void step(C ctx) {
         time++;
-        tick.tick(phase, time, duration);
+        tick.tick(ctx, phase, time, duration);
     }
 }

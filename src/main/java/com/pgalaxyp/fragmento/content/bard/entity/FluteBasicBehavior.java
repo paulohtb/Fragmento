@@ -6,7 +6,6 @@ import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
 import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
-import com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns;
 import net.minecraft.world.entity.LivingEntity;
 
 public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBehavior.Phase> {
@@ -19,7 +18,7 @@ public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBeha
 
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
-        startPhase(Phase.SPAWN, SPAWN_TICKS);
+        startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
     @Override
@@ -29,7 +28,7 @@ public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBeha
         if (p == Phase.SPAWN) {
             ctx.self.setAnimKey(BardAnimKeys.SPAWN);
             if (time() >= duration()) {
-                startPhase(Phase.TRAVEL, TRAVEL_TICKS);
+                startPhase(ctx, Phase.TRAVEL, TRAVEL_TICKS);
             }
             return;
         }
@@ -38,7 +37,7 @@ public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBeha
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
 
             LivingEntity target = ctx.target;
-            if (!SpiritMovementPatterns.chaseLivingTarget(
+            if (!com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns.chaseLivingTarget(
                     ctx,
                     movement,
                     look,
@@ -48,12 +47,12 @@ public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBeha
                     0.0,
                     false
             )) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
                 return;
             }
 
             if (time() >= duration()) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
             }
             return;
         }
@@ -66,14 +65,14 @@ public final class FluteBasicBehavior extends TimedSpiritBehavior<FluteBasicBeha
 
     @Override
     public void onImpact(SpiritContext ctx, ImpactResult impact) {
-        startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+        startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
     }
 
     @Override
-    protected void onTickPhase(Phase phase, int time, int duration) {
+    protected void onTickPhase(SpiritContext ctx, Phase phase, int time, int duration) {
     }
 
     @Override
-    protected void onEnterPhase(Phase phase) {
+    protected void onEnterPhase(SpiritContext ctx, Phase phase, int duration) {
     }
 }

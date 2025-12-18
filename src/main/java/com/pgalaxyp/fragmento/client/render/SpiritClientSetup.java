@@ -1,7 +1,5 @@
 package com.pgalaxyp.fragmento.client.render;
 
-
-//import com.pgalaxyp.fragmento.content.bard.registry.VortexHelperRegistry;
 import com.pgalaxyp.fragmento.client.render.entity.FluteSpiritRenderer;
 import com.pgalaxyp.fragmento.content.bard.registry.FluteSkillEntityRegistry;
 import net.neoforged.bus.api.IEventBus;
@@ -21,15 +19,5 @@ public final class SpiritClientSetup {
                 FluteSkillEntityRegistry.FLUTE_SPIRIT.get(),
                 FluteSpiritRenderer::new
         );
-
-//        event.registerEntityRenderer(
-//                VortexHelperRegistry.WIND_VORTEX.get(),
-//                VortexRenderer::new
-//        );
-//
-//        event.registerEntityRenderer(
-//                VortexHelperRegistry.MEDIUM_WIND_VORTEX.get(),
-//                VortexRenderer::new
-//        );
     }
 }

@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
 import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
@@ -37,7 +38,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
     private static final int AOE_EDGE_OFFSET_TICKS = 5;
     private static final int AOE_EFFECT_TICKS = 20;
 
-    private static final double POS_EPS_SQR = 1.0E-8;
+    private static final double POS_EPS_SQR = 0.00000001;
 
     private Vec3 castAnchor;
     private Vec3 hoverPos;
@@ -50,7 +51,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
 
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
-        startPhase(Phase.SPAWN, SPAWN_TICKS);
+        startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
     @Override
@@ -64,7 +65,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         }
         clearTargetOnce(ctx);
         if (phase() == Phase.SPAWN || phase() == Phase.ORBIT) {
-            startPhase(Phase.ASCENT, ASCENT_TICKS);
+            startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
         }
     }
 
@@ -76,7 +77,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
             ctx.self.setAnimKey(BardAnimKeys.SPAWN);
             if (time() >= duration()) {
                 orbitInit = false;
-                startPhase(Phase.ORBIT, ORBIT_TICKS);
+                startPhase(ctx, Phase.ORBIT, ORBIT_TICKS);
             }
             return;
         }
@@ -89,7 +90,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                     castAnchor = ctx.pos;
                 }
                 clearTargetOnce(ctx);
-                startPhase(Phase.ASCENT, ASCENT_TICKS);
+                startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
                 return;
             }
 
@@ -102,22 +103,22 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
             Vec3 center = target.getBoundingBox().getCenter();
 
             if (!orbitInit) {
-                double dx = ctx.pos.x - center.x;
-                double dz = ctx.pos.z - center.z;
+                double dx = ctx.pos.x + MathUtil.negate(center.x);
+                double dz = ctx.pos.z + MathUtil.negate(center.z);
                 double r = Math.sqrt(dx * dx + dz * dz);
 
                 orbitRadius = Math.max(0.5, r);
                 orbitStartAngle = Math.atan2(dz, dx);
-                orbitYOffset = ctx.pos.y - center.y;
+                orbitYOffset = ctx.pos.y + MathUtil.negate(center.y);
 
                 orbitInit = true;
             }
 
-            int t = time() - 1;
+            int t = (int) (time() + MathUtil.negate(1));
             if (t < 0) t = 0;
-            if (t > ORBIT_TICKS - 1) t = ORBIT_TICKS - 1;
+            if (t > ORBIT_TICKS + MathUtil.negate(1)) t = (int) (ORBIT_TICKS + MathUtil.negate(1));
 
-            int denom = Math.max(1, ORBIT_TICKS - 1);
+            int denom = (int) Math.max(1, ORBIT_TICKS + MathUtil.negate(1));
             double progress = (double) t / (double) denom;
             double angle = orbitStartAngle + (progress * 6.283185307179586);
 
@@ -151,8 +152,10 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                 Vec3 to = targetPos.subtract(cur);
 
                 double dist = to.length();
-                if (dist > 1.0E-12) {
-                    int remainingSteps = Math.max(1, duration() - time() + 1);
+                if (dist > 0.000000000001) {
+                    double rem = (double) duration() + 1.0 + MathUtil.negate((double) time());
+                    int remainingSteps = Math.max(1, (int) rem);
+
                     double maxStep = 0.75;
                     double desiredStep = dist / (double) remainingSteps;
                     double step = Math.min(maxStep, desiredStep);
@@ -169,7 +172,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
             }
 
             if (time() >= duration()) {
-                startPhase(Phase.HOVER, HOVER_TICKS);
+                startPhase(ctx, Phase.HOVER, HOVER_TICKS);
             }
             return;
         }
@@ -190,7 +193,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                 }
 
                 if (ent.level() instanceof ServerLevel level) {
-                    int idx = time() - 1;
+                    int idx = (int) (time() + MathUtil.negate(1));
                     if (shouldPulse(idx, HOVER_TICKS, AOE_PULSES, AOE_EDGE_OFFSET_TICKS)) {
                         applyGroundGlow(level, hoverPos);
                     }
@@ -201,7 +204,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
             look.kind = LookPlan.Kind.NONE;
 
             if (time() >= duration()) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
             }
             return;
         }
@@ -210,6 +213,50 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         if (time() >= duration()) {
             ctx.self.requestDespawn();
         }
+    }
+
+    @Override
+    protected void onEnterPhase(SpiritContext ctx, Phase phase, int duration) {
+        if (!(ctx.self instanceof NewwSpiritEntityBase base)) return;
+
+        int life = base.getLifetime();
+
+        if (phase == Phase.ORBIT) {
+            base.setVisualState(
+                    NewwSpiritEntityBase.VISUAL_HOVER,
+                    life,
+                    duration
+            );
+            return;
+        }
+
+        if (phase == Phase.HOVER) {
+            base.setVisualState(
+                    NewwSpiritEntityBase.VISUAL_HOVER,
+                    life,
+                    duration
+            );
+            return;
+        }
+
+        if (phase == Phase.DESPAWN) {
+            base.setVisualState(
+                    NewwSpiritEntityBase.VISUAL_BURST,
+                    life,
+                    duration
+            );
+            return;
+        }
+
+        base.setVisualState(
+                NewwSpiritEntityBase.VISUAL_NONE,
+                life,
+                1
+        );
+    }
+
+    @Override
+    protected void onTickPhase(SpiritContext ctx, Phase phase, int time, int duration) {
     }
 
     private void clearTargetOnce(SpiritContext ctx) {
@@ -222,14 +269,16 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
 
     private static boolean shouldPulse(int idx, int duration, int pulses, int edgeOffset) {
         if (idx < 0 || idx >= duration) return false;
+
         int p = Math.max(1, pulses);
         int d = Math.max(1, duration);
         int off = Math.max(0, edgeOffset);
 
         for (int i = 1; i <= p; i++) {
             int t = (d * i) / p;
-            t = t - off;
-            int pulseIdx = t - 1;
+            t = (int) (t + MathUtil.negate(off));
+
+            int pulseIdx = (int) (t + MathUtil.negate(1));
             if (pulseIdx == idx) {
                 return true;
             }
@@ -243,12 +292,12 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         int z = Mth.floor(pos.z);
 
         int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        int groundY = top - 1;
+        int groundY = (int) (top + MathUtil.negate(1));
 
         AABB area = new AABB(
-                x - 1,
+                x + MathUtil.negate(1),
                 groundY,
-                z - 1,
+                z + MathUtil.negate(1),
                 x + 2,
                 groundY + 3,
                 z + 2
@@ -260,13 +309,5 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         for (ServerPlayer p : players) {
             p.addEffect(new MobEffectInstance(MobEffects.GLOWING, AOE_EFFECT_TICKS, 0, false, true, true));
         }
-    }
-
-    @Override
-    protected void onTickPhase(Phase phase, int time, int duration) {
-    }
-
-    @Override
-    protected void onEnterPhase(Phase phase) {
     }
 }

@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.system.entity.host;
 
 import com.pgalaxyp.fragmento.content.bard.catalyst.BardCatalystIdService;
+import com.pgalaxyp.fragmento.core.util.MathUtil;
 import com.pgalaxyp.fragmento.system.entity.event.SpiritEventSource;
 import com.pgalaxyp.fragmento.system.entity.event.SpiritSelf;
 import com.pgalaxyp.fragmento.system.skill.SkillMode;
@@ -10,7 +11,6 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -28,14 +28,27 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
     public static final EntityDataAccessor<Byte> ANIM_KEY =
             SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.BYTE);
 
+    public static final EntityDataAccessor<Byte> VISUAL_KEY =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.BYTE);
+
+    public static final EntityDataAccessor<Integer> VISUAL_START_LIFETIME =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.INT);
+
+    public static final EntityDataAccessor<Integer> VISUAL_DURATION =
+            SynchedEntityData.defineId(NewwSpiritEntityBase.class, EntityDataSerializers.INT);
+
+    public static final byte VISUAL_NONE = 0;
+    public static final byte VISUAL_HOVER = 1;
+    public static final byte VISUAL_BURST = 2;
+
     private int lifetimeTicks;
 
     private UUID ownerUuid;
     private int targetEntityId;
     private UUID sourceInstrumentUuid;
 
-    private LivingEntity cachedOwner;
-    private LivingEntity cachedTarget;
+    private net.minecraft.world.entity.LivingEntity cachedOwner;
+    private net.minecraft.world.entity.LivingEntity cachedTarget;
 
     private boolean pendingCasted;
     private boolean pendingCancelled;
@@ -53,6 +66,10 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
         builder.define(LIFETIME, 0);
         builder.define(CASTED, false);
         builder.define(ANIM_KEY, (byte) 0);
+
+        builder.define(VISUAL_KEY, VISUAL_NONE);
+        builder.define(VISUAL_START_LIFETIME, 0);
+        builder.define(VISUAL_DURATION, 1);
     }
 
     @Override
@@ -84,8 +101,8 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
     }
 
     public final int summon(
-            LivingEntity owner,
-            LivingEntity target,
+            net.minecraft.world.entity.LivingEntity owner,
+            net.minecraft.world.entity.LivingEntity target,
             ServerLevel level,
             SkillMode mode,
             ItemStack sourceItem
@@ -100,6 +117,8 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
 
         despawnTicksRemaining = 0;
         setCastedSynced(false);
+
+        setVisualState(VISUAL_NONE, 0, 1);
 
         ownerUuid = owner != null ? owner.getUUID() : null;
         targetEntityId = target != null ? target.getId() : 0;
@@ -128,8 +147,8 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
     }
 
     protected Vec3 resolveSpawnPosition(
-            LivingEntity owner,
-            LivingEntity target,
+            net.minecraft.world.entity.LivingEntity owner,
+            net.minecraft.world.entity.LivingEntity target,
             ServerLevel level,
             SkillMode mode
     ) {
@@ -144,7 +163,7 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
         setLifetimeSynced(lifetimeTicks);
 
         if (despawnTicksRemaining > 0) {
-            despawnTicksRemaining--;
+            despawnTicksRemaining = (int) (despawnTicksRemaining + MathUtil.negate(1));
             if (despawnTicksRemaining <= 0) {
                 remove(RemovalReason.DISCARDED);
                 return;
@@ -161,11 +180,11 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
     protected void clientTick() {
     }
 
-    public final LivingEntity getOwner() {
+    public final net.minecraft.world.entity.LivingEntity getOwner() {
         return cachedOwner;
     }
 
-    public final LivingEntity getTarget() {
+    public final net.minecraft.world.entity.LivingEntity getTarget() {
         return cachedTarget;
     }
 
@@ -198,6 +217,30 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
 
     public final byte getAnimKey() {
         return entityData.get(ANIM_KEY);
+    }
+
+    public final byte getVisualKey() {
+        return entityData.get(VISUAL_KEY);
+    }
+
+    public final int getVisualStartLifetime() {
+        return entityData.get(VISUAL_START_LIFETIME);
+    }
+
+    public final int getVisualDuration() {
+        return entityData.get(VISUAL_DURATION);
+    }
+
+    public final void setVisualState(byte key, int startLifetime, int durationTicks) {
+        if (level().isClientSide()) return;
+
+        byte k = key;
+        int s = Math.max(0, startLifetime);
+        int d = Math.max(1, durationTicks);
+
+        if (entityData.get(VISUAL_KEY) != k) entityData.set(VISUAL_KEY, k);
+        if (entityData.get(VISUAL_START_LIFETIME) != s) entityData.set(VISUAL_START_LIFETIME, s);
+        if (entityData.get(VISUAL_DURATION) != d) entityData.set(VISUAL_DURATION, d);
     }
 
     @Override
@@ -254,7 +297,7 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
     public final void moveServer(Vec3 delta) {
         if (level().isClientSide()) return;
         if (delta == null) return;
-        if (delta.lengthSqr() <= 1.0E-12) return;
+        if (delta.lengthSqr() <= 0.000000000001) return;
         setDeltaMovement(delta);
     }
 

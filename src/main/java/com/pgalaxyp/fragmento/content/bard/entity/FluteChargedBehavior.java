@@ -6,7 +6,6 @@ import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
 import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
-import com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns;
 import net.minecraft.world.entity.LivingEntity;
 
 public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteChargedBehavior.Phase> {
@@ -21,7 +20,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
-        startPhase(Phase.SPAWN, SPAWN_TICKS);
+        startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
     @Override
@@ -31,7 +30,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         if (p == Phase.SPAWN) {
             ctx.self.setAnimKey(BardAnimKeys.SPAWN);
             if (time() >= duration()) {
-                startPhase(Phase.TRAVEL, TRAVEL_TICKS);
+                startPhase(ctx, Phase.TRAVEL, TRAVEL_TICKS);
             }
             return;
         }
@@ -40,7 +39,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
 
             LivingEntity target = ctx.target;
-            if (!SpiritMovementPatterns.chaseLivingTarget(
+            if (!com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns.chaseLivingTarget(
                     ctx,
                     movement,
                     look,
@@ -50,12 +49,12 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                     0.0,
                     false
             )) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
                 return;
             }
 
             if (time() >= duration()) {
-                startPhase(Phase.ASCENT, ASCENT_TICKS);
+                startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
             }
             return;
         }
@@ -64,7 +63,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
             ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
 
             LivingEntity target = ctx.target;
-            if (!SpiritMovementPatterns.chaseLivingTarget(
+            if (!com.pgalaxyp.fragmento.system.entity.movement.SpiritMovementPatterns.chaseLivingTarget(
                     ctx,
                     movement,
                     look,
@@ -74,12 +73,12 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                     2.0,
                     true
             )) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
                 return;
             }
 
             if (time() >= duration()) {
-                startPhase(Phase.HOVER, HOVER_TICKS);
+                startPhase(ctx, Phase.HOVER, HOVER_TICKS);
             }
             return;
         }
@@ -89,7 +88,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
             LivingEntity target = ctx.target;
             if (target == null || !target.isAlive()) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
                 return;
             }
 
@@ -99,7 +98,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
             look.lookAtPos = target.getBoundingBox().getCenter();
 
             if (time() >= duration()) {
-                startPhase(Phase.DESPAWN, DESPAWN_TICKS);
+                startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
             }
             return;
         }
@@ -113,15 +112,15 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
     @Override
     public void onImpact(SpiritContext ctx, ImpactResult impact) {
         if (phase() == Phase.TRAVEL) {
-            startPhase(Phase.ASCENT, ASCENT_TICKS);
+            startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
         }
     }
 
     @Override
-    protected void onTickPhase(Phase phase, int time, int duration) {
+    protected void onTickPhase(SpiritContext ctx, Phase phase, int time, int duration) {
     }
 
     @Override
-    protected void onEnterPhase(Phase phase) {
+    protected void onEnterPhase(SpiritContext ctx, Phase phase, int duration) {
     }
 }

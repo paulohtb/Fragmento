@@ -1,22 +1,22 @@
 package com.pgalaxyp.fragmento.system.entity.behavior;
 
-import com.pgalaxyp.fragmento.system.temporal.BehaviorPhaseMachine;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
+import com.pgalaxyp.fragmento.system.temporal.BehaviorPhaseMachine;
 
 public abstract class TimedSpiritBehavior<P extends Enum<P>> implements SpiritBehavior {
 
-    private final BehaviorPhaseMachine<P> machine;
+    private final BehaviorPhaseMachine<SpiritContext, P> machine;
 
     protected TimedSpiritBehavior() {
         this.machine = new BehaviorPhaseMachine<>(
-                (phase, duration) -> onEnterPhase(phase),
+                this::onEnterPhase,
                 this::onTickPhase
         );
     }
 
-    protected final void startPhase(P next, int duration) {
-        machine.start(next, duration);
+    protected final void startPhase(SpiritContext ctx, P next, int duration) {
+        machine.start(ctx, next, duration);
     }
 
     protected final P phase() {
@@ -36,7 +36,7 @@ public abstract class TimedSpiritBehavior<P extends Enum<P>> implements SpiritBe
         if (machine.phase() == null) {
             startInitialPhase(ctx);
         }
-        machine.step();
+        machine.step(ctx);
         tickInternal(ctx, movement, look);
     }
 
@@ -48,7 +48,7 @@ public abstract class TimedSpiritBehavior<P extends Enum<P>> implements SpiritBe
             LookPlan look
     );
 
-    protected abstract void onEnterPhase(P phase);
+    protected abstract void onEnterPhase(SpiritContext ctx, P phase, int duration);
 
-    protected abstract void onTickPhase(P phase, int time, int duration);
+    protected abstract void onTickPhase(SpiritContext ctx, P phase, int time, int duration);
 }
