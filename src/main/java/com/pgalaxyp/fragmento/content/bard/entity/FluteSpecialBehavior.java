@@ -27,9 +27,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
     private static final int SPAWN_TICKS = 5;
 
     private static final int ORBIT_TICKS = 35;
-    private static final double ORBIT_RADIUS = 2.0;
     private static final double ORBIT_SPEED = 0.35;
-    private static final double ORBIT_Y = 1.6;
 
     private static final int ASCENT_TICKS = 5;
     private static final int HOVER_TICKS = 90;
@@ -45,9 +43,18 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
     private Vec3 hoverPos;
     private boolean targetCleared;
 
+    private boolean orbitInit;
+    private double orbitStartAngle;
+    private double orbitRadius;
+    private double orbitYOffset;
+
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
         startPhase(Phase.SPAWN, SPAWN_TICKS);
+    }
+
+    @Override
+    public void onImpact(SpiritContext ctx, ImpactResult impact) {
     }
 
     @Override
@@ -68,6 +75,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         if (p == Phase.SPAWN) {
             ctx.self.setAnimKey(BardAnimKeys.SPAWN);
             if (time() >= duration()) {
+                orbitInit = false;
                 startPhase(Phase.ORBIT, ORBIT_TICKS);
             }
             return;
@@ -91,20 +99,32 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                 return;
             }
 
+            Vec3 center = target.getBoundingBox().getCenter();
+
+            if (!orbitInit) {
+                double dx = ctx.pos.x - center.x;
+                double dz = ctx.pos.z - center.z;
+                double r = Math.sqrt(dx * dx + dz * dz);
+
+                orbitRadius = Math.max(0.5, r);
+                orbitStartAngle = Math.atan2(dz, dx);
+                orbitYOffset = ctx.pos.y - center.y;
+
+                orbitInit = true;
+            }
+
             int t = time() - 1;
             if (t < 0) t = 0;
             if (t > ORBIT_TICKS - 1) t = ORBIT_TICKS - 1;
 
             int denom = Math.max(1, ORBIT_TICKS - 1);
             double progress = (double) t / (double) denom;
-            double angle = progress * 6.283185307179586;
-
-            Vec3 center = target.getBoundingBox().getCenter();
+            double angle = orbitStartAngle + (progress * 6.283185307179586);
 
             Vec3 orbitPos = center.add(
-                    Math.cos(angle) * ORBIT_RADIUS,
-                    ORBIT_Y,
-                    Math.sin(angle) * ORBIT_RADIUS
+                    Math.cos(angle) * orbitRadius,
+                    orbitYOffset,
+                    Math.sin(angle) * orbitRadius
             );
 
             Vec3 delta = orbitPos.subtract(ctx.pos);
@@ -124,7 +144,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
             clearTargetOnce(ctx);
 
             Vec3 anchor = castAnchor != null ? castAnchor : ctx.pos;
-            Vec3 targetPos = anchor.add(0.0, 0.0, 0.0);
+            Vec3 targetPos = anchor.add(0.0, 2.0, 0.0);
 
             if (ctx.self instanceof Entity ent) {
                 Vec3 cur = ent.position();
@@ -248,10 +268,5 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
 
     @Override
     protected void onEnterPhase(Phase phase) {
-    }
-
-    @Override
-    public void onImpact(SpiritContext ctx, ImpactResult impact) {
-
     }
 }

@@ -111,8 +111,12 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
         onSummoned(mode);
 
         if (owner != null) {
-            var eye = owner.getEyePosition();
-            setPos(eye.x, eye.y, eye.z);
+            Vec3 spawn = resolveSpawnPosition(owner, target, level, mode);
+            if (spawn == null) {
+                spawn = owner.getEyePosition();
+            }
+
+            setPos(spawn.x, spawn.y, spawn.z);
             setYRot(owner.getYRot());
             setXRot(owner.getXRot());
             yRotO = getYRot();
@@ -121,6 +125,15 @@ public abstract class NewwSpiritEntityBase extends SkillEntityBase implements Sp
 
         level.addFreshEntity(this);
         return getId();
+    }
+
+    protected Vec3 resolveSpawnPosition(
+            LivingEntity owner,
+            LivingEntity target,
+            ServerLevel level,
+            SkillMode mode
+    ) {
+        return owner != null ? owner.getEyePosition() : null;
     }
 
     protected abstract void onSummoned(SkillMode mode);

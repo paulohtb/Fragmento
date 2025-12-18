@@ -1,12 +1,16 @@
 package com.pgalaxyp.fragmento.system.entity.host;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
+import com.pgalaxyp.fragmento.content.bard.entity.BardSpiritSpawnService;
+import com.pgalaxyp.fragmento.system.animation.BehaviorAnimationController;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritBehavior;
-import com.pgalaxyp.fragmento.core.controller.BehaviorAnimationController;
 import com.pgalaxyp.fragmento.system.entity.controller.NewwSpiritController;
 import com.pgalaxyp.fragmento.system.skill.SkillMode;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.RawAnimation;
@@ -36,6 +40,16 @@ public final class BardSpiritEntity extends NewwSpiritEntityBase implements GeoE
 
     public SkillMode getMode() {
         return mode;
+    }
+
+    @Override
+    protected Vec3 resolveSpawnPosition(
+            LivingEntity owner,
+            LivingEntity target,
+            ServerLevel level,
+            SkillMode mode
+    ) {
+        return BardSpiritSpawnService.resolve(level, owner, mode);
     }
 
     @Override
