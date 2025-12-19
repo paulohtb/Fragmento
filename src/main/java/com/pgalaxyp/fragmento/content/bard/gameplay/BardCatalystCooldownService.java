@@ -8,10 +8,6 @@ public final class BardCatalystCooldownService {
     private BardCatalystCooldownService() {
     }
 
-    public static boolean isOnCooldown(ServerPlayer player, Item instrument) {
-        return player.getCooldowns().isOnCooldown(instrument);
-    }
-
     public static void applyCooldown(ServerPlayer player, Item instrument, int ticks) {
         if (ticks <= 0) return;
         player.getCooldowns().addCooldown(instrument, ticks);

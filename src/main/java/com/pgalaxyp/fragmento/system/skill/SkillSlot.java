@@ -3,8 +3,7 @@ package com.pgalaxyp.fragmento.system.skill;
 public enum SkillSlot {
 
     BASIC(0),
-    SPECIAL(1),
-    ULTIMATE(2);
+    SPECIAL(1);
 
     private final int id;
 

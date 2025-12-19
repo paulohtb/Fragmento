@@ -31,8 +31,6 @@ public final class SkillRouter {
         ItemStack stack = player.getMainHandItem();
         if (stack.isEmpty()) return;
 
-        if (BardCatalystCooldownService.isOnCooldown(player, stack.getItem())) return;
-
         if (slot == SkillSlot.SPECIAL && ChannelingService.hasActive(player)) return;
 
         SkillDispatchService.dispatch(

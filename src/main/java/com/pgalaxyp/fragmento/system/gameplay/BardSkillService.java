@@ -78,8 +78,6 @@ public final class BardSkillService {
             c.reset();
         }
 
-        instrument.onSkillExecuted(stack, slot);
-
         return result;
     }
 }

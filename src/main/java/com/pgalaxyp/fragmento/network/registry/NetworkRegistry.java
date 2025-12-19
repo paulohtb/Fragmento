@@ -1,8 +1,12 @@
 package com.pgalaxyp.fragmento.network.registry;
 
+import com.pgalaxyp.fragmento.client.visual.MinorWindVortexVisualPacketHandler;
+import com.pgalaxyp.fragmento.client.visual.AirImpactVisualPacketHandler;
 import com.pgalaxyp.fragmento.network.c2s.SkillCancelPacket;
 import com.pgalaxyp.fragmento.network.c2s.SkillIntentPacket;
+import com.pgalaxyp.fragmento.network.s2c.MinorWindVortexVisualPacket;
 import com.pgalaxyp.fragmento.network.s2c.SkillStateSnapshotPacket;
+import com.pgalaxyp.fragmento.network.s2c.SpiritImpactVisualPacket;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -34,6 +38,18 @@ public final class NetworkRegistry {
                 SkillStateSnapshotPacket.TYPE,
                 SkillStateSnapshotPacket.STREAM_CODEC,
                 SkillStateSnapshotPacket::handle
+        );
+
+        registrar.playToClient(
+                SpiritImpactVisualPacket.TYPE,
+                SpiritImpactVisualPacket.STREAM_CODEC,
+                AirImpactVisualPacketHandler::handle
+        );
+
+        registrar.playToClient(
+                MinorWindVortexVisualPacket.TYPE,
+                MinorWindVortexVisualPacket.STREAM_CODEC,
+                MinorWindVortexVisualPacketHandler::handle
         );
     }
 }

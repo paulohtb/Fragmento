@@ -145,12 +145,6 @@ public abstract class SkillEntityBase extends Entity {
         return prevPos != null ? prevPos : position();
     }
 
-    public void onCastedInternal() {
-    }
-
-    public void onCancelledInternal() {
-    }
-
     public LivingEntity getOwner() {
         return null;
     }

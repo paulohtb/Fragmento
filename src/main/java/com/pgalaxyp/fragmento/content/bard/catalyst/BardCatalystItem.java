@@ -24,9 +24,4 @@ public abstract class BardCatalystItem extends Item {
     public List<Skill> getSkills() {
         return skills;
     }
-
-    public abstract void onSkillExecuted(
-            ItemStack stack,
-            SkillSlot slot
-    );
 }

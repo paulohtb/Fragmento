@@ -14,10 +14,4 @@ public final class ChargeSystem {
                 id -> new ChargeInstance(id, max)
         );
     }
-
-    public void clear(UUID instrumentId) {
-        if (instrumentId != null) {
-            byInstrument.remove(instrumentId);
-        }
-    }
 }

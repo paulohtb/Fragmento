@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.content.bard.entity;
 
 import com.pgalaxyp.fragmento.content.bard.constants.BardAnimKeys;
 import com.pgalaxyp.fragmento.core.util.MathUtil;
+import com.pgalaxyp.fragmento.network.s2c.MinorWindVortexVisualPacket;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
 import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
@@ -15,10 +16,11 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-
+import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.List;
 
 public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecialBehavior.Phase> {
@@ -49,8 +51,11 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
     private double orbitRadius;
     private double orbitYOffset;
 
+    private boolean vortexSent;
+
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
+        vortexSent = false;
         startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
@@ -236,6 +241,23 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                     life,
                     duration
             );
+
+            if (!vortexSent && base.level() instanceof ServerLevel level) {
+                vortexSent = true;
+
+                Vec3 p = hoverPos != null ? hoverPos : ctx.pos;
+                ChunkPos chunkPos = new ChunkPos(
+                        (int) Math.floor(p.x) >> 4,
+                        (int) Math.floor(p.z) >> 4
+                );
+
+                PacketDistributor.sendToPlayersTrackingChunk(
+                        level,
+                        chunkPos,
+                        new MinorWindVortexVisualPacket(p)
+                );
+            }
+
             return;
         }
 

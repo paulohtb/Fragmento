@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.system.entity.controller;
 
-import com.pgalaxyp.fragmento.core.util.MathUtil;
+import com.pgalaxyp.fragmento.network.s2c.SpiritImpactVisualPacket;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
@@ -9,8 +9,10 @@ import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import com.pgalaxyp.fragmento.content.bard.entity.BardSpiritImpactService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class SpiritImpactController {
 
@@ -49,41 +51,33 @@ public final class SpiritImpactController {
             }
 
             entity.setDeltaMovement(Vec3.ZERO);
-            commitImpact(entity, behavior, ctx, target, entity.position());
+            commitImpact(level, entity, behavior, ctx, target, entity.position());
             return;
         }
 
         Vec3 spiritDelta = entity.getDeltaMovement();
-        if (spiritDelta == null) return;
+        if (spiritDelta.lengthSqr() <= 1.0E-12) return;
 
         Vec3 targetDelta = target.getDeltaMovement();
-        if (targetDelta == null) targetDelta = Vec3.ZERO;
-
-        Vec3 rel = new Vec3(
-                spiritDelta.x + MathUtil.negate(targetDelta.x),
-                spiritDelta.y + MathUtil.negate(targetDelta.y),
-                spiritDelta.z + MathUtil.negate(targetDelta.z)
-        );
-
-        if (rel.lengthSqr() <= 1.0E-12) return;
-
-        double t = firstContactTime(moving, targetBox, rel.x, rel.y, rel.z);
-        if (Double.isNaN(t)) return;
-
-        if (mode == SkillMode.BASIC) {
-            Vec3 clamped = spiritDelta.scale(t);
-            entity.setDeltaMovement(clamped);
-
-            Vec3 hitPos = entity.position().add(clamped);
-            commitImpact(entity, behavior, ctx, target, hitPos);
-            return;
+        if (targetDelta.lengthSqr() > 0.0) {
+            spiritDelta = spiritDelta.subtract(targetDelta);
         }
 
-        Vec3 hitPos = entity.position().add(spiritDelta.scale(t));
-        commitImpact(entity, behavior, ctx, target, hitPos);
+        double t = firstContactTime(moving, targetBox, spiritDelta.x, spiritDelta.y, spiritDelta.z);
+        if (Double.isNaN(t)) return;
+
+        Vec3 hitOffset = spiritDelta.scale(t);
+        Vec3 hitPos = entity.position().add(hitOffset);
+
+        if (mode == SkillMode.BASIC) {
+            entity.setDeltaMovement(hitOffset);
+        }
+
+        commitImpact(level, entity, behavior, ctx, target, hitPos);
     }
 
     private void commitImpact(
+            ServerLevel level,
             NewwSpiritEntityBase entity,
             SpiritBehavior behavior,
             SpiritContext ctx,
@@ -96,6 +90,17 @@ public final class SpiritImpactController {
         behavior.onImpact(ctx, impact);
 
         BardSpiritImpactService.handle(entity, ctx, target);
+
+        ChunkPos chunkPos = new ChunkPos(
+                (int) Math.floor(hitPos.x) >> 4,
+                (int) Math.floor(hitPos.z) >> 4
+        );
+
+        PacketDistributor.sendToPlayersTrackingChunk(
+                level,
+                chunkPos,
+                new SpiritImpactVisualPacket(hitPos)
+        );
     }
 
     private static double firstContactTime(
@@ -114,8 +119,8 @@ public final class SpiritImpactController {
             exitX = Double.POSITIVE_INFINITY;
         } else {
             double inv = 1.0 / dx;
-            double t1 = (target.minX + MathUtil.negate(moving.maxX)) * inv;
-            double t2 = (target.maxX + MathUtil.negate(moving.minX)) * inv;
+            double t1 = (target.minX - moving.maxX) * inv;
+            double t2 = (target.maxX - moving.minX) * inv;
             if (t1 > t2) {
                 double tmp = t1;
                 t1 = t2;
@@ -134,8 +139,8 @@ public final class SpiritImpactController {
             exitY = Double.POSITIVE_INFINITY;
         } else {
             double inv = 1.0 / dy;
-            double t1 = (target.minY + MathUtil.negate(moving.maxY)) * inv;
-            double t2 = (target.maxY + MathUtil.negate(moving.minY)) * inv;
+            double t1 = (target.minY - moving.maxY) * inv;
+            double t2 = (target.maxY - moving.minY) * inv;
             if (t1 > t2) {
                 double tmp = t1;
                 t1 = t2;
@@ -154,8 +159,8 @@ public final class SpiritImpactController {
             exitZ = Double.POSITIVE_INFINITY;
         } else {
             double inv = 1.0 / dz;
-            double t1 = (target.minZ + MathUtil.negate(moving.maxZ)) * inv;
-            double t2 = (target.maxZ + MathUtil.negate(moving.minZ)) * inv;
+            double t1 = (target.minZ - moving.maxZ) * inv;
+            double t2 = (target.maxZ - moving.minZ) * inv;
             if (t1 > t2) {
                 double tmp = t1;
                 t1 = t2;
@@ -172,35 +177,28 @@ public final class SpiritImpactController {
         if (exit < 0.0) return Double.NaN;
         if (entry > 1.0) return Double.NaN;
 
-        if (entry < 0.0) return 0.0;
-        return entry;
+        return Math.max(entry, 0.0);
     }
 
     private static Vec3 minimalSeparation(AABB moving, AABB target) {
-        double pushNegX = target.minX + MathUtil.negate(moving.maxX);
-        double pushPosX = target.maxX + MathUtil.negate(moving.minX);
+        double pushNegX = target.minX - moving.maxX;
+        double pushPosX = target.maxX - moving.minX;
         double pushX = Math.abs(pushNegX) < Math.abs(pushPosX) ? pushNegX : pushPosX;
 
-        double pushNegY = target.minY + MathUtil.negate(moving.maxY);
-        double pushPosY = target.maxY + MathUtil.negate(moving.minY);
+        double pushNegY = target.minY - moving.maxY;
+        double pushPosY = target.maxY - moving.minY;
         double pushY = Math.abs(pushNegY) < Math.abs(pushPosY) ? pushNegY : pushPosY;
 
-        double pushNegZ = target.minZ + MathUtil.negate(moving.maxZ);
-        double pushPosZ = target.maxZ + MathUtil.negate(moving.minZ);
+        double pushNegZ = target.minZ - moving.maxZ;
+        double pushPosZ = target.maxZ - moving.minZ;
         double pushZ = Math.abs(pushNegZ) < Math.abs(pushPosZ) ? pushNegZ : pushPosZ;
 
         double ax = Math.abs(pushX);
         double ay = Math.abs(pushY);
         double az = Math.abs(pushZ);
 
-        if (ax <= ay && ax <= az) {
-            return new Vec3(pushX, 0.0, 0.0);
-        }
-
-        if (ay <= ax && ay <= az) {
-            return new Vec3(0.0, pushY, 0.0);
-        }
-
+        if (ax <= ay && ax <= az) return new Vec3(pushX, 0.0, 0.0);
+        if (ay <= ax && ay <= az) return new Vec3(0.0, pushY, 0.0);
         return new Vec3(0.0, 0.0, pushZ);
     }
 }

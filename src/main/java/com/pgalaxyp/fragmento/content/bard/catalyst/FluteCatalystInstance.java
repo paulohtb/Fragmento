@@ -68,9 +68,4 @@ public final class FluteCatalystInstance extends BardCatalystItem {
                 new BardSpecialSkill<>(special)
         );
     }
-
-    @Override
-    public void onSkillExecuted(ItemStack stack, SkillSlot slot) {
-        if (slot == SkillSlot.SPECIAL) return;
-    }
 }

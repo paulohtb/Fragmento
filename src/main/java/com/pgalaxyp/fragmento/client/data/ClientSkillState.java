@@ -9,7 +9,6 @@ public final class ClientSkillState {
 
     private static final EnumMap<SkillSlot, Integer> COOLDOWNS = new EnumMap<>(SkillSlot.class);
 
-    private static UUID instrumentId;
     private static int charge;
     private static int maxCharge;
 
@@ -18,7 +17,6 @@ public final class ClientSkillState {
 
     public static void clear() {
         COOLDOWNS.clear();
-        instrumentId = null;
         charge = 0;
         maxCharge = 0;
     }
@@ -33,7 +31,6 @@ public final class ClientSkillState {
         if (cooldowns != null) {
             COOLDOWNS.putAll(cooldowns);
         }
-        instrumentId = inst;
         charge = Math.max(0, c);
         maxCharge = Math.max(0, max);
     }
@@ -49,9 +46,5 @@ public final class ClientSkillState {
 
     public static int maxCharge() {
         return maxCharge;
-    }
-
-    public static UUID instrumentId() {
-        return instrumentId;
     }
 }
