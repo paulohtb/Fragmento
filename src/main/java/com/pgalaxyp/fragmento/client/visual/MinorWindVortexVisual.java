@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -13,41 +13,32 @@ import net.minecraft.world.phys.Vec3;
 public final class MinorWindVortexVisual {
 
     private static final int RIBBONS = 4;
+    private static final int STEPS_PER_TURN = 8;
+    private static final int TURNS = 1;
 
-    // Quantos trapézios por volta, menor = mais quinas
-    private static final int STEPS_PER_TURN = 12;
+    private static final float BASE_RADIUS = 1.5F;
+    private static final float INNER_RADIUS = 0.5F;
+    private static final float HALF_WIDTH = 0.05F;
 
-    // Quantas voltas até o centro
-    private static final int TURNS = 3;
+    private static final float ROTATION_SPEED = 0.2F;
+    private static final float FLOW_SPEED = 0.5F;
 
-    private static final float BASE_RADIUS = 1.6F;
-    private static final float INNER_RADIUS = 0.4F;
-
-    private static final float HALF_WIDTH = 0.025F;
-
-    private static final float ROTATION_SPEED = 0.22F;
-    private static final float FLOW_SPEED = 0.7F;
-
-    private static final float DURATION_TICKS = 90.0F;
-
-    private static final int EFFECT_TICK_1 = 40;
-    private static final int EFFECT_TICK_2 = 85;
+    private static final int PULSE_DURATION = 40;
+    private static final int GAP_DURATION = 5;
+    private static final int TOTAL_DURATION = 85;
 
     private static final int CONVERGE_TICKS = 5;
-    private static final int LIFT_TICKS = 2;
+    private static final int LIFT_TICKS = 5;
 
-    private static final float LIFT_HEIGHT = 2.8F;
-    private static final float EXPAND_FACTOR = 2.2F;
+    private static final float LIFT_HEIGHT = 2.5F;
+    private static final float EXPAND_FACTOR = 2F;
 
-    // Correção de profundidade
     private static final float Y_BASE = 0.02F;
     private static final float Y_RIBBON_GAP = 0.002F;
     private static final float Y_STEP_GAP = 0.00002F;
 
-    private static final int LIGHT_U = 0xF0;
-    private static final int LIGHT_V = 0xF0;
-
-    private static final ResourceLocation TEXTURE = MissingTextureAtlasSprite.getLocation();
+    private static final ResourceLocation TEXTURE =
+            ResourceLocation.fromNamespaceAndPath("minecraft", "textures/misc/white.png");
 
     private final Vec3 pos;
     private final long startGameTime;
@@ -60,44 +51,35 @@ public final class MinorWindVortexVisual {
     public boolean isExpired(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return true;
-        float age = (mc.level.getGameTime() - startGameTime) + partialTick;
-        return age >= DURATION_TICKS;
+        return getTime(mc, partialTick) >= TOTAL_DURATION;
     }
 
     public void render(PoseStack poseStack, MultiBufferSource buffer, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
-        float time = (mc.level.getGameTime() - startGameTime) + partialTick;
+        float time = getTime(mc, partialTick);
+        float pulseTime = getPulseTime(time);
 
         float convergePhase = -1.0F;
         float liftPhase = -1.0F;
-
-        if (time >= EFFECT_TICK_1 - CONVERGE_TICKS && time < EFFECT_TICK_1) {
-            convergePhase = (time - (EFFECT_TICK_1 - CONVERGE_TICKS)) / CONVERGE_TICKS;
-        } else if (time >= EFFECT_TICK_1 && time < EFFECT_TICK_1 + LIFT_TICKS) {
-            liftPhase = (time - EFFECT_TICK_1) / LIFT_TICKS;
-        } else if (time >= EFFECT_TICK_2 - CONVERGE_TICKS && time < EFFECT_TICK_2) {
-            convergePhase = (time - (EFFECT_TICK_2 - CONVERGE_TICKS)) / CONVERGE_TICKS;
-        } else if (time >= EFFECT_TICK_2 && time < EFFECT_TICK_2 + LIFT_TICKS) {
-            liftPhase = (time - EFFECT_TICK_2) / LIFT_TICKS;
-        }
-
-        float yOffset = 0.0F;
         float alphaMul = 1.0F;
+        float yOffset = 0.0F;
 
-        if (liftPhase >= 0.0F) {
-            yOffset = liftPhase * LIFT_HEIGHT;
-            alphaMul = 1.0F - liftPhase;
+        if (pulseTime >= 0.0F) {
+            convergePhase = computeConverge(pulseTime);
+            liftPhase = computeLift(pulseTime);
+
+            if (liftPhase >= 0.0F) {
+                yOffset = liftPhase * LIFT_HEIGHT;
+                alphaMul = 1.0F - liftPhase;
+            }
         }
 
         if (alphaMul <= 0.0F) return;
 
-        float rotation = time * ROTATION_SPEED;
-        float flow = time * FLOW_SPEED;
-
         Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
-        VertexConsumer vc = buffer.getBuffer(RenderType.entityTranslucent(TEXTURE));
+        VertexConsumer vc = buffer.getBuffer(FragmentoRenderTypes.WIND_EMISSIVE);
 
         poseStack.pushPose();
         poseStack.translate(
@@ -105,20 +87,72 @@ public final class MinorWindVortexVisual {
                 pos.y - cam.y + yOffset,
                 pos.z - cam.z
         );
+
+        renderRibbons(poseStack, vc, time, convergePhase, liftPhase, alphaMul);
+
+        poseStack.popPose();
+    }
+
+    private float getTime(Minecraft mc, float partialTick) {
+        return (mc.level.getGameTime() - startGameTime) + partialTick;
+    }
+
+    private float getPulseTime(float time) {
+        if (time < PULSE_DURATION) {
+            return time;
+        }
+
+        if (time < PULSE_DURATION + GAP_DURATION) {
+            return -1.0F;
+        }
+
+        if (time < TOTAL_DURATION) {
+            return time - (PULSE_DURATION + GAP_DURATION);
+        }
+
+        return -1.0F;
+    }
+
+    private float computeConverge(float pulseTime) {
+        float convergeStart = PULSE_DURATION - LIFT_TICKS - CONVERGE_TICKS;
+        float convergeEnd = PULSE_DURATION - LIFT_TICKS;
+
+        if (pulseTime >= convergeStart && pulseTime < convergeEnd) {
+            return (pulseTime - convergeStart) / CONVERGE_TICKS;
+        }
+        return -1.0F;
+    }
+
+    private float computeLift(float pulseTime) {
+        float liftStart = PULSE_DURATION - LIFT_TICKS;
+
+        if (pulseTime >= liftStart && pulseTime < PULSE_DURATION) {
+            return (pulseTime - liftStart) / LIFT_TICKS;
+        }
+        return -1.0F;
+    }
+
+    private void renderRibbons(
+            PoseStack poseStack,
+            VertexConsumer vc,
+            float time,
+            float convergePhase,
+            float liftPhase,
+            float alphaMul
+    ) {
         PoseStack.Pose pose = poseStack.last();
 
+        float rotation = time * ROTATION_SPEED;
+        float flow = time * FLOW_SPEED;
+
         int totalSteps = STEPS_PER_TURN * TURNS;
-        float stepAngle = Mth.TWO_PI / (float) STEPS_PER_TURN;
+        float stepAngle = Mth.TWO_PI / STEPS_PER_TURN;
 
         for (int r = 0; r < RIBBONS; r++) {
             float ribbonOffset = r * (Mth.TWO_PI / RIBBONS);
             float baseAngle = rotation + ribbonOffset + flow * 0.05F;
 
-            float prevOutX = 0.0F;
-            float prevOutZ = 0.0F;
-            float prevInX = 0.0F;
-            float prevInZ = 0.0F;
-            float prevAlpha = 0.0F;
+            float prevOutX = 0, prevOutZ = 0, prevInX = 0, prevInZ = 0, prevAlpha = 0;
             boolean hasPrev = false;
 
             for (int k = 0; k <= totalSteps; k++) {
@@ -151,25 +185,7 @@ public final class MinorWindVortexVisual {
                 float y = Y_BASE + r * Y_RIBBON_GAP + k * Y_STEP_GAP;
 
                 if (hasPrev) {
-                    vc.addVertex(pose, prevOutX, y, prevOutZ)
-                            .setColor(1.0F, 1.0F, 1.0F, prevAlpha)
-                            .setUv(0.0F, 0.0F).setUv1(0, 0).setUv2(LIGHT_U, LIGHT_V)
-                            .setNormal(pose, 0.0F, 1.0F, 0.0F);
-
-                    vc.addVertex(pose, prevInX, y, prevInZ)
-                            .setColor(1.0F, 1.0F, 1.0F, prevAlpha)
-                            .setUv(0.0F, 0.0F).setUv1(0, 0).setUv2(LIGHT_U, LIGHT_V)
-                            .setNormal(pose, 0.0F, 1.0F, 0.0F);
-
-                    vc.addVertex(pose, inX, y, inZ)
-                            .setColor(1.0F, 1.0F, 1.0F, alpha)
-                            .setUv(0.0F, 0.0F).setUv1(0, 0).setUv2(LIGHT_U, LIGHT_V)
-                            .setNormal(pose, 0.0F, 1.0F, 0.0F);
-
-                    vc.addVertex(pose, outX, y, outZ)
-                            .setColor(1.0F, 1.0F, 1.0F, alpha)
-                            .setUv(0.0F, 0.0F).setUv1(0, 0).setUv2(LIGHT_U, LIGHT_V)
-                            .setNormal(pose, 0.0F, 1.0F, 0.0F);
+                    addQuad(vc, pose, prevOutX, prevOutZ, prevInX, prevInZ, prevAlpha, outX, outZ, inX, inZ, alpha, y);
                 }
 
                 prevOutX = outX;
@@ -180,7 +196,44 @@ public final class MinorWindVortexVisual {
                 hasPrev = true;
             }
         }
+    }
 
-        poseStack.popPose();
+    private void addQuad(
+            VertexConsumer vc, PoseStack.Pose pose,
+            float pOutX, float pOutZ, float pInX, float pInZ,
+            float pAlpha, float outX, float outZ, float inX, float inZ,
+            float alpha, float y
+    ) {
+        int light = 0xF000F0;
+        int overlayU = OverlayTexture.NO_OVERLAY & 0xFFFF;
+        int overlayV = (OverlayTexture.NO_OVERLAY >> 16) & 0xFFFF;
+
+        vc.addVertex(pose, pOutX, y, pOutZ)
+                .setColor(1.0F, 1.0F, 1.0F, pAlpha)
+                .setUv(0.0F, 0.0F)
+                .setUv1(overlayU, overlayV)
+                .setUv2(light, light)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
+
+        vc.addVertex(pose, pInX, y, pInZ)
+                .setColor(1.0F, 1.0F, 1.0F, pAlpha)
+                .setUv(0.0F, 0.0F)
+                .setUv1(overlayU, overlayV)
+                .setUv2(light, light)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
+
+        vc.addVertex(pose, inX, y, inZ)
+                .setColor(1.0F, 1.0F, 1.0F, alpha)
+                .setUv(0.0F, 0.0F)
+                .setUv1(overlayU, overlayV)
+                .setUv2(light, light)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
+
+        vc.addVertex(pose, outX, y, outZ)
+                .setColor(1.0F, 1.0F, 1.0F, alpha)
+                .setUv(0.0F, 0.0F)
+                .setUv1(overlayU, overlayV)
+                .setUv2(light, light)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
     }
 }
