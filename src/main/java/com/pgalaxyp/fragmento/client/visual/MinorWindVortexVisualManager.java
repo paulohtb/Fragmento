@@ -20,11 +20,17 @@ public final class MinorWindVortexVisualManager {
         EFFECTS.clear();
     }
 
-    public static void spawn(Vec3 pos) {
+    public static void spawn(Vec3 pos, int loopDuration, int gapDuration, int loops) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         if (pos == null) return;
-        EFFECTS.add(new MinorWindVortexVisual(pos, mc.level.getGameTime()));
+        EFFECTS.add(new MinorWindVortexVisual(
+                pos,
+                mc.level.getGameTime(),
+                loopDuration,
+                gapDuration,
+                loops
+        ));
     }
 
     public static void render(RenderLevelStageEvent event) {

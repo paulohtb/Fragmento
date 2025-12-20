@@ -5,9 +5,11 @@ import com.pgalaxyp.fragmento.network.s2c.MinorWindVortexVisualPacket;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
 import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
+import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -31,9 +33,12 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
     private static final int HOVER_TICKS = 40;
     private static final int DESPAWN_TICKS = 8;
 
-    private static final int VORTEX_DELAY_TICKS = 5;
-    private static final int VORTEX_LIFETIME_TICKS = 30;
-    private static final int GLOW_TICK_IN_HOVER = VORTEX_DELAY_TICKS + VORTEX_LIFETIME_TICKS;
+    private static final int PULSE_OFFSET_TICKS = 5;
+    private static final int EFFECT_TICKS = 20;
+
+    private static final int VORTEX_LOOP_DURATION = 40;
+    private static final int VORTEX_GAP_DURATION = 0;
+    private static final int VORTEX_LOOPS = 1;
 
     private static final double POS_EPS_SQR = 1.0E-8;
 
@@ -43,7 +48,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
     private Vec3 hoverPos;
 
     private boolean vortexSent;
-    private boolean glowApplied;
+    private boolean pulseApplied;
 
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
@@ -52,12 +57,12 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         ascentTargetPos = null;
         hoverPos = null;
         vortexSent = false;
-        glowApplied = false;
+        pulseApplied = false;
         startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
     @Override
-    public void tickInternal(SpiritContext ctx, MovementPlan movement, LookPlan look) {
+    protected void tickInternal(SpiritContext ctx, MovementPlan movement, LookPlan look) {
         Phase p = phase();
 
         if (p == Phase.SPAWN) {
@@ -113,12 +118,11 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
             if (ctx.self instanceof Entity ent) {
                 if (ascentTargetPos == null) {
-                    Vec3 cur = ent.position();
                     if (lastTargetFootPos == null) lastTargetFootPos = target.position();
 
                     Vec3 dir = travelDir;
                     if (dir == null || dir.lengthSqr() <= 1.0E-10) {
-                        Vec3 to = lastTargetFootPos.subtract(cur);
+                        Vec3 to = lastTargetFootPos.subtract(ent.position());
                         double ls = to.x * to.x + to.z * to.z;
                         if (ls > 1.0E-10) {
                             double inv = 1.0 / Math.sqrt(ls);
@@ -132,14 +136,13 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                     double y = lastTargetFootPos.y + target.getBbHeight() + 1.0;
 
                     ascentTargetPos = new Vec3(
-                            cur.x + back.x,
+                            ent.position().x + back.x,
                             y,
-                            cur.z + back.z
+                            ent.position().z + back.z
                     );
                 }
 
-                Vec3 cur = ent.position();
-                Vec3 to = ascentTargetPos.subtract(cur);
+                Vec3 to = ascentTargetPos.subtract(ent.position());
                 double dist = to.length();
 
                 if (dist > 1.0E-6) {
@@ -176,31 +179,15 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
                 movement.kind = MovementPlan.Kind.NONE;
 
-                if (lastTargetFootPos != null) {
-                    look.kind = LookPlan.Kind.TO_POS;
-                    look.lookAtPos = lastTargetFootPos;
-                } else {
-                    look.kind = LookPlan.Kind.NONE;
-                }
+                look.kind = lastTargetFootPos != null ? LookPlan.Kind.TO_POS : LookPlan.Kind.NONE;
+                look.lookAtPos = lastTargetFootPos;
 
                 if (ent.level() instanceof ServerLevel level) {
-                    if (!vortexSent && time() == VORTEX_DELAY_TICKS + 1) {
-                        LivingEntity target = ctx.target;
-                        if (target == null || !target.isAlive()) {
-                            startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
-                            return;
-                        }
-                        if (lastTargetFootPos == null) lastTargetFootPos = target.position();
-                        vortexSent = true;
-                    }
-
-                    if (!glowApplied && time() == GLOW_TICK_IN_HOVER + 1 && lastTargetFootPos != null) {
+                    if (!pulseApplied && time() == HOVER_TICKS - PULSE_OFFSET_TICKS) {
                         applyGroundGlow(level, lastTargetFootPos);
-                        glowApplied = true;
+                        pulseApplied = true;
                     }
                 }
-            } else {
-                movement.kind = MovementPlan.Kind.NONE;
             }
 
             if (time() >= duration()) startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
@@ -213,12 +200,36 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
     @Override
     protected void onEnterPhase(SpiritContext ctx, Phase phase, int duration) {
+        if (phase != Phase.HOVER) return;
+        if (!(ctx.self instanceof NewwSpiritEntityBase base)) return;
+        if (!(base.level() instanceof ServerLevel level)) return;
 
+        LivingEntity target = ctx.target;
+        if (target == null || !target.isAlive()) return;
+
+        lastTargetFootPos = target.position();
+
+        ChunkPos chunkPos = new ChunkPos(
+                Mth.floor(lastTargetFootPos.x) >> 4,
+                Mth.floor(lastTargetFootPos.z) >> 4
+        );
+
+        PacketDistributor.sendToPlayersTrackingChunk(
+                level,
+                chunkPos,
+                new MinorWindVortexVisualPacket(
+                        lastTargetFootPos,
+                        VORTEX_LOOP_DURATION,
+                        VORTEX_GAP_DURATION,
+                        VORTEX_LOOPS
+                )
+        );
+
+        vortexSent = true;
     }
 
     @Override
     protected void onTickPhase(SpiritContext ctx, Phase phase, int time, int duration) {
-
     }
 
     @Override
@@ -235,7 +246,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         ascentTargetPos = null;
         hoverPos = null;
         vortexSent = false;
-        glowApplied = false;
+        pulseApplied = false;
 
         startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
     }
@@ -256,11 +267,11 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                 z + 2
         );
 
-        List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, area, e -> !(e instanceof net.minecraft.server.level.ServerPlayer));
-        if (entities.isEmpty()) return;
+        List<LivingEntity> mobs = level.getEntitiesOfClass(LivingEntity.class, area);
+        if (mobs.isEmpty()) return;
 
-        for (LivingEntity e : entities) {
-            e.addEffect(new MobEffectInstance(MobEffects.GLOWING, 20, 0, false, true, true));
+        for (LivingEntity m : mobs) {
+            m.addEffect(new MobEffectInstance(MobEffects.GLOWING, EFFECT_TICKS, 0, false, true, true));
         }
     }
 }

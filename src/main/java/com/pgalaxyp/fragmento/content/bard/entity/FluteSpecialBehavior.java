@@ -38,6 +38,10 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
     private static final int AOE_EDGE_OFFSET_TICKS = 5;
     private static final int AOE_EFFECT_TICKS = 20;
 
+    private static final int VORTEX_LOOP_DURATION = 40;
+    private static final int VORTEX_GAP_DURATION = 5;
+    private static final int VORTEX_LOOPS = 2;
+
     private static final double POS_EPS_SQR = 1.0E-8;
 
     private boolean orbitInit;
@@ -227,7 +231,12 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
                 PacketDistributor.sendToPlayersTrackingChunk(
                         level,
                         chunkPos,
-                        new MinorWindVortexVisualPacket(p)
+                        new MinorWindVortexVisualPacket(
+                                p,
+                                VORTEX_LOOP_DURATION,
+                                VORTEX_GAP_DURATION,
+                                VORTEX_LOOPS
+                        )
                 );
             }
             return;

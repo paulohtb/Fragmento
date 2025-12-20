@@ -6,7 +6,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
-public record MinorWindVortexVisualPacket(Vec3 pos) implements CustomPacketPayload {
+public record MinorWindVortexVisualPacket(
+        Vec3 pos,
+        int loopDuration,
+        int gapDuration,
+        int loops
+) implements CustomPacketPayload {
 
     public static final ResourceLocation ID =
             ResourceLocation.fromNamespaceAndPath("fragmento", "minor_wind_vortex_visual");
@@ -19,13 +24,19 @@ public record MinorWindVortexVisualPacket(Vec3 pos) implements CustomPacketPaylo
                         buf.writeDouble(p.pos.x);
                         buf.writeDouble(p.pos.y);
                         buf.writeDouble(p.pos.z);
+                        buf.writeVarInt(p.loopDuration);
+                        buf.writeVarInt(p.gapDuration);
+                        buf.writeVarInt(p.loops);
                     },
                     buf -> new MinorWindVortexVisualPacket(
                             new Vec3(
                                     buf.readDouble(),
                                     buf.readDouble(),
                                     buf.readDouble()
-                            )
+                            ),
+                            buf.readVarInt(),
+                            buf.readVarInt(),
+                            buf.readVarInt()
                     )
             );
 

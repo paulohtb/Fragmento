@@ -13,7 +13,12 @@ public final class MinorWindVortexVisualPacketHandler {
         ctx.enqueueWork(() -> {
             Minecraft mc = Minecraft.getInstance();
             if (mc.level == null) return;
-            MinorWindVortexVisualManager.spawn(packet.pos());
+            MinorWindVortexVisualManager.spawn(
+                    packet.pos(),
+                    packet.loopDuration(),
+                    packet.gapDuration(),
+                    packet.loops()
+            );
         });
     }
 }
