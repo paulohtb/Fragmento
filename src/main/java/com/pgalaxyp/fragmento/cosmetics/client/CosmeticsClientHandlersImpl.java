@@ -1,7 +1,5 @@
 package com.pgalaxyp.fragmento.cosmetics.client;
 
-import com.mojang.logging.LogUtils;
-import com.pgalaxyp.fragmento.cosmetics.client.screen.CosmeticsScreen;
 import com.pgalaxyp.fragmento.cosmetics.network.CosmeticsNetwork;
 import com.pgalaxyp.fragmento.cosmetics.network.s2c.S2COpenCosmeticsScreenPayload;
 import com.pgalaxyp.fragmento.cosmetics.network.s2c.S2CSetBaseCosmeticResultPayload;
@@ -13,11 +11,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public final class CosmeticsClientHandlersImpl implements CosmeticsNetwork.ClientHandlers {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
 
     @Override
     public void onSyncCosmetics(final S2CSyncCosmeticsPayload payload, final IPayloadContext context) {
@@ -70,7 +69,7 @@ public final class CosmeticsClientHandlersImpl implements CosmeticsNetwork.Clien
             public void run() {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc == null) return;
-                mc.setScreen(new CosmeticsScreen());
+                mc.setScreen(new com.pgalaxyp.fragmento.cosmetics.client.screen.CosmeticsScreen());
             }
         });
     }

@@ -7,10 +7,6 @@ import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticTier;
 import com.pgalaxyp.fragmento.cosmetics.client.CosmeticsClientRequests;
 import com.pgalaxyp.fragmento.cosmetics.client.CosmeticsClientState;
-import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSelectionList;
@@ -18,6 +14,10 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public final class CosmeticsScreen extends Screen {
 
@@ -51,41 +51,61 @@ public final class CosmeticsScreen extends Screen {
         int slotY = top;
 
         for (CosmeticSlot slot : CosmeticSlot.values()) {
+            final CosmeticSlot slotFinal = slot;
             int w = 52;
             this.addRenderableWidget(
-                Button.builder(Component.literal(slot.name()), b -> {
-                    CosmeticsScreen.this.selectedSlot = slot;
-                    CosmeticsScreen.this.selectedEntry = null;
-                    CosmeticsScreen.this.rebuildList();
-                }).bounds(slotX, slotY, w, 20).build()
+                    Button.builder(Component.literal(slotFinal.name()), new Button.OnPress() {
+                        @Override
+                        public void onPress(Button b) {
+                            CosmeticsScreen.this.selectedSlot = slotFinal;
+                            CosmeticsScreen.this.selectedEntry = null;
+                            CosmeticsScreen.this.rebuildList();
+                        }
+                    }).bounds(slotX, slotY, w, 20).build()
             );
             slotX = Math.addExact(slotX, 54);
         }
 
         this.equipButton = this.addRenderableWidget(
-            Button.builder(Component.literal("Equip"), b -> {
-                if (selectedEntry == null) return;
-                CosmeticId id = CosmeticId.of(selectedEntry.id());
-                CosmeticsClientRequests.requestSetBase(selectedSlot, id);
-            }).bounds(Math.addExact(left, 228), Math.addExact(top, 30), 92, 20).build()
+                Button.builder(Component.literal("Equip"), new Button.OnPress() {
+                    @Override
+                    public void onPress(Button b) {
+                        if (selectedEntry == null) return;
+                        CosmeticId id = CosmeticId.of(selectedEntry.id());
+                        CosmeticsClientRequests.requestSetBase(selectedSlot, id);
+                    }
+                }).bounds(Math.addExact(left, 228), Math.addExact(top, 30), 92, 20).build()
         );
 
         this.clearButton = this.addRenderableWidget(
-            Button.builder(Component.literal("Clear"), b -> CosmeticsClientRequests.requestClearBase(selectedSlot))
-                .bounds(Math.addExact(left, 228), Math.addExact(top, 54), 92, 20).build()
+                Button.builder(Component.literal("Clear"), new Button.OnPress() {
+                            @Override
+                            public void onPress(Button b) {
+                                CosmeticsClientRequests.requestClearBase(selectedSlot);
+                            }
+                        })
+                        .bounds(Math.addExact(left, 228), Math.addExact(top, 54), 92, 20).build()
         );
 
         this.toggleOthersButton = this.addRenderableWidget(
-            Button.builder(toggleOthersLabel(), b -> {
-                boolean next = !CosmeticsClientState.showOthers();
-                CosmeticsClientState.setShowOthers(next);
-                b.setMessage(toggleOthersLabel());
-            }).bounds(Math.addExact(left, 228), Math.addExact(top, 78), 92, 20).build()
+                Button.builder(toggleOthersLabel(), new Button.OnPress() {
+                    @Override
+                    public void onPress(Button b) {
+                        boolean next = !CosmeticsClientState.showOthers();
+                        CosmeticsClientState.setShowOthers(next);
+                        b.setMessage(toggleOthersLabel());
+                    }
+                }).bounds(Math.addExact(left, 228), Math.addExact(top, 78), 92, 20).build()
         );
 
         this.closeButton = this.addRenderableWidget(
-            Button.builder(Component.literal("Close"), b -> CosmeticsScreen.this.onClose())
-                .bounds(Math.addExact(left, 228), Math.addExact(top, 150), 92, 20).build()
+                Button.builder(Component.literal("Close"), new Button.OnPress() {
+                            @Override
+                            public void onPress(Button b) {
+                                CosmeticsScreen.this.onClose();
+                            }
+                        })
+                        .bounds(Math.addExact(left, 228), Math.addExact(top, 150), 92, 20).build()
         );
 
         rebuildList();
@@ -142,6 +162,16 @@ public final class CosmeticsScreen extends Screen {
 
         gg.drawString(this.font, Component.literal("Tier: " + CosmeticsClientState.localTier().name()), left, Math.addExact(top, 176), 14737632);
         gg.drawString(this.font, Component.literal("Equipped: " + equipped), left, Math.addExact(top, 188), 14737632);
+
+        CosmeticsClientState.BaseSetResult r = CosmeticsClientState.lastSetBaseResult(selectedSlot.ordinal());
+        String rs = "Last set: none";
+        if (r != null) {
+            rs = r.success() ? ("Last set: ok v" + r.version()) : ("Last set: fail " + r.errorCode() + " v" + r.version());
+        }
+        gg.drawString(this.font, Component.literal(rs), left, Math.addExact(top, 200), 14737632);
+
+        String v1 = "Catalog v" + CosmeticsClientState.catalogDataVersion();
+        gg.drawString(this.font, Component.literal(v1), left, Math.addExact(top, 212), 11184810);
     }
 
     @Override

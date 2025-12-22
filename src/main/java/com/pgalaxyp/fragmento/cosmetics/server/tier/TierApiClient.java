@@ -14,9 +14,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 
 public final class TierApiClient {
-
     private static final Logger LOGGER = LogUtils.getLogger();
-
     private static final String HEADER_CONTENT_TYPE = "Content" + (char) 45 + "Type";
 
     private final TierApiConfig config;
@@ -126,16 +124,33 @@ public final class TierApiClient {
             return null;
         }
         String s = body.trim();
-        int value = 0;
         int len = s.length();
+        boolean found = false;
+        long value = 0L;
+
         for (int i = 0; i < len; i++) {
             char c = s.charAt(i);
             if (c >= '0' && c <= '9') {
-                value = c - '0';
-                break;
+                found = true;
+                value = (value * 10L) + (long) (c - '0');
+                if (value > 1000L) {
+                    break;
+                }
+            } else {
+                if (found) break;
             }
         }
-        CosmeticTier tier = CosmeticTier.fromLevel(value);
+
+        if (!found) return null;
+
+        int lvl;
+        if (value > (long) Integer.MAX_VALUE) {
+            lvl = Integer.MAX_VALUE;
+        } else {
+            lvl = (int) value;
+        }
+
+        CosmeticTier tier = CosmeticTier.fromLevel(lvl);
         LOGGER.info("TierApiClient parseTier {}", tier.name());
         return tier;
     }

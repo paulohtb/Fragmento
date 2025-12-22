@@ -1,14 +1,13 @@
 package com.pgalaxyp.fragmento.cosmetics.server;
 
-import com.mojang.logging.LogUtils;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticCatalogEntry;
+import com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticId;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticLoadout;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticService;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticTier;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticValidationResult;
-import com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState;
 import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticRegistry;
 import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticValidator;
 import com.pgalaxyp.fragmento.cosmetics.network.CosmeticsNetwork;
@@ -24,21 +23,22 @@ import com.pgalaxyp.fragmento.cosmetics.player.PlayerCosmeticsStorage;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.PlayerTierAttachment;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.PlayerTierService;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.PlayerTierStorage;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
-import org.slf4j.Logger;
 
 public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetwork.ServerHandlers {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private final MinecraftServer server;
     private final CosmeticRegistry registry;
@@ -71,7 +71,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (!vr.success()) return vr;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState next = att.state().withBaseSet(slot, cosmeticId);
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState next = att.state().withBaseSet(slot, cosmeticId);
         att.setState(next);
         syncTrackingAndSelf(player);
         return CosmeticValidationResult.OK;
@@ -84,7 +84,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (slot == null) return;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState next = att.state().withBaseCleared(slot);
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState next = att.state().withBaseCleared(slot);
         att.setState(next);
         syncTrackingAndSelf(player);
     }
@@ -100,7 +100,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (!vr.success()) return;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState next = att.state().withForcedSet(slot, cosmeticId);
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState next = att.state().withForcedSet(slot, cosmeticId);
         att.setState(next);
         syncTrackingAndSelf(player);
     }
@@ -112,7 +112,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (slot == null) return;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState next = att.state().withForcedCleared(slot);
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState next = att.state().withForcedCleared(slot);
         att.setState(next);
         syncTrackingAndSelf(player);
     }
@@ -123,7 +123,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (player == null) return;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState next = att.state().withForcedClearedAll();
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState next = att.state().withForcedClearedAll();
         att.setState(next);
         syncTrackingAndSelf(player);
     }
@@ -180,12 +180,20 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         int slots = CosmeticSlot.values().length;
         int[] counts = new int[Math.multiplyExact(tiers, slots)];
 
-        Map<com.pgalaxyp.fragmento.cosmetics.api.CosmeticId, com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition> defs = registry.snapshot().byIdView();
-        for (com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition def : defs.values()) {
+        Map<CosmeticId, CosmeticDefinition> defs = registry.snapshot().byIdView();
+        for (CosmeticDefinition def : defs.values()) {
             int required = def.requiredTier().level();
             int slotOrdinal = def.slot().ordinal();
+
             if (tier.allows(def.requiredTier())) {
-                unlocked.add(new CosmeticCatalogEntry(def.id().value(), def.type().value(), slotOrdinal, required, def.priority(), def.visibleToSelf()));
+                unlocked.add(new CosmeticCatalogEntry(
+                        def.id().value(),
+                        def.type().value(),
+                        slotOrdinal,
+                        required,
+                        def.priority(),
+                        def.visibleToSelf()
+                ));
             } else {
                 if (required < 0) continue;
                 if (required >= tiers) continue;
@@ -213,7 +221,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         if (tier == null) tier = CosmeticTier.TIER_0;
 
         PlayerCosmeticsAttachment att = PlayerCosmeticsStorage.get(player);
-        PlayerCosmeticState state = att.state();
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState state = att.state();
         CosmeticLoadout base = state.baseLoadout();
 
         EnumMap<CosmeticSlot, CosmeticId> nextMap = new EnumMap<>(CosmeticSlot.class);
@@ -222,7 +230,7 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
         for (Map.Entry<CosmeticSlot, CosmeticId> e : base.equippedView().entrySet()) {
             CosmeticSlot slot = e.getKey();
             CosmeticId id = e.getValue();
-            com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition def = registry.getDefinition(id);
+            CosmeticDefinition def = registry.getDefinition(id);
             if (def == null) {
                 changed = true;
                 continue;
@@ -236,7 +244,8 @@ public final class CosmeticServiceImpl implements CosmeticService, CosmeticsNetw
 
         if (!changed) return;
 
-        PlayerCosmeticState nextState = new PlayerCosmeticState(new CosmeticLoadout(nextMap), state.forcedLoadout(), state.version() + 1L);
+        com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState nextState =
+                new com.pgalaxyp.fragmento.cosmetics.api.PlayerCosmeticState(new CosmeticLoadout(nextMap), state.forcedLoadout(), state.version() + 1L);
         att.setState(nextState);
         PacketDistributor.sendToPlayer(player, new S2CToastPayload("Cosmetics", "Some cosmetics were removed"));
     }

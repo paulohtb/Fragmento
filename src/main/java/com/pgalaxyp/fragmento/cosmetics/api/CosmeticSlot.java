@@ -1,28 +1,58 @@
 package com.pgalaxyp.fragmento.cosmetics.api;
 
-import com.mojang.logging.LogUtils;
+import net.minecraft.resources.ResourceLocation;
 import java.util.Locale;
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
-import org.slf4j.Logger;
 
 public enum CosmeticSlot {
 
-    HEAD(ResourceLocation.fromNamespaceAndPath("fragmento", "head"), 600),
-    BODY(ResourceLocation.fromNamespaceAndPath("fragmento", "body"), 500),
-    ARMS(ResourceLocation.fromNamespaceAndPath("fragmento", "arms"), 400),
-    LEGS(ResourceLocation.fromNamespaceAndPath("fragmento", "legs"), 300),
-    FEET(ResourceLocation.fromNamespaceAndPath("fragmento", "feet"), 200),
-    CAPE(ResourceLocation.fromNamespaceAndPath("fragmento", "cape"), 100);
-
-    private static final Logger LOGGER = LogUtils.getLogger();
+    HEAD(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "head"),
+            600,
+            CosmeticTransform.IDENTITY
+    ),
+    BODY(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "body"),
+            500,
+            CosmeticTransform.IDENTITY
+    ),
+    ARMS(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "arms"),
+            400,
+            CosmeticTransform.IDENTITY
+    ),
+    LEGS(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "legs"),
+            300,
+            CosmeticTransform.IDENTITY
+    ),
+    FEET(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "feet"),
+            200,
+            CosmeticTransform.IDENTITY
+    ),
+    CAPE(
+            ResourceLocation.fromNamespaceAndPath("fragmento", "cape"),
+            100,
+            new CosmeticTransform(
+                    0.0F,
+                    0.0F,
+                    0.125F,
+                    180.0F,
+                    0.0F,
+                    0.0F,
+                    1.0F
+            )
+    );
 
     private final ResourceLocation id;
     private final int priority;
+    private final CosmeticTransform defaultTransform;
 
-    CosmeticSlot(ResourceLocation id, int priority) {
+    CosmeticSlot(ResourceLocation id, int priority, CosmeticTransform defaultTransform) {
         this.id = Objects.requireNonNull(id, "id");
         this.priority = priority;
+        this.defaultTransform = defaultTransform == null ? CosmeticTransform.IDENTITY : defaultTransform;
     }
 
     public ResourceLocation id() {
@@ -31,6 +61,10 @@ public enum CosmeticSlot {
 
     public int priority() {
         return priority;
+    }
+
+    public CosmeticTransform defaultTransform() {
+        return defaultTransform;
     }
 
     public boolean canOverride(CosmeticSlot other) {
@@ -52,7 +86,6 @@ public enum CosmeticSlot {
         for (CosmeticSlot slot : values()) {
             if (slot.name().equals(n)) return slot;
         }
-        LOGGER.debug("CosmeticSlot not found, {}", name);
         return null;
     }
 }

@@ -1,11 +1,16 @@
 package com.pgalaxyp.fragmento.cosmetics.client;
 
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticCatalogEntry;
+import com.pgalaxyp.fragmento.cosmetics.api.CosmeticId;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticLoadout;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticTier;
+import net.minecraft.resources.ResourceLocation;
+
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +30,7 @@ public final class CosmeticsClientState {
     private static volatile int CATALOG_TIERS = 0;
     private static volatile int CATALOG_SLOTS = 0;
     private static volatile int[] LOCKED_COUNTS = new int[0];
+    private static volatile Map<ResourceLocation, CosmeticCatalogEntry> UNLOCKED_BY_ID = new HashMap<>();
 
     private static volatile boolean SHOW_OTHERS = true;
 
@@ -55,6 +61,7 @@ public final class CosmeticsClientState {
             LAST_SET_BASE.set(i, null);
         }
         UNLOCKED = new ArrayList<>();
+        UNLOCKED_BY_ID = new HashMap<>();
         LOCKED_COUNTS = new int[0];
         CATALOG_DATA_VERSION = 0;
         CATALOG_TIERS = 0;
@@ -81,10 +88,24 @@ public final class CosmeticsClientState {
     public static void setCatalog(int playerTierLevel, int dataVersion, List<CosmeticCatalogEntry> unlocked, int tiers, int slots, int[] lockedCounts) {
         LOCAL_TIER = CosmeticTier.fromLevel(playerTierLevel);
         CATALOG_DATA_VERSION = dataVersion;
-        UNLOCKED = unlocked == null ? new ArrayList<>() : unlocked;
+        List<CosmeticCatalogEntry> list = unlocked == null ? new ArrayList<>() : unlocked;
+        UNLOCKED = list;
         CATALOG_TIERS = tiers;
         CATALOG_SLOTS = slots;
         LOCKED_COUNTS = lockedCounts == null ? new int[0] : lockedCounts;
+
+        HashMap<ResourceLocation, CosmeticCatalogEntry> map = new HashMap<>(Math.max(16, list.size() * 2));
+        for (int i = 0; i < list.size(); i++) {
+            CosmeticCatalogEntry e = list.get(i);
+            if (e == null) continue;
+            map.put(e.id(), e);
+        }
+        UNLOCKED_BY_ID = map;
+    }
+
+    public static CosmeticCatalogEntry getUnlockedEntry(ResourceLocation cosmeticId) {
+        if (cosmeticId == null) return null;
+        return UNLOCKED_BY_ID.get(cosmeticId);
     }
 
     public static int catalogDataVersion() {
@@ -117,6 +138,7 @@ public final class CosmeticsClientState {
         List<CosmeticCatalogEntry> list = UNLOCKED;
         for (int i = 0; i < list.size(); i++) {
             CosmeticCatalogEntry e = list.get(i);
+            if (e == null) continue;
             CosmeticSlot slot = e.slot();
             if (slot == null) continue;
             List<CosmeticCatalogEntry> dst = out.get(slot);

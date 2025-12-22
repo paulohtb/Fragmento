@@ -1,37 +1,38 @@
 package com.pgalaxyp.fragmento.cosmetics.server;
 
-import com.mojang.logging.LogUtils;
-import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticRegistryImpl;
-import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticsRuntime;
-import com.pgalaxyp.fragmento.cosmetics.network.CosmeticsNetwork;
 import com.pgalaxyp.fragmento.cosmetics.server.commands.CosmeticsCommands;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.TierApiConfig;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.TierApiConfigLoader;
-import com.pgalaxyp.fragmento.cosmetics.player.PlayerCosmeticsAttachment;
-import com.pgalaxyp.fragmento.cosmetics.player.PlayerCosmeticsStorage;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.PlayerTierAttachment;
 import com.pgalaxyp.fragmento.cosmetics.server.tier.PlayerTierStorage;
+import com.pgalaxyp.fragmento.cosmetics.player.PlayerCosmeticsAttachment;
+import com.pgalaxyp.fragmento.cosmetics.player.PlayerCosmeticsStorage;
+import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticsRuntime;
+import com.pgalaxyp.fragmento.cosmetics.internal.CosmeticRegistryImpl;
+import com.pgalaxyp.fragmento.cosmetics.CosmeticsKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-@EventBusSubscriber(modid = com.pgalaxyp.fragmento.cosmetics.CosmeticsKeys.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = CosmeticsKeys.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public final class CosmeticsServerEvents {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private static volatile CosmeticsServerWiring WIRING;
 
     private CosmeticsServerEvents() {
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onServerStarting(ServerStartingEvent event) {
         MinecraftServer server = event.getServer();
         CosmeticRegistryImpl registry = CosmeticsRuntime.registry();
@@ -45,22 +46,22 @@ public final class CosmeticsServerEvents {
         WIRING = wiring;
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         CosmeticsCommands.register(event.getDispatcher());
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
         try {
             CosmeticServiceImpl svc = CosmeticsServerRuntime.cosmeticsService();
-            CosmeticsNetwork.setServerHandlers(svc);
+            com.pgalaxyp.fragmento.cosmetics.network.CosmeticsNetwork.setServerHandlers(svc);
         } catch (Exception ex) {
             LOGGER.error("CosmeticsServerEvents server started error", ex);
         }
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
@@ -81,7 +82,7 @@ public final class CosmeticsServerEvents {
         }
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
         if (!(event.getEntity() instanceof ServerPlayer viewer)) return;
         if (!(event.getTarget() instanceof ServerPlayer target)) return;
@@ -92,7 +93,7 @@ public final class CosmeticsServerEvents {
         wiring.cosmeticService().syncToViewer(target, viewer);
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(event.getOriginal() instanceof ServerPlayer original)) return;
@@ -116,7 +117,7 @@ public final class CosmeticsServerEvents {
         }
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         CosmeticsServerWiring wiring = WIRING;
         if (wiring == null) return;

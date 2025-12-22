@@ -1,6 +1,5 @@
 package com.pgalaxyp.fragmento.cosmetics.network;
 
-import com.mojang.logging.LogUtils;
 import com.pgalaxyp.fragmento.cosmetics.CosmeticsKeys;
 import com.pgalaxyp.fragmento.cosmetics.network.c2s.C2SLinkTierKeyPayload;
 import com.pgalaxyp.fragmento.cosmetics.network.c2s.C2SRequestClearBaseCosmeticPayload;
@@ -17,12 +16,12 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 @EventBusSubscriber(modid = CosmeticsKeys.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class CosmeticsNetwork {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
 
     public static final String PROTOCOL_VERSION = "1";
 

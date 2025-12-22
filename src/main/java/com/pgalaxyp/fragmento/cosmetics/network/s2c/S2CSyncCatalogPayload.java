@@ -1,21 +1,29 @@
 package com.pgalaxyp.fragmento.cosmetics.network.s2c;
 
-import com.mojang.logging.LogUtils;
 import com.pgalaxyp.fragmento.cosmetics.CosmeticsKeys;
 import com.pgalaxyp.fragmento.cosmetics.api.CosmeticCatalogEntry;
-import io.netty.buffer.ByteBuf;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-public record S2CSyncCatalogPayload(int playerTierLevel, int dataVersion, List<CosmeticCatalogEntry> unlocked, int tiers, int slots, int[] lockedCountsByTierSlot) implements CustomPacketPayload {
+import io.netty.buffer.ByteBuf;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+public record S2CSyncCatalogPayload(
+        int playerTierLevel,
+        int dataVersion,
+        List<CosmeticCatalogEntry> unlocked,
+        int tiers,
+        int slots,
+        int[] lockedCountsByTierSlot
+) implements CustomPacketPayload {
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     public static final Type<S2CSyncCatalogPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(CosmeticsKeys.MOD_ID, "s2c_sync_catalog"));
@@ -35,6 +43,7 @@ public record S2CSyncCatalogPayload(int playerTierLevel, int dataVersion, List<C
                 int requiredTier = ByteBufCodecs.VAR_INT.decode(buf);
                 int priority = ByteBufCodecs.VAR_INT.decode(buf);
                 boolean visibleToSelf = ByteBufCodecs.BOOL.decode(buf);
+
                 list.add(new CosmeticCatalogEntry(id, type, slotOrdinal, requiredTier, priority, visibleToSelf));
             }
 

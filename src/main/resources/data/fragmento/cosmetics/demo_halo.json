@@ -1,0 +1,16 @@
+{
+  "type": "fragmento:demo",
+  "slot": "fragmento:head",
+  "tier": 1,
+  "priority": 0,
+  "visible_to_self": true,
+  "transform": {
+    "x": 0.0,
+    "y": 2.0,
+    "z": 0.0,
+    "rot_x": 0.0,
+    "rot_y": 0.0,
+    "rot_z": 0.0,
+    "scale": 1.0
+  }
+}
