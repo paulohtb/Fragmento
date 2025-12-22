@@ -1,13 +1,13 @@
 package com.pgalaxyp.fragmento.client.visual;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 public final class MinorWindVortexVisualManager {
 
@@ -20,16 +20,18 @@ public final class MinorWindVortexVisualManager {
         EFFECTS.clear();
     }
 
-    public static void spawn(Vec3 pos, int loopDuration, int gapDuration, int loops) {
+    public static void spawn(Vec3 pos, int loopDuration, int gapDuration, int loops, float sizeXZ) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         if (pos == null) return;
+
         EFFECTS.add(new MinorWindVortexVisual(
                 pos,
                 mc.level.getGameTime(),
                 loopDuration,
                 gapDuration,
-                loops
+                loops,
+                sizeXZ
         ));
     }
 

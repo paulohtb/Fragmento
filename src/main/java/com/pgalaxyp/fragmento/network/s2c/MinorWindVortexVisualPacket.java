@@ -10,7 +10,8 @@ public record MinorWindVortexVisualPacket(
         Vec3 pos,
         int loopDuration,
         int gapDuration,
-        int loops
+        int loops,
+        float sizeXZ
 ) implements CustomPacketPayload {
 
     public static final ResourceLocation ID =
@@ -27,6 +28,7 @@ public record MinorWindVortexVisualPacket(
                         buf.writeVarInt(p.loopDuration);
                         buf.writeVarInt(p.gapDuration);
                         buf.writeVarInt(p.loops);
+                        buf.writeFloat(p.sizeXZ);
                     },
                     buf -> new MinorWindVortexVisualPacket(
                             new Vec3(
@@ -36,7 +38,8 @@ public record MinorWindVortexVisualPacket(
                             ),
                             buf.readVarInt(),
                             buf.readVarInt(),
-                            buf.readVarInt()
+                            buf.readVarInt(),
+                            buf.readFloat()
                     )
             );
 

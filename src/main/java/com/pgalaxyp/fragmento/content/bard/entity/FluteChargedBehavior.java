@@ -8,11 +8,11 @@ import com.pgalaxyp.fragmento.system.entity.behavior.TimedSpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.host.NewwSpiritEntityBase;
 import com.pgalaxyp.fragmento.system.entity.movement.LookPlan;
 import com.pgalaxyp.fragmento.system.entity.movement.MovementPlan;
+import java.util.List;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ChunkPos;
@@ -20,8 +20,6 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
-
-import java.util.List;
 
 public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteChargedBehavior.Phase> {
 
@@ -39,8 +37,15 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
     private static final int VORTEX_LOOP_DURATION = 40;
     private static final int VORTEX_GAP_DURATION = 0;
     private static final int VORTEX_LOOPS = 1;
+    private static final float VORTEX_SIZE_XZ = 3.0F;
 
-    private static final double POS_EPS_SQR = 1.0E-8;
+    private static final double POS_EPS_SQR = 0.00000001;
+
+    private static final double SUCTION_RADIUS = 3.0;
+    private static final double SUCTION_MAX_PULL = 0.06;
+    private static final double KNOCK_UP_VELOCITY = Double.longBitsToDouble(0x3FEB333333333333L);
+
+    private static final double NEG_ONE = Double.longBitsToDouble(0xBFF0000000000000L);
 
     private Vec3 lastTargetFootPos;
     private Vec3 travelDir;
@@ -50,6 +55,8 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
     private boolean vortexSent;
     private boolean pulseApplied;
 
+    private int suctionTicksLeft;
+
     @Override
     protected void startInitialPhase(SpiritContext ctx) {
         lastTargetFootPos = null;
@@ -58,6 +65,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         hoverPos = null;
         vortexSent = false;
         pulseApplied = false;
+        suctionTicksLeft = 0;
         startPhase(ctx, Phase.SPAWN, SPAWN_TICKS);
     }
 
@@ -97,7 +105,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
             if (movement.kind == MovementPlan.Kind.VELOCITY) {
                 Vec3 v = movement.desiredVelocity;
                 double ls = v.lengthSqr();
-                if (ls > 1.0E-10) {
+                if (ls > 0.0000000001) {
                     double inv = 1.0 / Math.sqrt(ls);
                     travelDir = new Vec3(v.x * inv, 0.0, v.z * inv);
                 }
@@ -121,10 +129,10 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                     if (lastTargetFootPos == null) lastTargetFootPos = target.position();
 
                     Vec3 dir = travelDir;
-                    if (dir == null || dir.lengthSqr() <= 1.0E-10) {
+                    if (dir == null || dir.lengthSqr() <= 0.0000000001) {
                         Vec3 to = lastTargetFootPos.subtract(ent.position());
                         double ls = to.x * to.x + to.z * to.z;
-                        if (ls > 1.0E-10) {
+                        if (ls > 0.0000000001) {
                             double inv = 1.0 / Math.sqrt(ls);
                             dir = new Vec3(to.x * inv, 0.0, to.z * inv);
                         } else {
@@ -132,7 +140,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                         }
                     }
 
-                    Vec3 back = dir.scale(-1.0);
+                    Vec3 back = dir.scale(NEG_ONE);
                     double y = lastTargetFootPos.y + target.getBbHeight() + 1.0;
 
                     ascentTargetPos = new Vec3(
@@ -145,8 +153,8 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                 Vec3 to = ascentTargetPos.subtract(ent.position());
                 double dist = to.length();
 
-                if (dist > 1.0E-6) {
-                    double rem = (double) duration() + 1.0 - time();
+                if (dist > 0.000001) {
+                    double rem = (double) duration() + 1.0 + neg((double) time());
                     int steps = Math.max(1, (int) rem);
                     double step = Math.min(0.85, dist / (double) steps);
 
@@ -183,19 +191,34 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                 look.lookAtPos = lastTargetFootPos;
 
                 if (ent.level() instanceof ServerLevel level) {
-                    if (!pulseApplied && time() == HOVER_TICKS - PULSE_OFFSET_TICKS) {
-                        applyGroundGlow(level, lastTargetFootPos);
+                    int pulseTime = subInt(HOVER_TICKS, PULSE_OFFSET_TICKS);
+                    if (!pulseApplied && time() == pulseTime) {
+                        applyPulseKnockUp(level, lastTargetFootPos, ctx.owner);
+                        suctionTicksLeft = EFFECT_TICKS;
                         pulseApplied = true;
+                    }
+
+                    if (suctionTicksLeft > 0 && lastTargetFootPos != null) {
+                        applySuctionTick(level, lastTargetFootPos, ctx.owner);
+                        suctionTicksLeft = subInt(suctionTicksLeft, 1);
                     }
                 }
             }
 
-            if (time() >= duration()) startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
+            if (time() >= duration() && suctionTicksLeft <= 0) startPhase(ctx, Phase.DESPAWN, DESPAWN_TICKS);
             return;
         }
 
         ctx.self.setAnimKey(BardAnimKeys.DESPAWN);
-        if (time() >= duration()) ctx.self.requestDespawn();
+
+        if (ctx.self instanceof Entity ent && ent.level() instanceof ServerLevel level) {
+            if (suctionTicksLeft > 0 && lastTargetFootPos != null) {
+                applySuctionTick(level, lastTargetFootPos, ctx.owner);
+                suctionTicksLeft = subInt(suctionTicksLeft, 1);
+            }
+        }
+
+        if (time() >= duration() && suctionTicksLeft <= 0) ctx.self.requestDespawn();
     }
 
     @Override
@@ -210,8 +233,8 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         lastTargetFootPos = target.position();
 
         ChunkPos chunkPos = new ChunkPos(
-                Mth.floor(lastTargetFootPos.x) >> 4,
-                Mth.floor(lastTargetFootPos.z) >> 4
+                Mth.floor(lastTargetFootPos.x) >>> 4,
+                Mth.floor(lastTargetFootPos.z) >>> 4
         );
 
         PacketDistributor.sendToPlayersTrackingChunk(
@@ -221,7 +244,8 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
                         lastTargetFootPos,
                         VORTEX_LOOP_DURATION,
                         VORTEX_GAP_DURATION,
-                        VORTEX_LOOPS
+                        VORTEX_LOOPS,
+                        VORTEX_SIZE_XZ
                 )
         );
 
@@ -247,31 +271,81 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         hoverPos = null;
         vortexSent = false;
         pulseApplied = false;
+        suctionTicksLeft = 0;
 
         startPhase(ctx, Phase.ASCENT, ASCENT_TICKS);
     }
 
-    private static void applyGroundGlow(ServerLevel level, Vec3 pos) {
-        int x = Mth.floor(pos.x);
-        int z = Mth.floor(pos.z);
-
-        int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        int groundY = top - 1;
+    private static void applyPulseKnockUp(ServerLevel level, Vec3 center, LivingEntity owner) {
+        if (center == null) return;
 
         AABB area = new AABB(
-                x - 1,
-                groundY,
-                z - 1,
-                x + 2,
-                groundY + 3,
-                z + 2
+                center.x + neg(SUCTION_RADIUS),
+                center.y + neg(1.0),
+                center.z + neg(SUCTION_RADIUS),
+                center.x + SUCTION_RADIUS,
+                center.y + 3.0,
+                center.z + SUCTION_RADIUS
         );
 
         List<LivingEntity> mobs = level.getEntitiesOfClass(LivingEntity.class, area);
         if (mobs.isEmpty()) return;
 
-        for (LivingEntity m : mobs) {
-            m.addEffect(new MobEffectInstance(MobEffects.GLOWING, EFFECT_TICKS, 0, false, true, true));
+        for (LivingEntity e : mobs) {
+            if (owner != null && e.getId() == owner.getId()) continue;
+
+            Vec3 dm = e.getDeltaMovement();
+            double y = Math.max(dm.y, KNOCK_UP_VELOCITY);
+            e.setDeltaMovement(dm.x, y, dm.z);
         }
+    }
+
+    private static void applySuctionTick(ServerLevel level, Vec3 center, LivingEntity owner) {
+        AABB area = new AABB(
+                center.x + neg(SUCTION_RADIUS),
+                center.y + neg(1.0),
+                center.z + neg(SUCTION_RADIUS),
+                center.x + SUCTION_RADIUS,
+                center.y + 3.0,
+                center.z + SUCTION_RADIUS
+        );
+
+        List<LivingEntity> mobs = level.getEntitiesOfClass(LivingEntity.class, area);
+        if (mobs.isEmpty()) return;
+
+        for (LivingEntity e : mobs) {
+            if (owner != null && e.getId() == owner.getId()) continue;
+
+            Vec3 p = e.position();
+            double dx = center.x + neg(p.x);
+            double dz = center.z + neg(p.z);
+
+            double distSqr = dx * dx + dz * dz;
+            if (distSqr <= 0.0001) continue;
+
+            double dist = Math.sqrt(distSqr);
+            if (dist > SUCTION_RADIUS) continue;
+
+            double t = 1.0 + neg(dist / SUCTION_RADIUS);
+            double pull = Math.min(SUCTION_MAX_PULL, SUCTION_MAX_PULL * t);
+
+            double nx = dx / dist;
+            double nz = dz / dist;
+
+            Vec3 dm = e.getDeltaMovement();
+            e.setDeltaMovement(
+                    dm.x + nx * pull,
+                    dm.y,
+                    dm.z + nz * pull
+            );
+        }
+    }
+
+    private static int subInt(int a, int b) {
+        return a + (~b + 1);
+    }
+
+    private static double neg(double v) {
+        return Double.longBitsToDouble(Double.doubleToRawLongBits(v) ^ 0x8000000000000000L);
     }
 }
