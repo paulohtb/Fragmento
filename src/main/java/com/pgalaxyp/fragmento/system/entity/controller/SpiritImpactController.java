@@ -1,6 +1,5 @@
 package com.pgalaxyp.fragmento.system.entity.controller;
 
-import com.pgalaxyp.fragmento.network.s2c.SpiritImpactVisualPacket;
 import com.pgalaxyp.fragmento.system.entity.behavior.ImpactResult;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritBehavior;
 import com.pgalaxyp.fragmento.system.entity.behavior.SpiritContext;
@@ -9,10 +8,8 @@ import com.pgalaxyp.fragmento.system.skill.SkillMode;
 import com.pgalaxyp.fragmento.content.bard.entity.BardSpiritImpactService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class SpiritImpactController {
 
@@ -90,17 +87,6 @@ public final class SpiritImpactController {
         behavior.onImpact(ctx, impact);
 
         BardSpiritImpactService.handle(entity, ctx, target);
-
-        ChunkPos chunkPos = new ChunkPos(
-                (int) Math.floor(hitPos.x) >> 4,
-                (int) Math.floor(hitPos.z) >> 4
-        );
-
-        PacketDistributor.sendToPlayersTrackingChunk(
-                level,
-                chunkPos,
-                new SpiritImpactVisualPacket(hitPos)
-        );
     }
 
     private static double firstContactTime(
