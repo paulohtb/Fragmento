@@ -13,9 +13,7 @@ public final class JavaClassLogger {
             Paths.get("C:\\Users\\User\\Documents\\Projetos\\Fragmento\\src\\main\\java");
 
     private static final List<String> TARGET_FOLDERS = List.of(
-            "fragmento/client",
             "fragmento/content",
-            "fragmento/network",
             "fragmento/system"
     );
 
