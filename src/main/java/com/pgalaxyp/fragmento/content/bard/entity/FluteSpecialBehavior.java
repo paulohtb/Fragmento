@@ -81,7 +81,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         }
 
         if (p == Phase.ORBIT) {
-            ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
+            ctx.self.setAnimKey(BardAnimKeys.NONE);
 
             LivingEntity target = ctx.target;
             LivingEntity owner = ctx.owner;
@@ -171,7 +171,7 @@ public final class FluteSpecialBehavior extends TimedSpiritBehavior<FluteSpecial
         }
 
         if (p == Phase.HOVER) {
-            ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
+            ctx.self.setAnimKey(BardAnimKeys.NONE);
 
             if (ctx.self instanceof Entity ent) {
                 if (hoverPos == null) hoverPos = ent.position();

@@ -110,7 +110,7 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
         }
 
         if (p == Phase.HOVER) {
-            ctx.self.setAnimKey(BardAnimKeys.TRAVEL);
+            ctx.self.setAnimKey(BardAnimKeys.NONE);
             Vec3 center = vortexCenter;
             if (center == null) {
                 Mob t = readAscentTarget(ctx);
@@ -153,7 +153,6 @@ public final class FluteChargedBehavior extends TimedSpiritBehavior<FluteCharged
 
     @Override
     protected void onTickPhase(SpiritContext ctx, Phase phase, int time, int duration) {
-
     }
 
     @Override

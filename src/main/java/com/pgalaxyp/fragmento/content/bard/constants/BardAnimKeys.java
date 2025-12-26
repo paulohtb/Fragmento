@@ -7,4 +7,5 @@ public final class BardAnimKeys {
     public static final byte SPAWN = 0;
     public static final byte TRAVEL = 1;
     public static final byte DESPAWN = 2;
+    public static final byte NONE = 3;
 }

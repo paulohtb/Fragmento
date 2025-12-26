@@ -1,14 +1,13 @@
 package com.pgalaxyp.fragmento.system.animation;
 
 import com.pgalaxyp.fragmento.system.entity.controller.EntityController;
+import java.util.function.Supplier;
 import net.minecraft.world.entity.Entity;
 import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.animation.PlayState;
 import software.bernie.geckolib.animation.RawAnimation;
-
-import java.util.function.Supplier;
 
 public class AnimationController<T extends Entity & GeoAnimatable> extends EntityController<T> {
 
@@ -26,11 +25,22 @@ public class AnimationController<T extends Entity & GeoAnimatable> extends Entit
 
     private PlayState predicate(AnimationState<T> state) {
         RawAnimation anim = getAnimationSupplier().get();
-        if (anim != null && anim != last) {
+
+        if (anim == null) {
+            if (last != null) {
+                state.getController().stop();
+                state.getController().forceAnimationReset();
+                last = null;
+            }
+            return PlayState.STOP;
+        }
+
+        if (anim != last) {
             state.getController().setAnimation(anim);
             state.getController().forceAnimationReset();
             last = anim;
         }
+
         return PlayState.CONTINUE;
     }
 
