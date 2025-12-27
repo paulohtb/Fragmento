@@ -1,37 +1,27 @@
 package com.pgalaxyp.fragmento.cosmetics.api;
 
-import com.mojang.logging.LogUtils;
-import java.util.Objects;
-import org.slf4j.Logger;
-
 public final class CosmeticValidationResult {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
-
-    public static final CosmeticValidationResult OK = new CosmeticValidationResult(true, "ok");
+    public static final CosmeticValidationResult OK =
+            new CosmeticValidationResult(true, null);
 
     private final boolean success;
-    private final String errorCode;
+    private final String reason;
 
-    public CosmeticValidationResult(boolean success, String errorCode) {
+    private CosmeticValidationResult(boolean success, String reason) {
         this.success = success;
-        this.errorCode = Objects.requireNonNull(errorCode, "errorCode");
-        if (success) {
-            LOGGER.debug("CosmeticValidationResult ok, code {}", this.errorCode);
-        } else {
-            LOGGER.warn("CosmeticValidationResult fail, code {}", this.errorCode);
-        }
+        this.reason = reason;
+    }
+
+    public static CosmeticValidationResult fail(String reason) {
+        return new CosmeticValidationResult(false, reason);
     }
 
     public boolean success() {
         return success;
     }
 
-    public String errorCode() {
-        return errorCode;
-    }
-
-    public static CosmeticValidationResult fail(String code) {
-        return new CosmeticValidationResult(false, Objects.requireNonNull(code, "code"));
+    public String reason() {
+        return reason;
     }
 }

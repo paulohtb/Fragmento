@@ -1,21 +1,19 @@
 package com.pgalaxyp.fragmento.cosmetics.client.render.model;
 
-import com.pgalaxyp.fragmento.cosmetics.CosmeticsKeys;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public final class CosmeticModels {
 
-    private static final Map<ResourceLocation, CosmeticModel> BY_ID = new HashMap<>();
+    private static final ConcurrentHashMap<ResourceLocation, CosmeticModel> BY_ID = new ConcurrentHashMap<>();
     private static final CosmeticModel FALLBACK = new Cube8Model();
 
-    static {
-        BY_ID.put(ResourceLocation.fromNamespaceAndPath(CosmeticsKeys.MOD_ID, "demo_halo"), new DemoHaloModel());
-    }
+    private CosmeticModels() {}
 
-    private CosmeticModels() {
+    public static void register(ResourceLocation cosmeticId, CosmeticModel model) {
+        if (cosmeticId == null) return;
+        if (model == null) return;
+        BY_ID.put(cosmeticId, model);
     }
 
     public static CosmeticModel get(ResourceLocation cosmeticId) {
