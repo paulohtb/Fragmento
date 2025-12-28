@@ -18,7 +18,7 @@ public final class CosmeticsBuiltinDefinitions {
                 CosmeticId.of("fragmento:red_cube_head"),
                 CosmeticTypeId.of("builtin_cube"),
                 CosmeticSlot.HEAD,
-                TierLevel.TIER_0,
+                TierLevel.TIER_3,
                 0,
                 true
         ));

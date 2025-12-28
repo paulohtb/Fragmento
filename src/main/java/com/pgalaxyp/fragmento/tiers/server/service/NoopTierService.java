@@ -4,6 +4,7 @@ import com.pgalaxyp.fragmento.tiers.api.Tier;
 import com.pgalaxyp.fragmento.tiers.api.TierLevel;
 import com.pgalaxyp.fragmento.tiers.api.TierStatus;
 import com.pgalaxyp.fragmento.tiers.server.event.TierUpdatedEvent;
+
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;

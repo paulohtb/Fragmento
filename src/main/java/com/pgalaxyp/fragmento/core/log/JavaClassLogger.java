@@ -14,7 +14,8 @@ public final class JavaClassLogger {
 
     private static final List<String> TARGET_FOLDERS = List.of(
             "fragmento/tiers",
-            "fragmento/cosmetics"
+            "fragmento/cosmetics",
+            "fragmento/client"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";

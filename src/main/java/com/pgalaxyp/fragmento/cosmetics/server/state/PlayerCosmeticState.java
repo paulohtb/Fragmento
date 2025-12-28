@@ -8,6 +8,7 @@ import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
 import com.pgalaxyp.fragmento.cosmetics.internal.registry.CosmeticRegistry;
 import com.pgalaxyp.fragmento.tiers.api.Tier;
 import java.util.EnumMap;
+import java.util.Map;
 
 public record PlayerCosmeticState(
         CosmeticLoadout base,
@@ -32,10 +33,14 @@ public record PlayerCosmeticState(
     public PlayerCosmeticState revalidate(CosmeticRegistry registry, Tier tier) {
         EnumMap<CosmeticSlot, CosmeticId> valid = new EnumMap<>(CosmeticSlot.class);
 
-        for (var e : base.view().entrySet()) {
-            CosmeticDefinition def = registry.get(e.getValue());
-            if (def != null && tier.allows(def.requiredTier())) {
-                valid.put(e.getKey(), e.getValue());
+        if (tier != null && tier.active()) {
+            for (Map.Entry<CosmeticSlot, CosmeticId> e : base.view().entrySet()) {
+                CosmeticId id = e.getValue();
+                if (id == null) continue;
+                CosmeticDefinition def = registry.get(id);
+                if (def != null && tier.allows(def.requiredTier())) {
+                    valid.put(e.getKey(), id);
+                }
             }
         }
 

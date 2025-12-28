@@ -4,15 +4,15 @@ import com.pgalaxyp.fragmento.tiers.network.TierNetwork;
 import com.pgalaxyp.fragmento.tiers.network.TierSyncPacket;
 import com.pgalaxyp.fragmento.tiers.server.service.TierService;
 import com.pgalaxyp.fragmento.tiers.server.service.TierSnapshot;
-import java.util.UUID;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import java.util.UUID;
 
 @EventBusSubscriber(modid = "fragmento")
 public final class TierServerSync {
@@ -21,14 +21,19 @@ public final class TierServerSync {
 
     private static volatile long lastRunMillis;
 
-    private TierServerSync() {}
+    private TierServerSync() {
+    }
 
     @SubscribeEvent
     public static void onLogin(final PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
 
+        System.out.println("FRAGMENTO UUID " + sp.getUUID().toString());
+
         TierService service = TierNetwork.service();
         if (service == null) return;
+
+        service.invalidate(sp.getUUID());
 
         long now = System.currentTimeMillis();
         TierSnapshot snap = service.snapshot(sp.getUUID(), now);

@@ -1,93 +1,94 @@
 package com.pgalaxyp.fragmento.cosmetics.client.ui.screen;
 
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
-import com.pgalaxyp.fragmento.cosmetics.client.lifecycle.CosmeticsClientNetwork;
-import com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry;
-import com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiModel;
-import com.pgalaxyp.fragmento.cosmetics.client.ui.action.CosmeticUiActions;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ContainerObjectSelectionList;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 public final class CosmeticSlotScreen extends Screen {
 
-    private static final int OUTER_MARGIN = 16;
-    private static final int HEADER_Y = 10;
-    private static final int TABS_Y = 28;
-    private static final int LIST_TOP = 52;
-    private static final int FOOTER_H = 34;
-    private static final int ENTRY_H = 24;
+    public CosmeticSlotScreen(Screen parent, com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot slot) {
+        super(Component.literal("Cosmetics"));
+        this.parent = parent;
+        this.slot = slot == null ? com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot.HEAD : slot;
+        this.tierLabel = Component.literal("");
+    }
 
     private final Screen parent;
-    private final CosmeticSlot slot;
+    private final com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot slot;
 
     private CosmeticList list;
     private long lastTierVersion;
     private long lastLoadoutVersion;
-
-    public CosmeticSlotScreen(Screen parent, CosmeticSlot slot) {
-        super(Component.literal("Cosmetics"));
-        this.parent = parent;
-        this.slot = slot == null ? CosmeticSlot.HEAD : slot;
-    }
+    private Component tierLabel;
 
     @Override
     protected void init() {
-        CosmeticsClientNetwork.requestSync();
-
+        com.pgalaxyp.fragmento.cosmetics.client.lifecycle.CosmeticsClientNetwork.requestSync();
         int contentWidth = computeContentWidth(this.width);
-        int left = computeLeft(this.width, contentWidth);
-        int right = Math.addExact(left, contentWidth);
+        int contentHeight = computeContentHeight(this.height);
 
-        int bottom = Math.addExact(this.height, Math.negateExact(FOOTER_H));
-        int listHeight = Math.addExact(bottom, Math.negateExact(LIST_TOP));
+        int left = (this.width - contentWidth) / 2;
+        int top = (this.height - contentHeight) / 2;
+        int right = left + contentWidth;
+        int bottom = top + contentHeight;
 
-        this.list = new CosmeticList(this.minecraft, contentWidth, listHeight, LIST_TOP, ENTRY_H);
-        this.list.setLeftPos(left);
+        int listTop = top + HEADER_H + TABS_H + PANEL_PAD;
+        int listBottom = bottom - FOOTER_H - PANEL_PAD;
+        int listHeight = Math.max(40, listBottom - listTop);
+
+        this.list = new CosmeticList(this.minecraft, contentWidth - (PANEL_PAD * 2), listHeight, listTop, ENTRY_H);
+        this.list.setLeftPos(left + PANEL_PAD);
 
         this.addWidget(this.list);
         this.addRenderableOnly(this.list);
 
-        addTabs(left, contentWidth);
-        addFooter(right);
+        addTabs(left + PANEL_PAD, top + HEADER_H, contentWidth - (PANEL_PAD * 2));
+        addFooter(right - PANEL_PAD, bottom - PANEL_PAD);
 
         rebuild();
     }
 
+    private static final int OUTER_MARGIN = 18;
+    private static final int PANEL_PAD = 12;
+    private static final int HEADER_H = 34;
+    private static final int TABS_H = 22;
+    private static final int FOOTER_H = 40;
+    private static final int ENTRY_H = 26;
+
     private static int computeContentWidth(int screenWidth) {
-        int max = Math.addExact(screenWidth, Math.negateExact(Math.addExact(OUTER_MARGIN, OUTER_MARGIN)));
-        if (max > 360) return 360;
-        return Math.max(max, 220);
+        int max = screenWidth - (OUTER_MARGIN * 2);
+        if (max > 520) max = 520;
+        if (max < 300) max = 300;
+        return max;
     }
 
-    private static int computeLeft(int screenWidth, int contentWidth) {
-        int space = Math.addExact(screenWidth, Math.negateExact(contentWidth));
-        return space / 2;
+    private static int computeContentHeight(int screenHeight) {
+        int max = screenHeight - (OUTER_MARGIN * 2);
+        if (max > 340) max = 340;
+        if (max < 240) max = 240;
+        return max;
     }
 
-    private void addTabs(int left, int contentWidth) {
-        CosmeticSlot[] values = CosmeticSlot.values();
+    private void addTabs(int left, int y, int width) {
+        com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot[] values = com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot.values();
         int count = values.length;
 
-        int tabW = contentWidth / count;
-        if (tabW < 40) tabW = 40;
+        int tabW = width / count;
+        if (tabW < 54) tabW = 54;
 
         int x = left;
+        int end = left + width;
+
         for (int i = 0; i < count; i++) {
-            CosmeticSlot s = values[i];
-            int w = i == count - 1 ? Math.addExact(Math.addExact(left, contentWidth), Math.negateExact(x)) : tabW;
+            com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot s = values[i];
+            int w = (i == count - 1) ? (end - x) : tabW;
 
             Button tab = Button.builder(Component.literal(s.name()), new SwitchTabPress(this, parent, s))
-                    .bounds(x, TABS_Y, w, 20)
+                    .bounds(x, y, w, TABS_H)
                     .build();
 
             if (s == this.slot) {
@@ -95,13 +96,14 @@ public final class CosmeticSlotScreen extends Screen {
             }
 
             this.addRenderableWidget(tab);
-            x = Math.addExact(x, w);
+            x += w;
+            if (x >= end) break;
         }
     }
 
-    private void addFooter(int right) {
+    private void addFooter(int right, int bottom) {
         Button back = Button.builder(Component.literal("Back"), new BackPress(this))
-                .bounds(Math.addExact(right, Math.negateExact(72)), Math.addExact(this.height, Math.negateExact(26)), 68, 20)
+                .bounds(right - 72, bottom - 22, 72, 20)
                 .build();
         this.addRenderableWidget(back);
     }
@@ -124,25 +126,46 @@ public final class CosmeticSlotScreen extends Screen {
     private void rebuild() {
         this.lastTierVersion = com.pgalaxyp.fragmento.tiers.client.TierClientState.version();
         this.lastLoadoutVersion = currentLoadoutVersion();
+        this.tierLabel = buildTierLabel(com.pgalaxyp.fragmento.tiers.client.TierClientState.get());
 
         if (this.list == null) return;
 
-        List<CosmeticUiEntry> entries = CosmeticUiModel.build(this.slot);
-        ArrayList<CosmeticEntry> built = new ArrayList<>(entries.size());
+        java.util.List<com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry> entries =
+                com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiModel.build(this.slot);
 
-        for (CosmeticUiEntry e : entries) {
+        java.util.ArrayList<CosmeticEntry> built = new java.util.ArrayList<>(entries.size());
+        for (com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry e : entries) {
             if (e == null) continue;
             built.add(new CosmeticEntry(this, e));
         }
-
         this.list.setEntries(built);
     }
 
     @Override
     public void render(GuiGraphics gg, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(gg, mouseX, mouseY, partialTick);
+
+        int contentWidth = computeContentWidth(this.width);
+        int contentHeight = computeContentHeight(this.height);
+        int left = (this.width - contentWidth) / 2;
+        int top = (this.height - contentHeight) / 2;
+        int right = left + contentWidth;
+        int bottom = top + contentHeight;
+
+        gg.fill(left, top, right, bottom, 1879048192);
+        gg.fill(left + 1, top + 1, right - 1, bottom - 1, 1442840576);
+
+        int headerY = top + 10;
+        gg.drawCenteredString(this.font, Component.literal("Cosmetics"), this.width / 2, headerY, 16777215);
+
+        int tierX = left + PANEL_PAD;
+        int tierY = top + 10;
+        gg.drawString(this.font, this.tierLabel, tierX, tierY, 13421772);
+
         super.render(gg, mouseX, mouseY, partialTick);
-        gg.drawCenteredString(this.font, Component.literal("Cosmetics, " + this.slot.name()), this.width / 2, HEADER_Y, 16777215);
+
+        gg.fill(left + PANEL_PAD, top + HEADER_H - 2, right - PANEL_PAD, top + HEADER_H - 1, 1711276032);
+        gg.fill(left + PANEL_PAD, top + HEADER_H + TABS_H, right - PANEL_PAD, top + HEADER_H + TABS_H + 1, 1711276032);
     }
 
     @Override
@@ -152,8 +175,22 @@ public final class CosmeticSlotScreen extends Screen {
         mc.setScreen(parent);
     }
 
-    private record BackPress(CosmeticSlotScreen screen) implements Button.OnPress {
+    private static Component buildTierLabel(com.pgalaxyp.fragmento.tiers.api.Tier t) {
+        if (t == null) return Component.literal("Tier: ?");
+        com.pgalaxyp.fragmento.tiers.api.TierStatus st = t.status();
+        if (st == com.pgalaxyp.fragmento.tiers.api.TierStatus.ACTIVE) {
+            return Component.literal("Tier: " + t.level().value());
+        }
+        if (st == com.pgalaxyp.fragmento.tiers.api.TierStatus.INACTIVE) {
+            return Component.literal("Tier: 0");
+        }
+        if (st == com.pgalaxyp.fragmento.tiers.api.TierStatus.ERROR) {
+            return Component.literal("Tier: error");
+        }
+        return Component.literal("Tier: ?");
+    }
 
+    private record BackPress(CosmeticSlotScreen screen) implements Button.OnPress {
         @Override
         public void onPress(Button button) {
             Minecraft mc = Minecraft.getInstance();
@@ -162,8 +199,8 @@ public final class CosmeticSlotScreen extends Screen {
         }
     }
 
-    private record SwitchTabPress(CosmeticSlotScreen current, Screen parent, CosmeticSlot slot) implements Button.OnPress {
-
+    private record SwitchTabPress(CosmeticSlotScreen current, Screen parent, com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot slot)
+            implements Button.OnPress {
         @Override
         public void onPress(Button button) {
             Minecraft mc = Minecraft.getInstance();
@@ -185,8 +222,8 @@ public final class CosmeticSlotScreen extends Screen {
             this.leftPos = leftPos;
         }
 
-        public void setEntries(List<CosmeticEntry> entries) {
-            this.replaceEntries(Objects.requireNonNullElseGet(entries, List::of));
+        public void setEntries(java.util.List<CosmeticEntry> entries) {
+            this.replaceEntries(java.util.Objects.requireNonNullElseGet(entries, java.util.List::of));
         }
 
         @Override
@@ -203,50 +240,63 @@ public final class CosmeticSlotScreen extends Screen {
     private static final class CosmeticEntry extends ContainerObjectSelectionList.Entry<CosmeticEntry> {
 
         private final CosmeticSlotScreen screen;
-        private final CosmeticUiEntry entry;
+        private final com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry entry;
         private final Button equip;
         private final Button unequip;
-        private final List<GuiEventListener> children;
-        private final List<NarratableEntry> narratables;
+        private final java.util.List<net.minecraft.client.gui.components.events.GuiEventListener> children;
+        private final java.util.List<NarratableEntry> narratables;
 
-        private CosmeticEntry(CosmeticSlotScreen screen, CosmeticUiEntry entry) {
+        private CosmeticEntry(CosmeticSlotScreen screen, com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry entry) {
             this.screen = screen;
             this.entry = entry;
 
             this.equip = Button.builder(Component.literal("Equip"), new EquipPress(entry))
-                    .bounds(0, 0, 54, 18)
+                    .bounds(0, 0, 58, 18)
                     .build();
             this.unequip = Button.builder(Component.literal("Clear"), new ClearPress(entry))
-                    .bounds(0, 0, 54, 18)
+                    .bounds(0, 0, 58, 18)
                     .build();
 
-            this.children = List.of(this.equip, this.unequip);
-            this.narratables = List.of(this.equip, this.unequip);
+            this.children = java.util.List.of(this.equip, this.unequip);
+            this.narratables = java.util.List.of(this.equip, this.unequip);
         }
 
         @Override
-        public List<? extends GuiEventListener> children() {
+        public java.util.List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children() {
             return this.children;
         }
 
         @Override
-        public List<? extends NarratableEntry> narratables() {
+        public java.util.List<? extends NarratableEntry> narratables() {
             return this.narratables;
         }
 
         @Override
-        public void render(GuiGraphics gg, int index, int y, int x, int rowWidth, int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
-            CosmeticDefinition def = entry.definition();
+        public void render(
+                GuiGraphics gg,
+                int index,
+                int y,
+                int x,
+                int rowWidth,
+                int rowHeight,
+                int mouseX,
+                int mouseY,
+                boolean hovered,
+                float partialTick
+        ) {
+            com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition def = entry.definition();
             if (def == null) return;
 
-            int textX = Math.addExact(x, 6);
-            int textY = Math.addExact(y, 6);
+            int pad = 6;
+            int textX = x + pad;
+            int textY = y + 7;
 
+            gg.fill(x, y + 1, x + rowWidth, y + rowHeight - 1, hovered ? 872415231 : 603979776);
             gg.drawString(screen.font, Component.literal(def.id().value()), textX, textY, 16777215);
 
-            int btnX2 = Math.addExact(Math.addExact(x, rowWidth), Math.negateExact(60));
-            int btnX1 = Math.addExact(btnX2, Math.negateExact(58));
-            int btnY = Math.addExact(y, 3);
+            int btnX2 = x + rowWidth - 60;
+            int btnX1 = btnX2 - 60;
+            int btnY = y + 4;
 
             this.equip.setX(btnX1);
             this.equip.setY(btnY);
@@ -263,31 +313,27 @@ public final class CosmeticSlotScreen extends Screen {
             this.unequip.render(gg, mouseX, mouseY, partialTick);
 
             if (!allowed) {
-                int lockX = Math.addExact(btnX1, Math.negateExact(70));
-                gg.drawString(screen.font, Component.literal("Locked"), lockX, textY, 16733525);
+                gg.drawString(screen.font, Component.literal("Locked"), btnX1 - 64, textY, 16733525);
             } else if (equipped) {
-                int onX = Math.addExact(btnX1, Math.negateExact(70));
-                gg.drawString(screen.font, Component.literal("On"), onX, textY, 5635925);
+                gg.drawString(screen.font, Component.literal("On"), btnX1 - 64, textY, 5635925);
             }
         }
 
-        private record EquipPress(CosmeticUiEntry entry) implements Button.OnPress {
-
+        private record EquipPress(com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry entry) implements Button.OnPress {
             @Override
             public void onPress(Button button) {
-                CosmeticDefinition def = entry.definition();
+                com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition def = entry.definition();
                 if (def == null) return;
-                CosmeticUiActions.equip(def.slot(), def.id());
+                com.pgalaxyp.fragmento.cosmetics.client.ui.action.CosmeticUiActions.equip(def.slot(), def.id());
             }
         }
 
-        private record ClearPress(CosmeticUiEntry entry) implements Button.OnPress {
-
+        private record ClearPress(com.pgalaxyp.fragmento.cosmetics.client.ui.CosmeticUiEntry entry) implements Button.OnPress {
             @Override
             public void onPress(Button button) {
-                CosmeticDefinition def = entry.definition();
+                com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition def = entry.definition();
                 if (def == null) return;
-                CosmeticUiActions.unequip(def.slot());
+                com.pgalaxyp.fragmento.cosmetics.client.ui.action.CosmeticUiActions.unequip(def.slot());
             }
         }
     }

@@ -6,9 +6,9 @@ import com.pgalaxyp.fragmento.cosmetics.network.CosmeticNetwork;
 import com.pgalaxyp.fragmento.cosmetics.network.CosmeticSyncPublisher;
 import com.pgalaxyp.fragmento.cosmetics.policy.CosmeticAccessPolicy;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
-import com.pgalaxyp.fragmento.tiers.server.service.NoopTierService;
 import com.pgalaxyp.fragmento.cosmetics.server.validation.CosmeticValidator;
 import com.pgalaxyp.fragmento.cosmetics.server.validation.PlayerTierResolver;
+import com.pgalaxyp.fragmento.cosmetics.server.validation.TierNetworkTierService;
 import com.pgalaxyp.fragmento.cosmetics.server.validation.TierServicePlayerTierResolver;
 import com.pgalaxyp.fragmento.tiers.server.service.TierService;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -30,7 +30,7 @@ public final class CosmeticsServerBootstrap {
         CosmeticRegistryImpl registry = new CosmeticRegistryImpl();
         registry.setSnapshot(BuiltinCosmetics.snapshot());
 
-        TierService tierService = new NoopTierService();
+        TierService tierService = new TierNetworkTierService();
         PlayerTierResolver resolver = new TierServicePlayerTierResolver(tierService);
 
         CosmeticValidator validator = new CosmeticValidator(registry, resolver, new CosmeticAccessPolicy());

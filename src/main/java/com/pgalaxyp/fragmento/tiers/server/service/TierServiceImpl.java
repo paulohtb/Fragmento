@@ -4,6 +4,7 @@ import com.pgalaxyp.fragmento.tiers.api.Tier;
 import com.pgalaxyp.fragmento.tiers.api.TierStatus;
 import com.pgalaxyp.fragmento.tiers.network.TierApiClient;
 import com.pgalaxyp.fragmento.tiers.server.event.TierUpdatedEvent;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -81,6 +82,12 @@ public final class TierServiceImpl implements TierService {
 
     @Override
     public void registerListener(Consumer<TierUpdatedEvent> listener) {
-        listeners.add(listener);
+        listeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    @Override
+    public void invalidate(UUID playerId) {
+        if (playerId == null) return;
+        cache.remove(playerId);
     }
 }
