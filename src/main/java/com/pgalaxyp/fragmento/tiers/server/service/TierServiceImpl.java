@@ -1,93 +1,103 @@
 package com.pgalaxyp.fragmento.tiers.server.service;
 
-import com.pgalaxyp.fragmento.tiers.api.Tier;
-import com.pgalaxyp.fragmento.tiers.api.TierStatus;
-import com.pgalaxyp.fragmento.tiers.network.TierApiClient;
-import com.pgalaxyp.fragmento.tiers.server.event.TierUpdatedEvent;
-
-import java.util.List;
+import com.pgalaxyp.fragmento.tiers.common.model.Tier;
+import com.pgalaxyp.fragmento.tiers.common.service.TierService;
+import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
+import com.pgalaxyp.fragmento.tiers.common.service.TierUpdatedEvent;
+import com.pgalaxyp.fragmento.tiers.server.http.TierApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public final class TierServiceImpl implements TierService {
 
-    private static final long SOFT_TTL_MILLIS = 30L * 60L * 1000L;
-    private static final long HARD_TTL_MILLIS = 48L * 60L * 60L * 1000L;
+    private static final long TTL_MILLIS = 30L * 60L * 1000L;
+    private static final long INFLIGHT_WINDOW = 15000L;
 
     private final TierApiClient api;
-    private final ConcurrentHashMap<UUID, TierSnapshot> cache;
-    private final List<Consumer<TierUpdatedEvent>> listeners;
+    private final ConcurrentHashMap<UUID, CacheEntry> cache = new ConcurrentHashMap<>();
+    private final CopyOnWriteArrayList<Consumer<TierUpdatedEvent>> listeners = new CopyOnWriteArrayList<>();
 
     public TierServiceImpl(TierApiClient api) {
         this.api = Objects.requireNonNull(api, "api");
-        this.cache = new ConcurrentHashMap<>();
-        this.listeners = new CopyOnWriteArrayList<>();
     }
 
     @Override
-    public TierSnapshot snapshot(UUID playerId, long nowMillis) {
-        TierSnapshot current = cache.get(playerId);
+    public TierSnapshot snapshot(UUID playerId, long now) {
+        CacheEntry e = cache.computeIfAbsent(playerId, k -> new CacheEntry());
+        TierSnapshot snap = e.snapshot.get();
 
-        if (current != null && !current.expired(nowMillis)) {
-            return current;
+        if (snap == null || snap.expired(now)) {
+            refresh(e, playerId, now);
+            snap = e.snapshot.get();
         }
 
-        Tier fetched = api.fetchTierSync(playerId);
+        return snap == null
+                ? new TierSnapshot(Tier.inactive(), now, now + TTL_MILLIS, 0L)
+                : snap;
+    }
 
-        if (current != null) {
-            long age = nowMillis - current.fetchedAtMillis();
+    @Override
+    public void applyLocal(UUID playerId, Tier tier, long now) {
+        CacheEntry e = cache.computeIfAbsent(playerId, k -> new CacheEntry());
+        TierSnapshot cur = e.snapshot.get();
 
-            if (!fetched.active() && age < HARD_TTL_MILLIS) {
-                TierSnapshot kept =
-                        new TierSnapshot(
-                                current.tier(),
-                                current.fetchedAtMillis(),
-                                nowMillis + SOFT_TTL_MILLIS,
-                                current.version()
-                        );
-                cache.put(playerId, kept);
-                return kept;
-            }
-        }
+        long nextVersion = cur == null ? 1L : cur.version() + 1L;
+        TierSnapshot next = new TierSnapshot(tier, now, now + TTL_MILLIS, nextVersion);
 
-        Tier effective = fetched;
-        if (!fetched.active() && current != null && (nowMillis - current.fetchedAtMillis()) >= HARD_TTL_MILLIS) {
-            effective = new Tier(current.tier().level(), TierStatus.INACTIVE);
-        }
+        e.snapshot.set(next);
 
-        long version = current == null ? 1L : current.version() + 1L;
-
-        TierSnapshot next =
-                new TierSnapshot(
-                        effective,
-                        nowMillis,
-                        nowMillis + SOFT_TTL_MILLIS,
-                        version
-                );
-
-        cache.put(playerId, next);
-
-        if (current == null || !current.tier().equals(effective)) {
-            TierUpdatedEvent ev = new TierUpdatedEvent(playerId, effective, version);
+        if (cur == null || !cur.tier().equals(tier)) {
+            TierUpdatedEvent ev = new TierUpdatedEvent(playerId, tier, nextVersion);
             for (Consumer<TierUpdatedEvent> l : listeners) {
                 l.accept(ev);
             }
         }
-
-        return next;
     }
 
     @Override
     public void registerListener(Consumer<TierUpdatedEvent> listener) {
-        listeners.add(Objects.requireNonNull(listener, "listener"));
+        listeners.add(listener);
     }
 
     @Override
     public void invalidate(UUID playerId) {
-        if (playerId == null) return;
         cache.remove(playerId);
+    }
+
+    private void refresh(CacheEntry e, UUID playerId, long now) {
+        long prev = e.inFlightUntil.get();
+        if (prev > now) return;
+
+        if (!e.inFlightUntil.compareAndSet(prev, now + INFLIGHT_WINDOW)) {
+            return;
+        }
+
+        api.fetchTier(playerId).thenAccept(tier -> {
+            long ts = System.currentTimeMillis();
+            TierSnapshot cur = e.snapshot.get();
+            long v = cur == null ? 1L : cur.version() + 1L;
+
+            TierSnapshot next = new TierSnapshot(tier, ts, ts + TTL_MILLIS, v);
+            e.snapshot.set(next);
+
+            if (cur == null || !cur.tier().equals(tier)) {
+                TierUpdatedEvent ev = new TierUpdatedEvent(playerId, tier, v);
+                for (Consumer<TierUpdatedEvent> l : listeners) {
+                    l.accept(ev);
+                }
+            }
+
+            e.inFlightUntil.set(0L);
+        });
+    }
+
+    private static final class CacheEntry {
+        final AtomicReference<TierSnapshot> snapshot = new AtomicReference<>();
+        final AtomicLong inFlightUntil = new AtomicLong();
     }
 }

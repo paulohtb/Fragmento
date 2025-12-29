@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.cosmetics.server.service;
 
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticId;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticLoadoutSnapshot;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadoutSnapshot;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
 import java.util.UUID;
 
 public interface CosmeticService {

@@ -1,23 +1,40 @@
 package com.pgalaxyp.fragmento.cosmetics.server.state;
 
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticDefinition;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticId;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticLoadout;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticLoadoutSnapshot;
-import com.pgalaxyp.fragmento.cosmetics.api.CosmeticSlot;
-import com.pgalaxyp.fragmento.cosmetics.internal.registry.CosmeticRegistry;
-import com.pgalaxyp.fragmento.tiers.api.Tier;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.LevelAccessPolicy;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadout;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadoutSnapshot;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
+import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistry;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Objects;
 
-public record PlayerCosmeticState(
-        CosmeticLoadout base,
-        CosmeticLoadout forced,
-        long version
-) {
+public final class PlayerCosmeticState {
 
-    public static final PlayerCosmeticState EMPTY =
-            new PlayerCosmeticState(CosmeticLoadout.EMPTY, CosmeticLoadout.EMPTY, 0L);
+    public static final PlayerCosmeticState EMPTY = new PlayerCosmeticState(new EnumMap<>(CosmeticSlot.class), 0L);
+
+    private final EnumMap<CosmeticSlot, SlotCosmetic> slots;
+    private final long version;
+
+    public PlayerCosmeticState(EnumMap<CosmeticSlot, SlotCosmetic> slots, long version) {
+        Objects.requireNonNull(slots, "slots");
+        EnumMap<CosmeticSlot, SlotCosmetic> copy = new EnumMap<>(CosmeticSlot.class);
+        copy.putAll(slots);
+        this.slots = copy;
+        this.version = version;
+    }
+
+    public long version() {
+        return version;
+    }
+
+    public EnumMap<CosmeticSlot, SlotCosmetic> slotsCopy() {
+        EnumMap<CosmeticSlot, SlotCosmetic> copy = new EnumMap<>(CosmeticSlot.class);
+        copy.putAll(slots);
+        return copy;
+    }
 
     public CosmeticLoadoutSnapshot snapshot() {
         return CosmeticLoadoutSnapshot.of(resolveEffective(), version);
@@ -25,25 +42,70 @@ public record PlayerCosmeticState(
 
     public CosmeticLoadout resolveEffective() {
         EnumMap<CosmeticSlot, CosmeticId> out = new EnumMap<>(CosmeticSlot.class);
-        out.putAll(base.view());
-        out.putAll(forced.view());
+        for (Map.Entry<CosmeticSlot, SlotCosmetic> e : slots.entrySet()) {
+            SlotCosmetic sc = e.getValue();
+            if (sc == null) {
+                continue;
+            }
+            CosmeticId id = sc.effective();
+            if (id != null) {
+                out.put(e.getKey(), id);
+            }
+        }
         return new CosmeticLoadout(out);
     }
 
-    public PlayerCosmeticState revalidate(CosmeticRegistry registry, Tier tier) {
-        EnumMap<CosmeticSlot, CosmeticId> valid = new EnumMap<>(CosmeticSlot.class);
+    public PlayerCosmeticState revalidate(CosmeticRegistry registry, int playerLevel, LevelAccessPolicy accessPolicy) {
+        Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(accessPolicy, "accessPolicy");
 
-        if (tier != null && tier.active()) {
-            for (Map.Entry<CosmeticSlot, CosmeticId> e : base.view().entrySet()) {
-                CosmeticId id = e.getValue();
-                if (id == null) continue;
-                CosmeticDefinition def = registry.get(id);
-                if (def != null && tier.allows(def.requiredTier())) {
-                    valid.put(e.getKey(), id);
-                }
+        int lvl = Math.max(0, playerLevel);
+        EnumMap<CosmeticSlot, SlotCosmetic> next = new EnumMap<>(CosmeticSlot.class);
+
+        CosmeticSlot[] slotsArr = CosmeticSlot.values();
+        for (CosmeticSlot slot : slotsArr) {
+            SlotCosmetic cur = slots.get(slot);
+            if (cur == null || cur.isEmpty()) {
+                continue;
+            }
+
+            CosmeticId base = cur.base();
+            CosmeticId forced = cur.forced();
+
+            CosmeticId baseOk = validateOne(registry, lvl, accessPolicy, slot, base);
+            CosmeticId forcedOk = validateOne(registry, lvl, accessPolicy, slot, forced);
+
+            SlotCosmetic rebuilt = new SlotCosmetic(baseOk, forcedOk);
+            if (!rebuilt.isEmpty()) {
+                next.put(slot, rebuilt);
             }
         }
 
-        return new PlayerCosmeticState(new CosmeticLoadout(valid), forced, version + 1L);
+        return new PlayerCosmeticState(next, version);
+    }
+
+    private static CosmeticId validateOne(
+            CosmeticRegistry registry,
+            int playerLevel,
+            LevelAccessPolicy accessPolicy,
+            CosmeticSlot slot,
+            CosmeticId id
+    ) {
+        if (id == null) {
+            return null;
+        }
+
+        CosmeticDefinition def = registry.get(id);
+        if (def == null) {
+            return null;
+        }
+        if (def.slot() != slot) {
+            return null;
+        }
+
+        if (accessPolicy.allowed(playerLevel, def.requiredLevel())) {
+            return id;
+        }
+        return null;
     }
 }

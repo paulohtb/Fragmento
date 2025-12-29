@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.client.lifecycle;
 
-import com.pgalaxyp.fragmento.cosmetics.client.CosmeticsClientState;
-import com.pgalaxyp.fragmento.tiers.client.TierClientState;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
+import com.pgalaxyp.fragmento.tiers.common.view.TierClientState;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

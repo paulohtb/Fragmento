@@ -1,16 +1,14 @@
 package com.pgalaxyp.fragmento.cosmetics.server.bootstrap;
 
-import com.pgalaxyp.fragmento.cosmetics.internal.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.internal.registry.CosmeticRegistryImpl;
-import com.pgalaxyp.fragmento.cosmetics.network.CosmeticNetwork;
-import com.pgalaxyp.fragmento.cosmetics.network.CosmeticSyncPublisher;
-import com.pgalaxyp.fragmento.cosmetics.policy.CosmeticAccessPolicy;
+import com.pgalaxyp.fragmento.cosmetics.server.network.TrackingCosmeticSyncPublisher;
+import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
+import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.LevelAccessPolicies;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.PlayerEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
+import com.pgalaxyp.fragmento.cosmetics.common.validation.CosmeticValidator;
+import com.pgalaxyp.fragmento.cosmetics.common.validation.EntitlementServicePlayerLevelResolver;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
-import com.pgalaxyp.fragmento.cosmetics.server.validation.CosmeticValidator;
-import com.pgalaxyp.fragmento.cosmetics.server.validation.PlayerTierResolver;
-import com.pgalaxyp.fragmento.cosmetics.server.validation.TierNetworkTierService;
-import com.pgalaxyp.fragmento.cosmetics.server.validation.TierServicePlayerTierResolver;
-import com.pgalaxyp.fragmento.tiers.server.service.TierService;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -23,20 +21,28 @@ public final class CosmeticsServerBootstrap {
     private CosmeticsServerBootstrap() {}
 
     @SubscribeEvent
-    public static void onServerStarted(final ServerStartedEvent event) {
-        if (bound) return;
+    public static void onServerStarted(ServerStartedEvent event) {
+        if (bound) {
+            return;
+        }
         bound = true;
 
         CosmeticRegistryImpl registry = new CosmeticRegistryImpl();
         registry.setSnapshot(BuiltinCosmetics.snapshot());
 
-        TierService tierService = new TierNetworkTierService();
-        PlayerTierResolver resolver = new TierServicePlayerTierResolver(tierService);
+        PlayerEntitlementService entitlements = CosmeticsServerWiring.entitlements();
 
-        CosmeticValidator validator = new CosmeticValidator(registry, resolver, new CosmeticAccessPolicy());
-        CosmeticSyncPublisher publisher = CosmeticNetwork.publisher();
+        EntitlementServicePlayerLevelResolver resolver = new EntitlementServicePlayerLevelResolver(entitlements);
+        CosmeticValidator validator = new CosmeticValidator(registry, resolver, LevelAccessPolicies.DEFAULT);
 
-        CosmeticServiceImpl service = new CosmeticServiceImpl(registry, tierService, validator, publisher);
-        CosmeticNetwork.bindService(service, publisher);
+        CosmeticServiceImpl service = new CosmeticServiceImpl(
+                registry,
+                entitlements,
+                validator,
+                new TrackingCosmeticSyncPublisher(),
+                LevelAccessPolicies.DEFAULT
+        );
+
+        CosmeticServices.bind(service);
     }
 }
