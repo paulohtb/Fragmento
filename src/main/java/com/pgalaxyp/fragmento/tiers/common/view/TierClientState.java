@@ -1,35 +1,30 @@
 package com.pgalaxyp.fragmento.tiers.common.view;
 
-import com.pgalaxyp.fragmento.tiers.common.model.Tier;
-
 public final class TierClientState {
 
-    private static volatile Tier CURRENT = Tier.inactive();
+    private static volatile int LEVEL;
     private static volatile long VERSION;
 
     private TierClientState() {}
 
-    public static Tier get() {
-        return CURRENT;
+    public static int level() {
+        return LEVEL;
     }
 
     public static long version() {
         return VERSION;
     }
 
-    public static void update(Tier tier, long version) {
-        if (tier == null) {
-            return;
-        }
+    public static void update(int level, long version) {
         if (version < VERSION) {
             return;
         }
-        CURRENT = tier;
+        LEVEL = Math.max(0, level);
         VERSION = version;
     }
 
     public static void clear() {
-        CURRENT = Tier.inactive();
+        LEVEL = 0;
         VERSION = 0L;
     }
 }

@@ -3,21 +3,21 @@ package com.pgalaxyp.fragmento.tiers.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
+import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
-import com.pgalaxyp.fragmento.tiers.common.model.Tier;
-import com.pgalaxyp.fragmento.tiers.common.model.TierLevel;
-import com.pgalaxyp.fragmento.tiers.common.model.TierStatus;
-import com.pgalaxyp.fragmento.tiers.common.network.TierSyncPacket;
 import com.pgalaxyp.fragmento.tiers.server.http.TierRedeemApiClient;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import java.util.UUID;
 
 public final class RedeemCommand {
+
+    private static final TierRedeemApiClient API = new TierRedeemApiClient();
 
     private RedeemCommand() {}
 
@@ -42,22 +42,25 @@ public final class RedeemCommand {
         String code = StringArgumentType.getString(ctx, "code");
         UUID uuid = player.getUUID();
 
-        TierRedeemApiClient api = new TierRedeemApiClient();
-        int level = api.redeem(uuid, code);
-
+        int level = API.redeem(uuid, code);
         if (level <= 0) {
             src.sendFailure(Component.literal("Código inválido ou já usado."));
             return 0;
         }
 
-        Tier tier = new Tier(TierLevel.of(level), TierStatus.ACTIVE);
         TierService service = TierServices.service();
-
         long now = System.currentTimeMillis();
-        service.applyLocal(uuid, tier, now);
 
-        long version = service.snapshot(uuid, now).version();
-        PacketDistributor.sendToPlayer(player, new TierSyncPacket(tier, version));
+        if (!service.applyRedeem(uuid, level, now)) {
+            src.sendFailure(Component.literal("Falha ao aplicar o tier."));
+            return 0;
+        }
+
+        TierSnapshot snap = service.snapshot(uuid, now);
+        PacketDistributor.sendToPlayer(
+                player,
+                new TierLevelSyncPacket(snap.tier().level().value(), snap.version())
+        );
 
         src.sendSuccess(() -> Component.literal("Código resgatado com sucesso."), false);
         return 1;

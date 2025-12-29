@@ -4,7 +4,6 @@ import com.pgalaxyp.fragmento.cosmetics.common.entitlement.PlayerEntitlementServ
 import com.pgalaxyp.fragmento.cosmetics.common.entitlement.PlayerEntitlementSnapshot;
 import com.pgalaxyp.fragmento.cosmetics.common.entitlement.PlayerEntitlementUpdatedEvent;
 import com.pgalaxyp.fragmento.tiers.common.model.Tier;
-import com.pgalaxyp.fragmento.tiers.common.model.TierStatus;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import com.pgalaxyp.fragmento.tiers.common.service.TierUpdatedEvent;
@@ -26,15 +25,12 @@ public final class TierEntitlementServiceAdapter implements PlayerEntitlementSer
 
     @Override
     public PlayerEntitlementSnapshot snapshot(UUID playerId, long nowMillis) {
-        Objects.requireNonNull(playerId, "playerId");
-
         TierSnapshot snap = tiers.snapshot(playerId, nowMillis);
         if (snap == null) {
             return new PlayerEntitlementSnapshot(0, nowMillis, nowMillis, 0L);
         }
 
-        Tier tier = snap.tier();
-        int level = toLevel(tier);
+        int level = toLevel(snap.tier());
 
         return new PlayerEntitlementSnapshot(
                 level,
@@ -60,9 +56,9 @@ public final class TierEntitlementServiceAdapter implements PlayerEntitlementSer
         }
 
         int level = toLevel(ev.tier());
-        PlayerEntitlementUpdatedEvent mapped = new PlayerEntitlementUpdatedEvent(ev.playerId(), level, ev.version());
+        PlayerEntitlementUpdatedEvent mapped =
+                new PlayerEntitlementUpdatedEvent(ev.playerId(), level, ev.version());
 
-        int size = listeners.size();
         for (Consumer<PlayerEntitlementUpdatedEvent> listener : listeners) {
             listener.accept(mapped);
         }
@@ -72,9 +68,9 @@ public final class TierEntitlementServiceAdapter implements PlayerEntitlementSer
         if (tier == null) {
             return 0;
         }
-        if (tier.status() != TierStatus.ACTIVE) {
+        if (!tier.active()) {
             return 0;
         }
-        return Math.max(0, tier.level().value());
+        return tier.level().value();
     }
 }

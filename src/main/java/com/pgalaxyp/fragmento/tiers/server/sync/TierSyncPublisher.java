@@ -1,19 +1,19 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.tiers.common.network.TierSyncPacket;
-import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import java.util.Objects;
 import java.util.UUID;
+import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.neoforged.neoforge.network.PacketDistributor;
+import com.pgalaxyp.fragmento.tiers.common.model.Tier;
 
 public final class TierSyncPublisher {
 
-    public void publish(UUID playerId, TierSnapshot snapshot) {
+    public void publish(UUID playerId, Tier tier, long version) {
         Objects.requireNonNull(playerId, "playerId");
-        Objects.requireNonNull(snapshot, "snapshot");
+        Objects.requireNonNull(tier, "tier");
 
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) {
@@ -25,6 +25,11 @@ public final class TierSyncPublisher {
             return;
         }
 
-        PacketDistributor.sendToPlayer(sp, new TierSyncPacket(snapshot.tier(), snapshot.version()));
+        int level = tier.level().value();
+
+        PacketDistributor.sendToPlayer(
+                sp,
+                new TierLevelSyncPacket(level, version)
+        );
     }
 }

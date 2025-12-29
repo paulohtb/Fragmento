@@ -46,16 +46,22 @@ public final class TierServiceImpl implements TierService {
         CacheEntry e = cache.computeIfAbsent(playerId, k -> new CacheEntry());
         TierSnapshot cur = e.snapshot.get();
 
+        if (cur != null && cur.tier().equals(tier)) {
+            TierSnapshot refreshed =
+                    new TierSnapshot(tier, now, now + TTL_MILLIS, cur.version());
+            e.snapshot.set(refreshed);
+            return;
+        }
+
         long nextVersion = cur == null ? 1L : cur.version() + 1L;
-        TierSnapshot next = new TierSnapshot(tier, now, now + TTL_MILLIS, nextVersion);
+        TierSnapshot next =
+                new TierSnapshot(tier, now, now + TTL_MILLIS, nextVersion);
 
         e.snapshot.set(next);
 
-        if (cur == null || !cur.tier().equals(tier)) {
-            TierUpdatedEvent ev = new TierUpdatedEvent(playerId, tier, nextVersion);
-            for (Consumer<TierUpdatedEvent> l : listeners) {
-                l.accept(ev);
-            }
+        TierUpdatedEvent ev = new TierUpdatedEvent(playerId, tier, nextVersion);
+        for (Consumer<TierUpdatedEvent> l : listeners) {
+            l.accept(ev);
         }
     }
 
@@ -71,28 +77,39 @@ public final class TierServiceImpl implements TierService {
 
     private void refresh(CacheEntry e, UUID playerId, long now) {
         long prev = e.inFlightUntil.get();
-        if (prev > now) return;
+        if (prev > now) {
+            return;
+        }
 
         if (!e.inFlightUntil.compareAndSet(prev, now + INFLIGHT_WINDOW)) {
             return;
         }
 
-        api.fetchTier(playerId).thenAccept(tier -> {
-            long ts = System.currentTimeMillis();
-            TierSnapshot cur = e.snapshot.get();
-            long v = cur == null ? 1L : cur.version() + 1L;
+        api.fetchTier(playerId).whenComplete((tier, err) -> {
+            try {
+                long ts = System.currentTimeMillis();
+                TierSnapshot cur = e.snapshot.get();
 
-            TierSnapshot next = new TierSnapshot(tier, ts, ts + TTL_MILLIS, v);
-            e.snapshot.set(next);
+                if (cur != null && cur.tier().equals(tier)) {
+                    TierSnapshot refreshed =
+                            new TierSnapshot(tier, ts, ts + TTL_MILLIS, cur.version());
+                    e.snapshot.set(refreshed);
+                    return;
+                }
 
-            if (cur == null || !cur.tier().equals(tier)) {
+                long v = cur == null ? 1L : cur.version() + 1L;
+                TierSnapshot next =
+                        new TierSnapshot(tier, ts, ts + TTL_MILLIS, v);
+
+                e.snapshot.set(next);
+
                 TierUpdatedEvent ev = new TierUpdatedEvent(playerId, tier, v);
                 for (Consumer<TierUpdatedEvent> l : listeners) {
                     l.accept(ev);
                 }
+            } finally {
+                e.inFlightUntil.set(0L);
             }
-
-            e.inFlightUntil.set(0L);
         });
     }
 

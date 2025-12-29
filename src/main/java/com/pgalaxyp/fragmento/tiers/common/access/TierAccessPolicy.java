@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.tiers.common.acess;
+package com.pgalaxyp.fragmento.tiers.common.access;
 
 import com.pgalaxyp.fragmento.tiers.common.model.Tier;
 import com.pgalaxyp.fragmento.tiers.common.model.TierLevel;

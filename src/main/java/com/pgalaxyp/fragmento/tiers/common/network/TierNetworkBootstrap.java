@@ -14,8 +14,8 @@ public final class TierNetworkBootstrap {
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToClient(
-                TierSyncPacket.TYPE,
-                TierSyncPacket.STREAM_CODEC,
+                TierLevelSyncPacket.TYPE,
+                TierLevelSyncPacket.STREAM_CODEC,
                 TierSyncClientHandler::handle
         );
     }

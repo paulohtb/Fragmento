@@ -2,19 +2,18 @@ package com.pgalaxyp.fragmento.tiers.common.model;
 
 import java.util.Objects;
 
-public record Tier(TierLevel level, TierStatus status) {
+public record Tier(TierLevel level) {
 
     public Tier {
         Objects.requireNonNull(level, "level");
-        Objects.requireNonNull(status, "status");
     }
 
     public static Tier inactive() {
-        return new Tier(TierLevel.TIER_0, TierStatus.INACTIVE);
+        return new Tier(TierLevel.TIER_0);
     }
 
     public boolean active() {
-        return status == TierStatus.ACTIVE;
+        return level.value() > 0;
     }
 
     public boolean allows(TierLevel required) {

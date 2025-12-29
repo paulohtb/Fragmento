@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.tiers.server.http;
 
 import com.pgalaxyp.fragmento.tiers.common.model.Tier;
 import com.pgalaxyp.fragmento.tiers.common.model.TierLevel;
-import com.pgalaxyp.fragmento.tiers.common.model.TierStatus;
+
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -67,7 +67,7 @@ public final class TierApiClient {
             if (level <= 0) {
                 return Tier.inactive();
             }
-            return new Tier(TierLevel.of(level), TierStatus.ACTIVE);
+            return new Tier(TierLevel.of(level));
         } catch (NumberFormatException e) {
             return Tier.inactive();
         }

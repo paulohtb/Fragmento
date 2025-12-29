@@ -7,17 +7,10 @@ public final class TierSyncClientHandler {
 
     private TierSyncClientHandler() {}
 
-    public static void handle(TierSyncPacket pkt, IPayloadContext ctx) {
+    public static void handle(TierLevelSyncPacket pkt, IPayloadContext ctx) {
         if (pkt == null || ctx == null) {
             return;
         }
-        ctx.enqueueWork(new Apply(pkt));
-    }
-
-    private record Apply(TierSyncPacket pkt) implements Runnable {
-        @Override
-        public void run() {
-            TierClientState.update(pkt.tier(), pkt.version());
-        }
+        ctx.enqueueWork(() -> TierClientState.update(pkt.level(), pkt.version()));
     }
 }

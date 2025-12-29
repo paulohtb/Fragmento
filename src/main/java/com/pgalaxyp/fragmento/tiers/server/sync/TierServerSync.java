@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.tiers.common.network.TierSyncPacket;
+import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import com.pgalaxyp.fragmento.tiers.common.service.TierUpdatedEvent;
@@ -19,17 +19,12 @@ public final class TierServerSync {
 
     private static final ConcurrentHashMap<UUID, Long> LAST_SENT = new ConcurrentHashMap<>();
     private static final TierSyncPublisher PUBLISHER = new TierSyncPublisher();
-
     private static volatile boolean listenerBound;
 
-    private TierServerSync() {
-    }
+    private TierServerSync() {}
 
     public static void bindListenerOnce(TierService service) {
-        if (service == null) {
-            return;
-        }
-        if (listenerBound) {
+        if (service == null || listenerBound) {
             return;
         }
         listenerBound = true;
@@ -42,8 +37,8 @@ public final class TierServerSync {
             return;
         }
 
-        TierService service = TierServices.service();
         UUID id = sp.getUUID();
+        TierService service = TierServices.service();
 
         service.invalidate(id);
 
@@ -52,9 +47,12 @@ public final class TierServerSync {
 
         long v = snap.version();
         Long prev = LAST_SENT.get(id);
-        long pv = prev == null ? Long.MIN_VALUE : prev;
-        if (v != pv) {
-            PacketDistributor.sendToPlayer(sp, new TierSyncPacket(snap.tier(), v));
+        if (prev == null || prev != v) {
+            int level = snap.tier().level().value();
+            PacketDistributor.sendToPlayer(
+                    sp,
+                    new TierLevelSyncPacket(level, v)
+            );
             LAST_SENT.put(id, v);
         }
     }
@@ -81,12 +79,11 @@ public final class TierServerSync {
             long v = ev.version();
 
             Long prev = LAST_SENT.get(id);
-            long pv = prev == null ? Long.MIN_VALUE : prev;
-            if (v == pv) {
+            if (prev != null && prev == v) {
                 return;
             }
 
-            PUBLISHER.publish(id, new TierSnapshot(ev.tier(), System.currentTimeMillis(), System.currentTimeMillis(), v));
+            PUBLISHER.publish(id, ev.tier(), v);
             LAST_SENT.put(id, v);
         }
     }

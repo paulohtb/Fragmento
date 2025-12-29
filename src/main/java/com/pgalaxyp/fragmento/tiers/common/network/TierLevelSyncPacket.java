@@ -1,25 +1,25 @@
 package com.pgalaxyp.fragmento.tiers.common.network;
 
-import com.pgalaxyp.fragmento.tiers.common.model.Tier;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-public record TierSyncPacket(
-        Tier tier,
+public record TierLevelSyncPacket(
+        int level,
         long version
 ) implements CustomPacketPayload {
 
-    public static final Type<TierSyncPacket> TYPE = new Type<>(TierNetworkIds.SYNC);
+    public static final Type<TierLevelSyncPacket> TYPE =
+            new Type<>(TierNetworkIds.SYNC);
 
-    public static final StreamCodec<ByteBuf, TierSyncPacket> STREAM_CODEC =
+    public static final StreamCodec<ByteBuf, TierLevelSyncPacket> STREAM_CODEC =
             StreamCodec.composite(
-                    TierCodec.STREAM_CODEC,
-                    TierSyncPacket::tier,
+                    ByteBufCodecs.VAR_INT,
+                    TierLevelSyncPacket::level,
                     ByteBufCodecs.VAR_LONG,
-                    TierSyncPacket::version,
-                    TierSyncPacket::new
+                    TierLevelSyncPacket::version,
+                    TierLevelSyncPacket::new
             );
 
     @Override

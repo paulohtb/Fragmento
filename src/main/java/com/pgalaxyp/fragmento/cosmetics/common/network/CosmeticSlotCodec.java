@@ -15,7 +15,7 @@ public final class CosmeticSlotCodec {
     private static CosmeticSlot fromInt(int ord) {
         CosmeticSlot[] values = CosmeticSlot.values();
         if (ord < 0 || ord >= values.length) {
-            throw new IllegalStateException("Invalid CosmeticSlot ordinal");
+            return CosmeticSlot.UNKNOWN;
         }
         return values[ord];
     }
