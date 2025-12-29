@@ -1,5 +1,6 @@
-package com.pgalaxyp.fragmento.tiers.common.network;
+package com.pgalaxyp.fragmento.tiers.client.network;
 
+import com.pgalaxyp.fragmento.tiers.common.network.TierNetworkIds;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;

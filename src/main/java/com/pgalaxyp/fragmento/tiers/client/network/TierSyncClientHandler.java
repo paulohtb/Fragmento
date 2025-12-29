@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.tiers.common.network;
+package com.pgalaxyp.fragmento.tiers.client.network;
 
-import com.pgalaxyp.fragmento.tiers.common.view.TierClientState;
+import com.pgalaxyp.fragmento.tiers.client.state.TierClientState;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public final class TierSyncClientHandler {

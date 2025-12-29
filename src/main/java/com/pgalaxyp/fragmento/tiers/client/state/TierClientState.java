@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.tiers.common.view;
+package com.pgalaxyp.fragmento.tiers.client.state;
 
 public final class TierClientState {
 

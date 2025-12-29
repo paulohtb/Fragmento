@@ -3,7 +3,7 @@ package com.pgalaxyp.fragmento.tiers.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
+import com.pgalaxyp.fragmento.tiers.client.network.TierLevelSyncPacket;
 import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;

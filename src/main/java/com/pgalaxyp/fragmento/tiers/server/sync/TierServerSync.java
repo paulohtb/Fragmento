@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
+import com.pgalaxyp.fragmento.tiers.client.network.TierLevelSyncPacket;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
 import com.pgalaxyp.fragmento.tiers.common.service.TierUpdatedEvent;

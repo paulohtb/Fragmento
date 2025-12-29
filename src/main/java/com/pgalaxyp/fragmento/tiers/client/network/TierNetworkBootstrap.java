@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.tiers.common.network;
+package com.pgalaxyp.fragmento.tiers.client.network;
 
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

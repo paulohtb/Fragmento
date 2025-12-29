@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.cosmetics.client.bootstrap;
 
-import com.pgalaxyp.fragmento.cosmetics.client.entitlement.TierBasedCosmeticEntitlementClientView;
 import com.pgalaxyp.fragmento.cosmetics.client.render.model.CosmeticsModelsBootstrap;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
 import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
 import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
+import com.pgalaxyp.fragmento.integration.tiers.cosmetics.client.TierBasedCosmeticEntitlementClientView;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

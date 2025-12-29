@@ -7,7 +7,7 @@ import com.pgalaxyp.fragmento.cosmetics.common.validation.CosmeticValidator;
 import com.pgalaxyp.fragmento.cosmetics.server.network.TrackingCosmeticSyncPublisher;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
-import com.pgalaxyp.fragmento.tiers.server.entitlement.TierCosmeticEntitlementService;
+import com.pgalaxyp.fragmento.integration.tiers.cosmetics.server.TierBasedCosmeticEntitlementService;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -31,7 +31,7 @@ public final class CosmeticsServerBootstrap {
         registry.setSnapshot(BuiltinCosmetics.snapshot());
 
         CosmeticEntitlementService entitlements =
-                new TierCosmeticEntitlementService(TierServices.service());
+                new TierBasedCosmeticEntitlementService(TierServices.service());
 
         CosmeticValidator validator =
                 new CosmeticValidator(registry, entitlements);

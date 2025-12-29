@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.tiers.server.sync;
 
 import java.util.Objects;
 import java.util.UUID;
-import com.pgalaxyp.fragmento.tiers.common.network.TierLevelSyncPacket;
+import com.pgalaxyp.fragmento.tiers.client.network.TierLevelSyncPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
