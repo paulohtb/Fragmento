@@ -11,19 +11,14 @@ public interface TierService {
 
     void registerListener(Consumer<TierUpdatedEvent> listener);
 
-    default void invalidate(UUID playerId) {}
+    void invalidate(UUID playerId);
 
-    default void applyLocal(UUID playerId, Tier tier, long nowMillis) {}
+    void applyLocal(UUID playerId, Tier tier, long nowMillis);
 
-    default boolean applyRedeem(UUID playerId, int level, long nowMillis) {
-        if (playerId == null) {
-            return false;
-        }
+    default void applyRedeem(UUID playerId, int level, long nowMillis) {
         if (level <= 0) {
-            return false;
+            return;
         }
-        Tier tier = new Tier(TierLevel.of(level));
-        applyLocal(playerId, tier, nowMillis);
-        return true;
+        applyLocal(playerId, new Tier(TierLevel.of(level)), nowMillis);
     }
 }

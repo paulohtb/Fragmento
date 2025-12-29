@@ -1,14 +1,14 @@
 package com.pgalaxyp.fragmento.cosmetics.server.bootstrap;
 
-import com.pgalaxyp.fragmento.cosmetics.server.network.TrackingCosmeticSyncPublisher;
-import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
 import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.LevelAccessPolicies;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.PlayerEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementService;
 import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
 import com.pgalaxyp.fragmento.cosmetics.common.validation.CosmeticValidator;
-import com.pgalaxyp.fragmento.cosmetics.common.validation.EntitlementServicePlayerLevelResolver;
+import com.pgalaxyp.fragmento.cosmetics.server.network.TrackingCosmeticSyncPublisher;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
+import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
+import com.pgalaxyp.fragmento.tiers.server.entitlement.TierCosmeticEntitlementService;
+import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -30,19 +30,21 @@ public final class CosmeticsServerBootstrap {
         CosmeticRegistryImpl registry = new CosmeticRegistryImpl();
         registry.setSnapshot(BuiltinCosmetics.snapshot());
 
-        PlayerEntitlementService entitlements = CosmeticsServerWiring.entitlements();
+        CosmeticEntitlementService entitlements =
+                new TierCosmeticEntitlementService(TierServices.service());
 
-        EntitlementServicePlayerLevelResolver resolver = new EntitlementServicePlayerLevelResolver(entitlements);
-        CosmeticValidator validator = new CosmeticValidator(registry, resolver, LevelAccessPolicies.DEFAULT);
+        CosmeticValidator validator =
+                new CosmeticValidator(registry, entitlements);
 
-        CosmeticServiceImpl service = new CosmeticServiceImpl(
-                registry,
-                entitlements,
-                validator,
-                new TrackingCosmeticSyncPublisher(),
-                LevelAccessPolicies.DEFAULT
-        );
+        CosmeticServiceImpl service =
+                new CosmeticServiceImpl(
+                        validator,
+                        new TrackingCosmeticSyncPublisher(),
+                        registry,
+                        entitlements
+                );
 
+        TierServices.service().registerListener(service);
         CosmeticServices.bind(service);
     }
 }

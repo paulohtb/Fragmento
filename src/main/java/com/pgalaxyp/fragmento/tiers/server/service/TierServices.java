@@ -10,11 +10,10 @@ public final class TierServices {
     private TierServices() {}
 
     public static void bind(TierService service) {
-        SERVICE = Objects.requireNonNull(service, "service");
+        SERVICE = Objects.requireNonNull(service);
     }
 
     public static TierService service() {
-        TierService s = SERVICE;
-        return s == null ? NoopTierService.INSTANCE : s;
+        return SERVICE;
     }
 }

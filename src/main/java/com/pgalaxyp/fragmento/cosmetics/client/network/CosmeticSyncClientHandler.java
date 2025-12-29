@@ -10,9 +10,11 @@ public final class CosmeticSyncClientHandler {
     private CosmeticSyncClientHandler() {}
 
     public static void handle(CosmeticSyncPacket pkt, IPayloadContext ctx) {
-        ctx.enqueueWork(() -> CosmeticsClientState.put(
-                pkt.playerId(),
-                new CosmeticLoadoutSnapshot(pkt.loadout(), pkt.version())
-        ));
+        ctx.enqueueWork(() ->
+                CosmeticsClientState.put(
+                        pkt.playerId(),
+                        new CosmeticLoadoutSnapshot(pkt.loadout(), pkt.version())
+                )
+        );
     }
 }

@@ -1,7 +1,5 @@
 package com.pgalaxyp.fragmento.tiers.server.bootstrap;
 
-import com.pgalaxyp.fragmento.cosmetics.server.bootstrap.CosmeticsServerWiring;
-import com.pgalaxyp.fragmento.tiers.server.entitlement.TierEntitlementServiceAdapter;
 import com.pgalaxyp.fragmento.tiers.server.http.TierApiClient;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServiceImpl;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
@@ -30,9 +28,5 @@ public final class TiersServerBootstrap {
 
         TierServices.bind(service);
         TierServerSync.bindListenerOnce(service);
-
-        CosmeticsServerWiring.bindEntitlements(
-                new TierEntitlementServiceAdapter(service)
-        );
     }
 }

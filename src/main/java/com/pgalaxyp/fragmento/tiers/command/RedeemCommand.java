@@ -51,10 +51,7 @@ public final class RedeemCommand {
         TierService service = TierServices.service();
         long now = System.currentTimeMillis();
 
-        if (!service.applyRedeem(uuid, level, now)) {
-            src.sendFailure(Component.literal("Falha ao aplicar o tier."));
-            return 0;
-        }
+        service.applyRedeem(uuid, level, now);
 
         TierSnapshot snap = service.snapshot(uuid, now);
         PacketDistributor.sendToPlayer(

@@ -15,15 +15,9 @@ public final class TierLevel {
 
     public static TierLevel of(int value) {
         int v = clamp(value);
-        if (v == 1) {
-            return TIER_1;
-        }
-        if (v == 2) {
-            return TIER_2;
-        }
-        if (v == 3) {
-            return TIER_3;
-        }
+        if (v == 1) return TIER_1;
+        if (v == 2) return TIER_2;
+        if (v == 3) return TIER_3;
         return TIER_0;
     }
 
@@ -32,16 +26,11 @@ public final class TierLevel {
     }
 
     public boolean isAtLeast(TierLevel other) {
-        if (other == null) {
-            return true;
-        }
         return value >= other.value;
     }
 
     private static int clamp(int v) {
-        if (v <= 0) {
-            return 0;
-        }
+        if (v <= 0) return 0;
         return Math.min(v, 3);
     }
 }

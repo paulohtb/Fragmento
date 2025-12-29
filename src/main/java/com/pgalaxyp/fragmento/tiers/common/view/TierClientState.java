@@ -22,9 +22,4 @@ public final class TierClientState {
         LEVEL = Math.max(0, level);
         VERSION = version;
     }
-
-    public static void clear() {
-        LEVEL = 0;
-        VERSION = 0L;
-    }
 }

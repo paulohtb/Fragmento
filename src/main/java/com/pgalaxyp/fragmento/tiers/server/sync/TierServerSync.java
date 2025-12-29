@@ -71,10 +71,6 @@ public final class TierServerSync {
 
         @Override
         public void accept(TierUpdatedEvent ev) {
-            if (ev == null) {
-                return;
-            }
-
             UUID id = ev.playerId();
             long v = ev.version();
 

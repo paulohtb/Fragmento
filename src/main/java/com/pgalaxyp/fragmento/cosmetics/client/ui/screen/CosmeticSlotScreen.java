@@ -1,12 +1,12 @@
 package com.pgalaxyp.fragmento.cosmetics.client.ui.screen;
 
 import com.pgalaxyp.fragmento.cosmetics.client.network.CosmeticsClientNetwork;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.action.CosmeticUiActions;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.model.CosmeticUiEntry;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.model.CosmeticUiModel;
 import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementClientView;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementClientViews;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
 import net.minecraft.client.Minecraft;
@@ -16,6 +16,7 @@ import net.minecraft.client.gui.components.ContainerObjectSelectionList;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,82 @@ public final class CosmeticSlotScreen extends Screen {
         addFooter(subInt(right, PANEL_PAD), subInt(bottom, PANEL_PAD));
 
         rebuild();
+    }
+
+    @Override
+    public void tick() {
+        CosmeticEntitlementClientView ev = CosmeticsClientEntitlements.view();
+        long entV = ev == null ? 0L : ev.version();
+        long loadV = currentLoadoutVersion();
+
+        if (entV != this.lastEntitlementVersion || loadV != this.lastLoadoutVersion) {
+            rebuild();
+        }
+    }
+
+    private long currentLoadoutVersion() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return 0L;
+        }
+        return CosmeticsClientState.getVersion(mc.player.getUUID());
+    }
+
+    private void rebuild() {
+        CosmeticEntitlementClientView view = CosmeticsClientEntitlements.view();
+        this.lastEntitlementVersion = view == null ? 0L : view.version();
+        this.lastLoadoutVersion = currentLoadoutVersion();
+
+        String label = view == null ? "Tier: ?" : Objects.toString(view.label(), "Tier: ?");
+        this.entitlementLabel = Component.literal(label);
+
+        if (this.list == null) {
+            return;
+        }
+
+        List<CosmeticUiEntry> entries = CosmeticUiModel.build(this.slot);
+
+        ArrayList<CosmeticEntry> built = new ArrayList<>(entries.size());
+        for (CosmeticUiEntry e : entries) {
+            if (e == null) {
+                continue;
+            }
+            built.add(new CosmeticEntry(this, e));
+        }
+        this.list.setEntries(built);
+    }
+
+    @Override
+    public void render(@NotNull GuiGraphics gg, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(gg, mouseX, mouseY, partialTick);
+
+        int contentWidth = computeContentWidth(this.width);
+        int contentHeight = computeContentHeight(this.height);
+        int left = subInt(this.width, contentWidth) / 2;
+        int top = subInt(this.height, contentHeight) / 2;
+        int right = left + contentWidth;
+        int bottom = top + contentHeight;
+
+        gg.fill(left, top, right, bottom, 1879048192);
+        gg.fill(left + 1, top + 1, subInt(right, 1), subInt(bottom, 1), 1442840576);
+
+        gg.drawCenteredString(this.font, Component.literal("Cosmetics"), this.width / 2, top + 10, 16777215);
+        gg.drawString(this.font, this.entitlementLabel, left + PANEL_PAD, top + 10, 13421772);
+
+        super.render(gg, mouseX, mouseY, partialTick);
+
+        gg.fill(left + PANEL_PAD, subInt(top + HEADER_H, 2), subInt(right, PANEL_PAD), subInt(top + HEADER_H, 1), 1711276032);
+        gg.fill(left + PANEL_PAD, top + HEADER_H + TABS_H, subInt(right, PANEL_PAD), top + HEADER_H + TABS_H + 1, 1711276032);
+    }
+
+    @Override
+    public void onClose() {
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(parent);
+    }
+
+    private static int subInt(int a, int b) {
+        return Math.addExact(a, Math.negateExact(b));
     }
 
     private static int computeContentWidth(int screenWidth) {
@@ -132,102 +209,18 @@ public final class CosmeticSlotScreen extends Screen {
         this.addRenderableWidget(back);
     }
 
-    @Override
-    public void tick() {
-        CosmeticEntitlementClientView ev = CosmeticEntitlementClientViews.view();
-        long entV = ev == null ? 0L : ev.version();
-        long loadV = currentLoadoutVersion();
-        if (entV != this.lastEntitlementVersion || loadV != this.lastLoadoutVersion) {
-            rebuild();
-        }
-    }
-
-    private long currentLoadoutVersion() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null) {
-            return 0L;
-        }
-        return CosmeticsClientState.getVersion(mc.player.getUUID());
-    }
-
-    private void rebuild() {
-        CosmeticEntitlementClientView view = CosmeticEntitlementClientViews.view();
-        this.lastEntitlementVersion = view == null ? 0L : view.version();
-        this.lastLoadoutVersion = currentLoadoutVersion();
-
-        String label = view == null ? "Tier: ?" : Objects.toString(view.label(), "Tier: ?");
-        this.entitlementLabel = Component.literal(label);
-
-        if (this.list == null) {
-            return;
-        }
-
-        List<CosmeticUiEntry> entries = CosmeticUiModel.build(this.slot);
-
-        ArrayList<CosmeticEntry> built = new ArrayList<>(entries.size());
-        for (CosmeticUiEntry e : entries) {
-            if (e == null) {
-                continue;
-            }
-            built.add(new CosmeticEntry(this, e));
-        }
-        this.list.setEntries(built);
-    }
-
-    @Override
-    public void render(GuiGraphics gg, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(gg, mouseX, mouseY, partialTick);
-
-        int contentWidth = computeContentWidth(this.width);
-        int contentHeight = computeContentHeight(this.height);
-        int left = subInt(this.width, contentWidth) / 2;
-        int top = subInt(this.height, contentHeight) / 2;
-        int right = left + contentWidth;
-        int bottom = top + contentHeight;
-
-        gg.fill(left, top, right, bottom, 1879048192);
-        gg.fill(left + 1, top + 1, subInt(right, 1), subInt(bottom, 1), 1442840576);
-
-        gg.drawCenteredString(this.font, Component.literal("Cosmetics"), this.width / 2, top + 10, 16777215);
-        gg.drawString(this.font, this.entitlementLabel, left + PANEL_PAD, top + 10, 13421772);
-
-        super.render(gg, mouseX, mouseY, partialTick);
-
-        gg.fill(left + PANEL_PAD, subInt(top + HEADER_H, 2), subInt(right, PANEL_PAD), subInt(top + HEADER_H, 1), 1711276032);
-        gg.fill(left + PANEL_PAD, top + HEADER_H + TABS_H, subInt(right, PANEL_PAD), top + HEADER_H + TABS_H + 1, 1711276032);
-    }
-
-    @Override
-    public void onClose() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null) {
-            return;
-        }
-        mc.setScreen(parent);
-    }
-
-    private static int subInt(int a, int b) {
-        return Math.addExact(a, Math.negateExact(b));
-    }
-
     private record BackPress(CosmeticSlotScreen screen) implements Button.OnPress {
         @Override
-        public void onPress(Button button) {
+        public void onPress(@NotNull Button button) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc == null) {
-                return;
-            }
             mc.setScreen(screen.parent);
         }
     }
 
     private record SwitchTabPress(CosmeticSlotScreen current, Screen parent, CosmeticSlot slot) implements Button.OnPress {
         @Override
-        public void onPress(Button button) {
+        public void onPress(@NotNull Button button) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc == null) {
-                return;
-            }
             mc.setScreen(new CosmeticSlotScreen(parent, slot));
         }
     }
@@ -281,18 +274,18 @@ public final class CosmeticSlotScreen extends Screen {
         }
 
         @Override
-        public List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children() {
+        public @NotNull List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children() {
             return this.children;
         }
 
         @Override
-        public List<? extends NarratableEntry> narratables() {
+        public @NotNull List<? extends NarratableEntry> narratables() {
             return this.narratables;
         }
 
         @Override
         public void render(
-                GuiGraphics gg,
+                @NotNull GuiGraphics gg,
                 int index,
                 int y,
                 int x,
@@ -344,7 +337,7 @@ public final class CosmeticSlotScreen extends Screen {
 
         private record EquipPress(CosmeticUiEntry entry) implements Button.OnPress {
             @Override
-            public void onPress(Button button) {
+            public void onPress(@NotNull Button button) {
                 CosmeticDefinition def = entry.definition();
                 if (def == null) {
                     return;
@@ -355,7 +348,7 @@ public final class CosmeticSlotScreen extends Screen {
 
         private record ClearPress(CosmeticUiEntry entry) implements Button.OnPress {
             @Override
-            public void onPress(Button button) {
+            public void onPress(@NotNull Button button) {
                 CosmeticDefinition def = entry.definition();
                 if (def == null) {
                     return;

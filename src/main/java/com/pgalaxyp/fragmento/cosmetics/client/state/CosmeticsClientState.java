@@ -7,7 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class CosmeticsClientState {
 
-    private static final ConcurrentHashMap<UUID, CosmeticLoadoutSnapshot> SNAPSHOTS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, CosmeticLoadoutSnapshot> SNAPSHOTS =
+            new ConcurrentHashMap<>();
+
     private static volatile boolean SHOW_OTHERS = true;
 
     private CosmeticsClientState() {}
@@ -22,18 +24,12 @@ public final class CosmeticsClientState {
 
     public static CosmeticLoadout getEffective(UUID playerId) {
         CosmeticLoadoutSnapshot snap = SNAPSHOTS.get(playerId);
-        if (snap == null) {
-            return CosmeticLoadout.EMPTY;
-        }
-        return snap.loadout();
+        return snap == null ? CosmeticLoadout.EMPTY : snap.loadout();
     }
 
     public static long getVersion(UUID playerId) {
         CosmeticLoadoutSnapshot snap = SNAPSHOTS.get(playerId);
-        if (snap == null) {
-            return 0L;
-        }
-        return snap.version();
+        return snap == null ? 0L : snap.version();
     }
 
     public static void put(UUID playerId, CosmeticLoadoutSnapshot snapshot) {
@@ -42,13 +38,5 @@ public final class CosmeticsClientState {
             return;
         }
         SNAPSHOTS.put(playerId, snapshot);
-    }
-
-    public static void clear(UUID playerId) {
-        SNAPSHOTS.remove(playerId);
-    }
-
-    public static void clearAll() {
-        SNAPSHOTS.clear();
     }
 }

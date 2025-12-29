@@ -12,8 +12,4 @@ public interface CosmeticService {
     boolean equipBase(UUID playerId, CosmeticSlot slot, CosmeticId cosmeticId);
 
     boolean unequipBase(UUID playerId, CosmeticSlot slot);
-
-    void setForced(UUID playerId, CosmeticSlot slot, CosmeticId cosmeticId);
-
-    void clearForced(UUID playerId, CosmeticSlot slot);
 }

@@ -12,14 +12,7 @@ public record Tier(TierLevel level) {
         return new Tier(TierLevel.TIER_0);
     }
 
-    public boolean active() {
-        return level.value() > 0;
-    }
-
     public boolean allows(TierLevel required) {
-        if (required == null) {
-            return true;
-        }
         return level.isAtLeast(required);
     }
 }

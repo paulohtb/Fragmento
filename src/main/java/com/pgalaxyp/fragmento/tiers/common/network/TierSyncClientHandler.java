@@ -8,9 +8,8 @@ public final class TierSyncClientHandler {
     private TierSyncClientHandler() {}
 
     public static void handle(TierLevelSyncPacket pkt, IPayloadContext ctx) {
-        if (pkt == null || ctx == null) {
-            return;
-        }
-        ctx.enqueueWork(() -> TierClientState.update(pkt.level(), pkt.version()));
+        ctx.enqueueWork(() ->
+                TierClientState.update(pkt.level(), pkt.version())
+        );
     }
 }

@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.cosmetics.client.bootstrap;
 
 import com.pgalaxyp.fragmento.cosmetics.client.entitlement.TierBasedCosmeticEntitlementClientView;
-import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementClientViews;
-import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
 import com.pgalaxyp.fragmento.cosmetics.client.render.model.CosmeticsModelsBootstrap;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
+import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
+import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -22,7 +22,9 @@ public final class CosmeticsClientBootstrap {
         reg.setSnapshot(BuiltinCosmetics.snapshot());
         CosmeticsClientRegistries.setRegistry(reg);
 
-        CosmeticEntitlementClientViews.set(new TierBasedCosmeticEntitlementClientView());
+        CosmeticsClientEntitlements.set(
+                new TierBasedCosmeticEntitlementClientView()
+        );
 
         CosmeticsModelsBootstrap.bootstrap();
     }
