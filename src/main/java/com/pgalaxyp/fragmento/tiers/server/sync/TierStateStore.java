@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.common.sync.VersionedStateStore;
+import com.pgalaxyp.fragmento.bridge.sync.VersionedStateStore;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import com.pgalaxyp.fragmento.tiers.common.sync.TierStateView;
 import java.util.UUID;

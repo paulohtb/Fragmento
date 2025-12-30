@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.common.sync.VersionedStatePublisher;
+import com.pgalaxyp.fragmento.bridge.sync.VersionedStatePublisher;
 import com.pgalaxyp.fragmento.tiers.client.sync.TierLevelSyncPacket;
 import java.util.UUID;
 

@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.cosmetics.server.bootstrap;
 
-import com.pgalaxyp.fragmento.common.progression.PlayerProgressionView;
-import com.pgalaxyp.fragmento.common.progression.tiers.TierProgressionView;
+import com.pgalaxyp.fragmento.bridge.progression.PlayerProgressionView;
+import com.pgalaxyp.fragmento.bridge.progression.tiers.TierProgressionView;
 import com.pgalaxyp.fragmento.cosmetics.common.model.BuiltinCosmeticCatalog;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticCatalog;
 import com.pgalaxyp.fragmento.cosmetics.server.network.CosmeticsNetPublisher;

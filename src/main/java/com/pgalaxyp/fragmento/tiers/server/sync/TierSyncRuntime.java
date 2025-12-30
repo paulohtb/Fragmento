@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.tiers.server.sync;
 
-import com.pgalaxyp.fragmento.common.sync.VersionedStateSyncService;
+import com.pgalaxyp.fragmento.bridge.sync.VersionedStateSyncService;
 import com.pgalaxyp.fragmento.tiers.common.sync.TierStateView;
 import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import com.pgalaxyp.fragmento.tiers.common.service.TierUpdatedEvent;

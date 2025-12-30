@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.cosmetics.server.service;
 
-import com.pgalaxyp.fragmento.common.progression.PlayerProgressionView;
+import com.pgalaxyp.fragmento.bridge.progression.PlayerProgressionView;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticCatalog;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticEntry;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
