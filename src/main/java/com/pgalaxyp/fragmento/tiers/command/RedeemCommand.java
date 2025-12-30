@@ -1,18 +1,16 @@
 package com.pgalaxyp.fragmento.tiers.command;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.pgalaxyp.fragmento.tiers.client.network.TierLevelSyncPacket;
-import com.pgalaxyp.fragmento.tiers.common.service.TierSnapshot;
+import com.mojang.brigadier.context.CommandContext;
+import com.pgalaxyp.fragmento.tiers.common.service.TierService;
+import com.pgalaxyp.fragmento.tiers.server.http.TierRedeemApiClient;
+import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
+import com.pgalaxyp.fragmento.tiers.server.sync.TierSyncRuntime;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
-import com.pgalaxyp.fragmento.tiers.server.http.TierRedeemApiClient;
-import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
-import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import java.util.UUID;
 
 public final class RedeemCommand {
@@ -49,15 +47,15 @@ public final class RedeemCommand {
         }
 
         TierService service = TierServices.service();
-        long now = System.currentTimeMillis();
+        if (service == null) {
+            src.sendFailure(Component.literal("Serviço indisponível."));
+            return 0;
+        }
 
+        long now = System.currentTimeMillis();
         service.applyRedeem(uuid, level, now);
 
-        TierSnapshot snap = service.snapshot(uuid, now);
-        PacketDistributor.sendToPlayer(
-                player,
-                new TierLevelSyncPacket(snap.tier().level().value(), snap.version())
-        );
+        TierSyncRuntime.syncNow(uuid);
 
         src.sendSuccess(() -> Component.literal("Código resgatado com sucesso."), false);
         return 1;

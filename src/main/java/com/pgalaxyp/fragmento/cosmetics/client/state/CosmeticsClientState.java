@@ -33,10 +33,25 @@ public final class CosmeticsClientState {
     }
 
     public static void put(UUID playerId, CosmeticLoadoutSnapshot snapshot) {
-        CosmeticLoadoutSnapshot prev = SNAPSHOTS.get(playerId);
-        if (prev != null && snapshot.version() < prev.version()) {
+        if (playerId == null || snapshot == null) {
             return;
         }
-        SNAPSHOTS.put(playerId, snapshot);
+
+        SNAPSHOTS.compute(playerId, (k, prev) -> {
+            if (prev != null && snapshot.version() < prev.version()) {
+                return prev;
+            }
+            return snapshot;
+        });
+    }
+
+    public static void remove(UUID playerId) {
+        if (playerId != null) {
+            SNAPSHOTS.remove(playerId);
+        }
+    }
+
+    public static void clearAll() {
+        SNAPSHOTS.clear();
     }
 }

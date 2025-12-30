@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.cosmetics.common.validation;
 
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.ProgressionBasedCosmeticEntitlementCore;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
@@ -10,11 +10,11 @@ import java.util.UUID;
 public final class CosmeticValidator {
 
     private final CosmeticRegistry registry;
-    private final CosmeticEntitlementService entitlements;
+    private final ProgressionBasedCosmeticEntitlementCore entitlements;
 
     public CosmeticValidator(
             CosmeticRegistry registry,
-            CosmeticEntitlementService entitlements
+            ProgressionBasedCosmeticEntitlementCore entitlements
     ) {
         this.registry = registry;
         this.entitlements = entitlements;

@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.cosmetics.server.network;
 
 import com.pgalaxyp.fragmento.cosmetics.common.network.CosmeticEquipRequestPacket;
-import com.pgalaxyp.fragmento.cosmetics.common.network.CosmeticSyncRequestPacket;
 import com.pgalaxyp.fragmento.cosmetics.common.network.CosmeticUnequipRequestPacket;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,12 +15,6 @@ public final class CosmeticsNetworkServerBootstrap {
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
-
-        registrar.playToServer(
-                CosmeticSyncRequestPacket.TYPE,
-                CosmeticSyncRequestPacket.STREAM_CODEC,
-                CosmeticSyncServerHandler::handle
-        );
 
         registrar.playToServer(
                 CosmeticEquipRequestPacket.TYPE,

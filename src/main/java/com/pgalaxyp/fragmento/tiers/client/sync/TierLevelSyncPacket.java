@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.tiers.client.network;
+package com.pgalaxyp.fragmento.tiers.client.sync;
 
 import com.pgalaxyp.fragmento.tiers.common.network.TierNetworkIds;
 import io.netty.buffer.ByteBuf;

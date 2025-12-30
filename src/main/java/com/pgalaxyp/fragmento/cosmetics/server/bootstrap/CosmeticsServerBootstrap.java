@@ -1,13 +1,14 @@
 package com.pgalaxyp.fragmento.cosmetics.server.bootstrap;
 
+import com.pgalaxyp.fragmento.common.progression.PlayerProgressionView;
 import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.ProgressionBasedCosmeticEntitlementCore;
 import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
 import com.pgalaxyp.fragmento.cosmetics.common.validation.CosmeticValidator;
-import com.pgalaxyp.fragmento.cosmetics.server.network.TrackingCosmeticSyncPublisher;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
 import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
-import com.pgalaxyp.fragmento.integration.tiers.cosmetics.server.TierBasedCosmeticEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.server.sync.CosmeticSyncRuntime;
+import com.pgalaxyp.fragmento.common.progression.tiers.TierProgressionView;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -30,8 +31,11 @@ public final class CosmeticsServerBootstrap {
         CosmeticRegistryImpl registry = new CosmeticRegistryImpl();
         registry.setSnapshot(BuiltinCosmetics.snapshot());
 
-        CosmeticEntitlementService entitlements =
-                new TierBasedCosmeticEntitlementService(TierServices.service());
+        PlayerProgressionView progression =
+                new TierProgressionView(TierServices.service());
+
+        ProgressionBasedCosmeticEntitlementCore entitlements =
+                new ProgressionBasedCosmeticEntitlementCore(progression);
 
         CosmeticValidator validator =
                 new CosmeticValidator(registry, entitlements);
@@ -39,12 +43,15 @@ public final class CosmeticsServerBootstrap {
         CosmeticServiceImpl service =
                 new CosmeticServiceImpl(
                         validator,
-                        new TrackingCosmeticSyncPublisher(),
                         registry,
                         entitlements
                 );
 
-        TierServices.service().registerListener(service);
+        TierServices.service().registerListener(ev ->
+                service.onProgressionChanged(ev.playerId())
+        );
+
         CosmeticServices.bind(service);
+        CosmeticSyncRuntime.bind(service);
     }
 }

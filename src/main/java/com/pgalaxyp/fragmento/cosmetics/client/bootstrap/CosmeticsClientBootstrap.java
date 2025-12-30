@@ -1,29 +1,28 @@
 package com.pgalaxyp.fragmento.cosmetics.client.bootstrap;
 
+import com.pgalaxyp.fragmento.common.progression.PlayerProgressionView;
+import com.pgalaxyp.fragmento.cosmetics.client.entitlement.ProgressionBasedCosmeticEntitlementClientView;
 import com.pgalaxyp.fragmento.cosmetics.client.render.model.CosmeticsModelsBootstrap;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
-import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
-import com.pgalaxyp.fragmento.integration.tiers.cosmetics.client.TierBasedCosmeticEntitlementClientView;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
+import com.pgalaxyp.fragmento.common.progression.tiers.TierClientProgressionView;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 
-@EventBusSubscriber(modid = "fragmento", bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = "fragmento", value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class CosmeticsClientBootstrap {
 
     private CosmeticsClientBootstrap() {}
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        CosmeticRegistryImpl reg = new CosmeticRegistryImpl();
-        reg.setSnapshot(BuiltinCosmetics.snapshot());
-        CosmeticsClientRegistries.setRegistry(reg);
+        CosmeticsClientState.clearAll();
 
+        PlayerProgressionView progression = new TierClientProgressionView();
         CosmeticsClientEntitlements.set(
-                new TierBasedCosmeticEntitlementClientView()
+                new ProgressionBasedCosmeticEntitlementClientView(progression)
         );
 
         CosmeticsModelsBootstrap.bootstrap();

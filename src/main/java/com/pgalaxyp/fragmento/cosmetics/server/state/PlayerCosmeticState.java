@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.cosmetics.server.state;
 
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementService;
+import com.pgalaxyp.fragmento.cosmetics.common.entitlement.ProgressionBasedCosmeticEntitlementCore;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadout;
@@ -54,9 +54,10 @@ public final class PlayerCosmeticState {
     public PlayerCosmeticState revalidate(
             CosmeticRegistry registry,
             UUID playerId,
-            CosmeticEntitlementService entitlements
+            ProgressionBasedCosmeticEntitlementCore entitlements
     ) {
-        EnumMap<CosmeticSlot, SlotCosmetic> next = new EnumMap<>(CosmeticSlot.class);
+        EnumMap<CosmeticSlot, SlotCosmetic> next =
+                new EnumMap<>(CosmeticSlot.class);
 
         for (Map.Entry<CosmeticSlot, SlotCosmetic> e : slots.entrySet()) {
             SlotCosmetic sc = e.getValue();
@@ -71,7 +72,10 @@ public final class PlayerCosmeticState {
             next.put(e.getKey(), sc);
         }
 
-        if (next.equals(slots)) return this;
+        if (next.equals(slots)) {
+            return this;
+        }
+
         return new PlayerCosmeticState(next, version + 1L);
     }
 }

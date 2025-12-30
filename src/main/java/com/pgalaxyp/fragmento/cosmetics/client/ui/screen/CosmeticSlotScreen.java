@@ -1,14 +1,16 @@
 package com.pgalaxyp.fragmento.cosmetics.client.ui.screen;
 
-import com.pgalaxyp.fragmento.cosmetics.client.network.CosmeticsClientNetwork;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
+import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
 import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.action.CosmeticUiActions;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.model.CosmeticUiEntry;
 import com.pgalaxyp.fragmento.cosmetics.client.ui.model.CosmeticUiModel;
 import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementClientView;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadout;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
+import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticDefinitionsSnapshot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -17,10 +19,10 @@ import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class CosmeticSlotScreen extends Screen {
 
@@ -35,28 +37,37 @@ public final class CosmeticSlotScreen extends Screen {
     private final CosmeticSlot slot;
 
     private CosmeticList list;
+
     private long lastEntitlementVersion;
     private long lastLoadoutVersion;
+
     private Component entitlementLabel;
+
+    private List<CosmeticUiEntry> lastUiEntries;
+    private List<CosmeticEntry> lastRenderedEntries;
 
     public CosmeticSlotScreen(Screen parent, CosmeticSlot slot) {
         super(Component.literal("Cosmetics"));
         this.parent = parent;
         this.slot = slot == null ? CosmeticSlot.HEAD : slot;
         this.entitlementLabel = Component.literal("");
+        this.lastUiEntries = List.of();
+        this.lastRenderedEntries = List.of();
     }
 
     @Override
     protected void init() {
         super.init();
 
-        CosmeticsClientNetwork.requestSync();
-
         int contentWidth = computeContentWidth(this.width);
         int contentHeight = computeContentHeight(this.height);
 
-        int left = subInt(this.width, contentWidth) / 2;
-        int top = subInt(this.height, contentHeight) / 2;
+        int left = subInt(this.width, contentWidth);
+        left = left / 2;
+
+        int top = subInt(this.height, contentHeight);
+        top = top / 2;
+
         int right = left + contentWidth;
         int bottom = top + contentHeight;
 
@@ -72,50 +83,68 @@ public final class CosmeticSlotScreen extends Screen {
         addTabs(left + PANEL_PAD, top + HEADER_H, innerW);
         addFooter(subInt(right, PANEL_PAD), subInt(bottom, PANEL_PAD));
 
-        rebuild();
+        refreshIfNeeded(true);
     }
 
     @Override
     public void tick() {
+        refreshIfNeeded(false);
+    }
+
+    private void refreshIfNeeded(boolean force) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null) {
+            return;
+        }
+
+        UUID selfId = mc.player.getUUID();
+
         CosmeticEntitlementClientView ev = CosmeticsClientEntitlements.view();
         long entV = ev == null ? 0L : ev.version();
-        long loadV = currentLoadoutVersion();
 
-        if (entV != this.lastEntitlementVersion || loadV != this.lastLoadoutVersion) {
-            rebuild();
+        long loadV = CosmeticsClientState.getVersion(selfId);
+
+        if (!force && entV == this.lastEntitlementVersion && loadV == this.lastLoadoutVersion) {
+            return;
         }
-    }
 
-    private long currentLoadoutVersion() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) {
-            return 0L;
-        }
-        return CosmeticsClientState.getVersion(mc.player.getUUID());
-    }
+        this.lastEntitlementVersion = entV;
+        this.lastLoadoutVersion = loadV;
 
-    private void rebuild() {
-        CosmeticEntitlementClientView view = CosmeticsClientEntitlements.view();
-        this.lastEntitlementVersion = view == null ? 0L : view.version();
-        this.lastLoadoutVersion = currentLoadoutVersion();
-
-        String label = view == null ? "Tier: ?" : Objects.toString(view.label(), "Tier: ?");
+        String label = ev == null ? "Tier: ?" : Objects.toString(ev.label(), "Tier: ?");
         this.entitlementLabel = Component.literal(label);
 
         if (this.list == null) {
             return;
         }
 
-        List<CosmeticUiEntry> entries = CosmeticUiModel.build(this.slot);
+        CosmeticDefinitionsSnapshot defsSnap = CosmeticsClientRegistries.registry().snapshot();
+        CosmeticLoadout loadout = CosmeticsClientState.getEffective(selfId);
 
-        ArrayList<CosmeticEntry> built = new ArrayList<>(entries.size());
-        for (CosmeticUiEntry e : entries) {
+        List<CosmeticUiEntry> uiEntries = CosmeticUiModel.build(
+                selfId,
+                this.slot,
+                defsSnap,
+                ev,
+                loadout
+        );
+
+        if (!force && Objects.equals(uiEntries, this.lastUiEntries)) {
+            return;
+        }
+
+        this.lastUiEntries = uiEntries;
+
+        ArrayList<CosmeticEntry> built = new ArrayList<>(uiEntries.size());
+        for (CosmeticUiEntry e : uiEntries) {
             if (e == null) {
                 continue;
             }
             built.add(new CosmeticEntry(this, e));
         }
-        this.list.setEntries(built);
+
+        this.lastRenderedEntries = List.copyOf(built);
+        this.list.setEntries(this.lastRenderedEntries);
     }
 
     @Override
@@ -124,8 +153,13 @@ public final class CosmeticSlotScreen extends Screen {
 
         int contentWidth = computeContentWidth(this.width);
         int contentHeight = computeContentHeight(this.height);
-        int left = subInt(this.width, contentWidth) / 2;
-        int top = subInt(this.height, contentHeight) / 2;
+
+        int left = subInt(this.width, contentWidth);
+        left = left / 2;
+
+        int top = subInt(this.height, contentHeight);
+        top = top / 2;
+
         int right = left + contentWidth;
         int bottom = top + contentHeight;
 
@@ -144,7 +178,9 @@ public final class CosmeticSlotScreen extends Screen {
     @Override
     public void onClose() {
         Minecraft mc = Minecraft.getInstance();
-        mc.setScreen(parent);
+        if (mc != null) {
+            mc.setScreen(parent);
+        }
     }
 
     private static int subInt(int a, int b) {
@@ -189,7 +225,7 @@ public final class CosmeticSlotScreen extends Screen {
             CosmeticSlot s = values[i];
             int w = base + (i < rem ? 1 : 0);
 
-            Button tab = Button.builder(Component.literal(s.name()), new SwitchTabPress(this, parent, s))
+            Button tab = Button.builder(Component.literal(s.name()), new SwitchTabPress(parent, s))
                     .bounds(x, y, w, TABS_H)
                     .build();
 
@@ -213,15 +249,19 @@ public final class CosmeticSlotScreen extends Screen {
         @Override
         public void onPress(@NotNull Button button) {
             Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(screen.parent);
+            if (mc != null) {
+                mc.setScreen(screen.parent);
+            }
         }
     }
 
-    private record SwitchTabPress(CosmeticSlotScreen current, Screen parent, CosmeticSlot slot) implements Button.OnPress {
+    private record SwitchTabPress(Screen parent, CosmeticSlot slot) implements Button.OnPress {
         @Override
         public void onPress(@NotNull Button button) {
             Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(new CosmeticSlotScreen(parent, slot));
+            if (mc != null) {
+                mc.setScreen(new CosmeticSlotScreen(parent, slot));
+            }
         }
     }
 
@@ -339,10 +379,9 @@ public final class CosmeticSlotScreen extends Screen {
             @Override
             public void onPress(@NotNull Button button) {
                 CosmeticDefinition def = entry.definition();
-                if (def == null) {
-                    return;
+                if (def != null) {
+                    CosmeticUiActions.equip(def.slot(), def.id());
                 }
-                CosmeticUiActions.equip(def.slot(), def.id());
             }
         }
 
@@ -350,10 +389,9 @@ public final class CosmeticSlotScreen extends Screen {
             @Override
             public void onPress(@NotNull Button button) {
                 CosmeticDefinition def = entry.definition();
-                if (def == null) {
-                    return;
+                if (def != null) {
+                    CosmeticUiActions.unequip(def.slot());
                 }
-                CosmeticUiActions.unequip(def.slot());
             }
         }
     }

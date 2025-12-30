@@ -3,7 +3,7 @@ package com.pgalaxyp.fragmento.tiers.server.bootstrap;
 import com.pgalaxyp.fragmento.tiers.server.http.TierApiClient;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServiceImpl;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
-import com.pgalaxyp.fragmento.tiers.server.sync.TierServerSync;
+import com.pgalaxyp.fragmento.tiers.server.sync.TierSyncRuntime;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -27,6 +27,6 @@ public final class TiersServerBootstrap {
         TierServiceImpl service = new TierServiceImpl(api);
 
         TierServices.bind(service);
-        TierServerSync.bindListenerOnce(service);
+        TierSyncRuntime.bind(service);
     }
 }

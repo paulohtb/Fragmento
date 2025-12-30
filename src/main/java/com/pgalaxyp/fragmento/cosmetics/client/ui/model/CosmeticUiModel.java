@@ -1,61 +1,44 @@
 package com.pgalaxyp.fragmento.cosmetics.client.ui.model;
 
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientEntitlements;
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientRegistries;
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
 import com.pgalaxyp.fragmento.cosmetics.common.entitlement.CosmeticEntitlementClientView;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadout;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
 import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticDefinitionsSnapshot;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import net.minecraft.client.Minecraft;
+import java.util.*;
 
 public final class CosmeticUiModel {
 
     private CosmeticUiModel() {}
 
-    public static List<CosmeticUiEntry> build(CosmeticSlot slot) {
-        if (slot == null) {
+    public static List<CosmeticUiEntry> build(
+            UUID playerId,
+            CosmeticSlot slot,
+            CosmeticDefinitionsSnapshot defsSnap,
+            CosmeticEntitlementClientView entitlementView,
+            CosmeticLoadout loadout
+    ) {
+        if (playerId == null || slot == null || defsSnap == null || loadout == null) {
             return List.of();
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) {
+        Map<CosmeticSlot, List<CosmeticDefinition>> bySlot = defsSnap.bySlotView();
+        List<CosmeticDefinition> defs = bySlot.get(slot);
+        if (defs == null || defs.isEmpty()) {
             return List.of();
         }
 
-        UUID selfId = mc.player.getUUID();
+        CosmeticId equippedId = loadout.get(slot);
 
-        CosmeticDefinitionsSnapshot snap =
-                CosmeticsClientRegistries.registry().snapshot();
-
-        CosmeticEntitlementClientView entitlementView =
-                CosmeticsClientEntitlements.view();
-
-        CosmeticLoadout loadout =
-                CosmeticsClientState.getEffective(selfId);
-
-        List<CosmeticDefinition> defs =
-                snap.bySlotView().getOrDefault(slot, List.of());
-
-        ArrayList<CosmeticUiEntry> out =
-                new ArrayList<>(defs.size());
-
+        ArrayList<CosmeticUiEntry> out = new ArrayList<>(defs.size());
         for (CosmeticDefinition def : defs) {
             if (def == null) {
                 continue;
             }
 
-            boolean allowed =
-                    entitlementView != null && entitlementView.allowed(def);
-
-            CosmeticId equippedId = loadout.get(slot);
-            boolean equipped =
-                    def.id().equals(equippedId);
+            boolean allowed = entitlementView != null && entitlementView.allowed(def);
+            boolean equipped = Objects.equals(def.id(), equippedId);
 
             out.add(new CosmeticUiEntry(def, equipped, allowed));
         }

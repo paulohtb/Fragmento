@@ -8,15 +8,10 @@ import net.minecraft.network.codec.StreamCodec;
 public final class CosmeticSlotCodec {
 
     public static final StreamCodec<ByteBuf, CosmeticSlot> STREAM_CODEC =
-            ByteBufCodecs.VAR_INT.map(CosmeticSlotCodec::fromInt, CosmeticSlot::ordinal);
+            ByteBufCodecs.VAR_INT.map(
+                    ord -> CosmeticSlot.values()[Math.max(0, Math.min(ord, CosmeticSlot.values().length - 1))],
+                    CosmeticSlot::ordinal
+            );
 
     private CosmeticSlotCodec() {}
-
-    private static CosmeticSlot fromInt(int ord) {
-        CosmeticSlot[] values = CosmeticSlot.values();
-        if (ord < 0 || ord >= values.length) {
-            return CosmeticSlot.UNKNOWN;
-        }
-        return values[ord];
-    }
 }

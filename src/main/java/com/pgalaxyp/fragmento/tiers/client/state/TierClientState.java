@@ -2,24 +2,28 @@ package com.pgalaxyp.fragmento.tiers.client.state;
 
 public final class TierClientState {
 
-    private static volatile int LEVEL;
-    private static volatile long VERSION;
+    private static volatile Entry SELF;
 
     private TierClientState() {}
 
     public static int level() {
-        return LEVEL;
+        Entry e = SELF;
+        return e == null ? 0 : e.level;
     }
 
     public static long version() {
-        return VERSION;
+        Entry e = SELF;
+        return e == null ? 0L : e.version;
     }
 
     public static void update(int level, long version) {
-        if (version < VERSION) {
+        Entry cur = SELF;
+        if (cur != null && version < cur.version) {
             return;
         }
-        LEVEL = Math.max(0, level);
-        VERSION = version;
+
+        SELF = new Entry(Math.max(0, level), version);
     }
+
+    private record Entry(int level, long version) {}
 }

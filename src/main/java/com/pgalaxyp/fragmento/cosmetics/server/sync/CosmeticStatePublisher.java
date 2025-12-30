@@ -1,21 +1,19 @@
-package com.pgalaxyp.fragmento.cosmetics.server.network;
+package com.pgalaxyp.fragmento.cosmetics.server.sync;
 
-import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadoutSnapshot;
-import java.util.Objects;
-import java.util.UUID;
+import com.pgalaxyp.fragmento.common.sync.VersionedStatePublisher;
 import com.pgalaxyp.fragmento.cosmetics.common.network.CosmeticSyncPacket;
+import com.pgalaxyp.fragmento.cosmetics.common.sync.CosmeticStateView;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import java.util.UUID;
 
-public final class TrackingCosmeticSyncPublisher implements CosmeticSyncPublisher {
+public final class CosmeticStatePublisher
+        implements VersionedStatePublisher<CosmeticStateView> {
 
     @Override
-    public void publish(UUID playerId, CosmeticLoadoutSnapshot snapshot) {
-        Objects.requireNonNull(playerId, "playerId");
-        Objects.requireNonNull(snapshot, "snapshot");
-
+    public void publish(UUID playerId, CosmeticStateView state) {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) {
             return;
@@ -26,7 +24,9 @@ public final class TrackingCosmeticSyncPublisher implements CosmeticSyncPublishe
             return;
         }
 
-        CosmeticSyncPacket pkt = new CosmeticSyncPacket(playerId, snapshot.loadout(), snapshot.version());
+        CosmeticSyncPacket pkt =
+                new CosmeticSyncPacket(playerId, state.loadout(), state.version());
+
         PacketDistributor.sendToPlayer(owner, pkt);
         PacketDistributor.sendToPlayersTrackingEntity(owner, pkt);
     }
