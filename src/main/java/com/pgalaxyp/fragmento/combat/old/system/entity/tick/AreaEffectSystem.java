@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.combat.old.system.entity.tick;
 
 import com.pgalaxyp.fragmento.combat.old.system.entity.component.AreaEffectComponent;
-import com.pgalaxyp.fragmento.combat.old.system.spatial.SpatialQueryService;
-import com.pgalaxyp.fragmento.combat.old.system.temporal.DegradationPolicy;
-import com.pgalaxyp.fragmento.combat.old.system.temporal.TickBudgetService;
+import com.pgalaxyp.fragmento.platform.SpatialQueryService;
+import com.pgalaxyp.fragmento.platform.DegradationPolicy;
+import com.pgalaxyp.fragmento.platform.TickBudgetService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import java.util.List;

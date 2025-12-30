@@ -1,0 +1,32 @@
+package com.pgalaxyp.fragmento.tier.server.bootstrap;
+
+import com.pgalaxyp.fragmento.tier.server.http.TierApiClient;
+import com.pgalaxyp.fragmento.tier.server.service.TierServiceImpl;
+import com.pgalaxyp.fragmento.tier.server.service.TierServices;
+import com.pgalaxyp.fragmento.tier.server.sync.TierSyncRuntime;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+
+@EventBusSubscriber(modid = "fragmento")
+public final class TiersServerBootstrap {
+
+    private static volatile boolean bound;
+
+    private TiersServerBootstrap() {}
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onServerStarted(ServerStartedEvent event) {
+        if (bound) {
+            return;
+        }
+        bound = true;
+
+        TierApiClient api = new TierApiClient();
+        TierServiceImpl service = new TierServiceImpl(api);
+
+        TierServices.bind(service);
+        TierSyncRuntime.bind(service);
+    }
+}

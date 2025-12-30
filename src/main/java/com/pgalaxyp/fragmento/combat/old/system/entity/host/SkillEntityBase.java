@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import com.pgalaxyp.fragmento.combat.old.system.entity.controller.EntityController;
-import com.pgalaxyp.fragmento.combat.old.core.util.MathUtil;
+import com.pgalaxyp.fragmento.foundation.MathUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;

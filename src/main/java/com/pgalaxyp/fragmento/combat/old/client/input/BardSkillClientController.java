@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.old.client.input;
 
 import com.pgalaxyp.fragmento.combat.old.content.bard.catalyst.BardCatalystItem;
-import com.pgalaxyp.fragmento.combat.old.core.util.RaycastUtil;
+import com.pgalaxyp.fragmento.platform.RaycastUtil;
 import com.pgalaxyp.fragmento.combat.old.network.c2s.SkillCancelPacket;
 import com.pgalaxyp.fragmento.combat.old.network.c2s.SkillIntentPacket;
 import com.pgalaxyp.fragmento.combat.old.system.skill.Skill;

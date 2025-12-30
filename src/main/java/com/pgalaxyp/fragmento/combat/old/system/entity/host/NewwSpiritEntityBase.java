@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.old.system.entity.host;
 
 import com.pgalaxyp.fragmento.combat.old.content.bard.catalyst.BardCatalystIdService;
-import com.pgalaxyp.fragmento.combat.old.core.util.MathUtil;
+import com.pgalaxyp.fragmento.foundation.MathUtil;
 import com.pgalaxyp.fragmento.combat.old.system.entity.event.SpiritEventSource;
 import com.pgalaxyp.fragmento.combat.old.system.entity.event.SpiritSelf;
 import com.pgalaxyp.fragmento.combat.old.system.skill.SkillMode;
