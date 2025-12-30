@@ -15,7 +15,7 @@ import com.pgalaxyp.fragmento.combat.old.system.skill.SkillStateSnapshotDispatch
 import com.pgalaxyp.fragmento.combat.old.system.skill.SkillTargetingService;
 import com.pgalaxyp.fragmento.combat.old.system.gameplay.cooldown.PlayerSkillCooldownService;
 import com.pgalaxyp.fragmento.combat.old.system.entity.host.NewwSpiritEntityBase;
-import com.pgalaxyp.fragmento.foundation.AabbUtil;
+import com.pgalaxyp.fragmento.platform.AabbUtil;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;

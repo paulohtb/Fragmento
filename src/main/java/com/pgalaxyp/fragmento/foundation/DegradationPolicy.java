@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.platform;
+package com.pgalaxyp.fragmento.foundation;
 
 public final class DegradationPolicy {
 

@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.foundation;
+package com.pgalaxyp.fragmento.platform;
 
 import net.minecraft.world.phys.AABB;
 
