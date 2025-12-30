@@ -10,8 +10,12 @@ public final class CosmeticEquipServerHandler {
     private CosmeticEquipServerHandler() {}
 
     public static void handle(CosmeticEquipRequestPacket pkt, IPayloadContext ctx) {
-        ServerPlayer sp = (ServerPlayer) ctx.player();
-        CosmeticServices.service()
-                .equipBase(sp.getUUID(), pkt.slot(), pkt.cosmeticId());
+        if (pkt == null || ctx == null) return;
+
+        ctx.enqueueWork(() -> {
+            if (!(ctx.player() instanceof ServerPlayer sp)) return;
+            if (CosmeticServices.service() == null) return;
+            CosmeticServices.service().equip(sp.getUUID(), pkt.cosmeticId());
+        });
     }
 }

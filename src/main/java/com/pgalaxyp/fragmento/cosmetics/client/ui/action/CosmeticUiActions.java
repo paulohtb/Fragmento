@@ -10,8 +10,8 @@ public final class CosmeticUiActions {
 
     private CosmeticUiActions() {}
 
-    public static void equip(CosmeticSlot slot, CosmeticId id) {
-        PacketDistributor.sendToServer(new CosmeticEquipRequestPacket(slot, id));
+    public static void equip(CosmeticId id) {
+        PacketDistributor.sendToServer(new CosmeticEquipRequestPacket(id));
     }
 
     public static void unequip(CosmeticSlot slot) {

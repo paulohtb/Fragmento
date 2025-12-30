@@ -1,16 +1,16 @@
 package com.pgalaxyp.fragmento.cosmetics.client.render.layer;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pgalaxyp.fragmento.cosmetics.client.render.model.CosmeticModel;
 import com.pgalaxyp.fragmento.cosmetics.client.render.model.CosmeticModels;
 import com.pgalaxyp.fragmento.cosmetics.client.render.resources.CosmeticRenderResources;
-import com.pgalaxyp.fragmento.cosmetics.client.state.CosmeticsClientState;
-import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticDefinition;
+import com.pgalaxyp.fragmento.cosmetics.client.state.ClientCosmetics;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticEntry;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticId;
-import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticLoadout;
 import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticSlot;
-import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistry;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
@@ -24,21 +24,14 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
-public final class CosmeticsPlayerLayer
-        extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+public final class CosmeticsPlayerLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
     private static final float PX = 0.0625F;
     private static final double MAX_DISTANCE_SQ = 4096.0;
     private static final ConcurrentHashMap<String, ResourceLocation> RL_CACHE = new ConcurrentHashMap<>();
 
-    private final CosmeticRegistry registry;
-
-    public CosmeticsPlayerLayer(
-            RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent,
-            CosmeticRegistry registry
-    ) {
+    public CosmeticsPlayerLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
         super(parent);
-        this.registry = registry;
     }
 
     @Override
@@ -61,7 +54,7 @@ public final class CosmeticsPlayerLayer
         UUID id = player.getUUID();
 
         if (!self.equals(id)) {
-            if (!CosmeticsClientState.showOthers()) return;
+            if (!ClientCosmetics.showOthers()) return;
 
             double dx = player.getX() - mc.player.getX();
             double dy = player.getY() - mc.player.getY();
@@ -69,26 +62,29 @@ public final class CosmeticsPlayerLayer
             if (dx * dx + dy * dy + dz * dz > MAX_DISTANCE_SQ) return;
         }
 
-        CosmeticLoadout loadout = CosmeticsClientState.getEffective(id);
-        if (loadout.isEmpty()) return;
-
         PlayerModel<AbstractClientPlayer> model = getParentModel();
 
         for (CosmeticSlot slot : CosmeticSlot.values()) {
-            CosmeticId cid = loadout.get(slot);
-            if (cid == null) continue;
+            CosmeticId equipped = ClientCosmetics.equipped(id, slot);
+            if (equipped == null) continue;
 
-            ResourceLocation rl = RL_CACHE.computeIfAbsent(cid.value(), ResourceLocation::tryParse);
+            List<CosmeticEntry> entries = ClientCosmetics.entriesBySlot(id, slot);
+            CosmeticEntry entry = null;
+            for (CosmeticEntry e : entries) {
+                if (e != null && Objects.equals(e.id(), equipped)) {
+                    entry = e;
+                    break;
+                }
+            }
+            if (entry == null || entry.info() == null) continue;
+
+            if (self.equals(id) && !entry.info().visibleToSelf()) continue;
+
+            ResourceLocation rl = RL_CACHE.computeIfAbsent(entry.info().modelKey(), ResourceLocation::tryParse);
             if (rl == null) continue;
 
-            CosmeticDefinition def = registry.get(cid);
-            if (def == null) continue;
-            if (self.equals(id) && !def.visibleToSelf()) continue;
-
             CosmeticModel m = CosmeticModels.get(rl);
-            RenderType rt = CosmeticRenderResources.cutoutNoCull(
-                    CosmeticRenderResources.textureFor(rl)
-            );
+            RenderType rt = CosmeticRenderResources.cutoutNoCull(CosmeticRenderResources.textureFor(rl));
             if (rt == null) continue;
 
             renderSlot(poseStack, buffers.getBuffer(rt), packedLight, slot, m, model);

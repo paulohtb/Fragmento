@@ -1,15 +1,14 @@
 package com.pgalaxyp.fragmento.cosmetics.server.bootstrap;
 
 import com.pgalaxyp.fragmento.common.progression.PlayerProgressionView;
-import com.pgalaxyp.fragmento.cosmetics.common.definitions.builtin.BuiltinCosmetics;
-import com.pgalaxyp.fragmento.cosmetics.common.entitlement.ProgressionBasedCosmeticEntitlementCore;
-import com.pgalaxyp.fragmento.cosmetics.common.registry.CosmeticRegistryImpl;
-import com.pgalaxyp.fragmento.cosmetics.common.validation.CosmeticValidator;
-import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServiceImpl;
-import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
-import com.pgalaxyp.fragmento.cosmetics.server.sync.CosmeticSyncRuntime;
 import com.pgalaxyp.fragmento.common.progression.tiers.TierProgressionView;
+import com.pgalaxyp.fragmento.cosmetics.common.model.BuiltinCosmeticCatalog;
+import com.pgalaxyp.fragmento.cosmetics.common.model.CosmeticCatalog;
+import com.pgalaxyp.fragmento.cosmetics.server.network.CosmeticsNetPublisher;
+import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticServices;
+import com.pgalaxyp.fragmento.cosmetics.server.service.CosmeticsServiceImpl;
 import com.pgalaxyp.fragmento.tiers.server.service.TierServices;
+import com.pgalaxyp.fragmento.tiers.common.service.TierService;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -23,35 +22,26 @@ public final class CosmeticsServerBootstrap {
 
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
-        if (bound) {
-            return;
-        }
+        if (bound) return;
         bound = true;
 
-        CosmeticRegistryImpl registry = new CosmeticRegistryImpl();
-        registry.setSnapshot(BuiltinCosmetics.snapshot());
+        TierService tiers = TierServices.service();
+        if (tiers == null) return;
 
-        PlayerProgressionView progression =
-                new TierProgressionView(TierServices.service());
+        CosmeticCatalog catalog = new BuiltinCosmeticCatalog();
+        PlayerProgressionView progression = new TierProgressionView(tiers);
 
-        ProgressionBasedCosmeticEntitlementCore entitlements =
-                new ProgressionBasedCosmeticEntitlementCore(progression);
-
-        CosmeticValidator validator =
-                new CosmeticValidator(registry, entitlements);
-
-        CosmeticServiceImpl service =
-                new CosmeticServiceImpl(
-                        validator,
-                        registry,
-                        entitlements
-                );
-
-        TierServices.service().registerListener(ev ->
-                service.onProgressionChanged(ev.playerId())
+        CosmeticsServiceImpl service = new CosmeticsServiceImpl(
+                catalog,
+                progression,
+                new CosmeticsNetPublisher()
         );
 
+        tiers.registerListener(ev -> {
+            if (ev == null) return;
+            service.onTierChanged(ev.playerId());
+        });
+
         CosmeticServices.bind(service);
-        CosmeticSyncRuntime.bind(service);
     }
 }
