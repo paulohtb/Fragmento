@@ -4,6 +4,7 @@ import com.pgalaxyp.fragmento.combat.domain.action.ActionDefinition;
 import com.pgalaxyp.fragmento.combat.domain.animation.AnimationCue;
 import com.pgalaxyp.fragmento.combat.domain.animation.AnimationKey;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.port.AnimationCueEmitter;
 
 public final class WeaponAnimationBridge {
 
@@ -14,14 +15,13 @@ public final class WeaponAnimationBridge {
     }
 
     public void onActionStarted(ActionDefinition action, CombatTime now) {
-        if (emitter == null) {
+        if (emitter == null || action == null || now == null) {
             return;
         }
-        emitter.emit(new AnimationCue(
-                action.id().value() != null
-                        ? new AnimationKey(action.id().value())
-                        : null,
-                now.ticks()
-        ));
+
+        String id = action.id() != null ? action.id().value() : null;
+        AnimationKey key = id != null ? new AnimationKey(id) : null;
+
+        emitter.emit(new AnimationCue(key, now.ticks()));
     }
 }

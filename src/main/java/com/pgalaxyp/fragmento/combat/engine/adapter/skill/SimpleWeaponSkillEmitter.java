@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.engine.adapter.skill;
 
-import com.pgalaxyp.fragmento.combat.engine.runtime.WeaponSkillEmitter;
+import com.pgalaxyp.fragmento.combat.rule.port.WeaponSkillEmitter;
 
 public final class SimpleWeaponSkillEmitter implements WeaponSkillEmitter {
 

@@ -1,16 +1,16 @@
-package com.pgalaxyp.fragmento.combat.old.content.bard.entity;
-
-import com.pgalaxyp.fragmento.combat.old.system.entity.behavior.SpiritBehavior;
-import com.pgalaxyp.fragmento.combat.old.system.skill.SkillMode;
-
-public final class FluteBehaviorFactory {
-
-    private FluteBehaviorFactory() {
-    }
-
-    public static SpiritBehavior create(SkillMode mode) {
-        if (mode == SkillMode.CHARGED) return new FluteChargedBehavior();
-        if (mode == SkillMode.SPECIAL) return new FluteSpecialBehavior();
-        return new FluteBasicBehavior();
-    }
-}
+//package com.pgalaxyp.fragmento.combat.old.content.bard.entity;
+//
+//import com.pgalaxyp.fragmento.combat.old.system.entity.behavior.SpiritBehavior;
+//import com.pgalaxyp.fragmento.combat.old.system.skill.SkillMode;
+//
+//public final class FluteBehaviorFactory {
+//
+//    private FluteBehaviorFactory() {
+//    }
+//
+//    public static SpiritBehavior create(SkillMode mode) {
+//        if (mode == SkillMode.CHARGED) return new FluteChargedBehavior();
+//        if (mode == SkillMode.SPECIAL) return new FluteSpecialBehavior();
+//        return new FluteBasicBehavior();
+//    }
+//}

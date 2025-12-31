@@ -1,10 +1,8 @@
 package com.pgalaxyp.fragmento.combat.engine.adapter.action;
 
-import com.pgalaxyp.fragmento.combat.domain.action.ActionDefinition;
-
 public interface WeaponActionListener {
 
-    void onActionStarted(int localActionId, ActionDefinition definition);
+    void onActionStarted(int localActionId);
 
     void onActionCancelled(int localActionId);
 }

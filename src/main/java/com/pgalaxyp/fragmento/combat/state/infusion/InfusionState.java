@@ -1,53 +1,41 @@
 package com.pgalaxyp.fragmento.combat.state.infusion;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionDefinition;
-import com.pgalaxyp.fragmento.combat.domain.infusion.InfusionId;
 import com.pgalaxyp.fragmento.combat.domain.infusion.InfusionSpec;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
-public final class InfusionState {
+public record InfusionState(
+        InfusionSpec spec,
+        CombatTime armedAt
+) {
 
-    private InfusionSpec spec;
-    private CombatTime armedAt;
-    private CombatTime expiresAt;
+    public static InfusionState empty() {
+        return new InfusionState(null, null);
+    }
 
     public boolean isArmed() {
-        return spec != null;
-    }
-
-    public InfusionSpec spec() {
-        return spec;
-    }
-
-    public void arm(InfusionSpec spec, CombatTime now) {
-        this.spec = spec;
-        this.armedAt = now;
-        if (spec.expiresAfter() != null) {
-            this.expiresAt = now.plus(spec.expiresAfter());
-        } else {
-            this.expiresAt = null;
-        }
+        return spec != null && armedAt != null;
     }
 
     public boolean isExpired(CombatTime now) {
-        if (expiresAt == null) {
+        if (!isArmed() || now == null || spec.expiresAfter() == null) {
             return false;
         }
-        return now.isAfterOrEqual(expiresAt);
+        return now.isAfterOrEqual(armedAt.plus(spec.expiresAfter()));
     }
 
-    public ActionDefinition consume() {
-        if (spec == null) {
-            return null;
+    public InfusionState arm(InfusionSpec spec, CombatTime now) {
+        if (spec == null || now == null) {
+            return this;
         }
-        ActionDefinition action = spec.infusedAction();
-        clear();
-        return action;
+        return new InfusionState(spec, now);
     }
 
-    public void clear() {
-        spec = null;
-        armedAt = null;
-        expiresAt = null;
+    public ActionDefinition infusedActionOrNull() {
+        return spec != null ? spec.infusedAction() : null;
+    }
+
+    public InfusionState clear() {
+        return empty();
     }
 }
