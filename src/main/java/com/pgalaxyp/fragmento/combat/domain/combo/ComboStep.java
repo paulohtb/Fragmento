@@ -1,8 +1,11 @@
 package com.pgalaxyp.fragmento.combat.domain.combo;
 
-import com.pgalaxyp.fragmento.combat.domain.action.ActionDefinition;
-
 public record ComboStep(
-        int index,
-        ActionDefinition action
-) {}
+        int index
+) {
+    public ComboStep {
+        if (index < 0) {
+            throw new IllegalArgumentException("ComboStep index must be >= 0");
+        }
+    }
+}

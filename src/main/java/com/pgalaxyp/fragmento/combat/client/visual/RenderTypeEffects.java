@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.client.visual;
 
-import com.pgalaxyp.fragmento.combat.domain.animation.AnimationCue;
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
 
 public final class RenderTypeEffects {
 
@@ -11,8 +11,18 @@ public final class RenderTypeEffects {
             return;
         }
 
-        switch (cue.key().id()) {
-            case "flute.combo.hit1", "flute.combo.hit2", "flute.combo.hit3" -> {}
+        String id = cue.key().id();
+        if (id == null) {
+            return;
+        }
+
+        switch (id) {
+            case "flute.combo.hit1":
+            case "flute.combo.hit2":
+            case "flute.combo.hit3":
+                break;
+            default:
+                break;
         }
     }
 }

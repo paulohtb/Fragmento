@@ -2,17 +2,13 @@ package com.pgalaxyp.fragmento.combat.domain.combo;
 
 import java.util.List;
 
-public record ComboDefinition(String id, List<ComboStep> steps) {
-
-    public ComboDefinition(String id, List<ComboStep> steps) {
-        if (id == null || id.isBlank()) {
-            throw new IllegalArgumentException("Combo id vazio");
-        }
+public record ComboDefinition(
+        List<ComboStep> steps
+) {
+    public ComboDefinition {
         if (steps == null || steps.isEmpty()) {
-            throw new IllegalArgumentException("Combo sem steps");
+            throw new IllegalArgumentException("Combo must have at least one step");
         }
-        this.id = id;
-        this.steps = List.copyOf(steps);
     }
 
     public int size() {
@@ -20,7 +16,9 @@ public record ComboDefinition(String id, List<ComboStep> steps) {
     }
 
     public ComboStep step(int index) {
-        int i = Math.max(0, Math.min(index, steps.size() - 1));
-        return steps.get(i);
+        if (index < 0 || index >= steps.size()) {
+            return steps.getFirst();
+        }
+        return steps.get(index);
     }
 }

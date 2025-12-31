@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.client.visual;
 
-import com.pgalaxyp.fragmento.combat.domain.animation.AnimationCue;
-import com.pgalaxyp.fragmento.combat.network.VisualCuePayload;
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.VisualCuePayload;
 import net.minecraft.client.Minecraft;
 
 public final class VisualEffectManager {

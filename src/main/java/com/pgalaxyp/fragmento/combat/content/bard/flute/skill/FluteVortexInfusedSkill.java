@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.combat.content.bard.flute.skill;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionDefinition;
-import com.pgalaxyp.fragmento.combat.domain.action.ActionId;
 import com.pgalaxyp.fragmento.combat.domain.action.ActionLock;
 import com.pgalaxyp.fragmento.combat.domain.action.ActionTiming;
+import com.pgalaxyp.fragmento.combat.domain.id.ActionId;
+import com.pgalaxyp.fragmento.combat.domain.id.InfusionId;
 import com.pgalaxyp.fragmento.combat.domain.infusion.InfusedSkill;
-import com.pgalaxyp.fragmento.combat.domain.infusion.InfusionId;
 import com.pgalaxyp.fragmento.combat.domain.infusion.InfusionSpec;
 import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
 

@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.engine.runtime;
 
-import com.pgalaxyp.fragmento.combat.network.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
