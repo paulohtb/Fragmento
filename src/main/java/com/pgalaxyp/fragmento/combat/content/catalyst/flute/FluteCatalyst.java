@@ -1,60 +1,91 @@
 package com.pgalaxyp.fragmento.combat.content.catalyst.flute;
 
+import com.pgalaxyp.fragmento.combat.content.catalyst.Catalyst;
 import com.pgalaxyp.fragmento.combat.content.entity.flute.FluteBasicHitEntity;
+import com.pgalaxyp.fragmento.combat.content.entity.flute.FluteCastingEntity;
 import com.pgalaxyp.fragmento.combat.content.entity.flute.FluteVortexEntity;
-import com.pgalaxyp.fragmento.combat.domain.combo.ComboDefinition;
-import com.pgalaxyp.fragmento.combat.rule.combo.ComboApplier;
-import com.pgalaxyp.fragmento.combat.rule.skill.InfusedSkillRule;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.engine.entity.FragmentoEntities;
+import com.pgalaxyp.fragmento.combat.rule.skill.CastingSkillRule;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 
-public final class FluteCatalyst {
+public final class FluteCatalyst implements Catalyst {
 
-    private final ComboDefinition combo;
-    private final InfusedSkillRule infusedRule;
-
-    public FluteCatalyst(InfusedSkillRule infusedRule) {
-        this.combo = FluteCombo.create();
-        this.infusedRule = infusedRule;
-    }
-
-    public void performBasicAttack(
+    @Override
+    public void onAttack(
+            ServerPlayer player,
             ServerLevel level,
-            Player player,
             ServerCombatState state,
-            ComboApplier applier,
-            EntityType<FluteBasicHitEntity> basicType,
-            EntityType<FluteVortexEntity> vortexType
+            CombatTime now
     ) {
-        if (infusedRule.consumeIfArmed(state)) {
-            FluteVortexEntity entity = new FluteVortexEntity(vortexType, level);
-            entity.configure(
-                    player.getUUID(),
-                    0.0f,
-                    state,
-                    applier,
-                    combo
-            );
-            entity.setPos(player.getX(), player.getY() + 1.0, player.getZ());
-            level.addFreshEntity(entity);
+        if (state.infusion().consumeIfArmed()) {
+            spawnInfusedAttack(player, level, state);
             return;
         }
 
-        int comboIndex = state.weapon().comboIndex();
-        FluteHitSpec spec = FluteHitSpec.forComboIndex(comboIndex);
+        spawnBasicAttack(player, level, state);
+    }
 
-        FluteBasicHitEntity entity = new FluteBasicHitEntity(basicType, level);
-        entity.configure(
-                player.getUUID(),
-                spec.damage(),
-                state,
-                applier,
-                combo
-        );
-        entity.configureSpec(spec);
-        entity.setPos(player.getX(), player.getY() + 1.0, player.getZ());
+    @Override
+    public void onCastingTick(
+            ServerPlayer player,
+            ServerLevel level,
+            ServerCombatState state,
+            CastingSkillRule castingRule,
+            CombatTime now
+    ) {
+        if (!castingRule.isCastComplete(state, now)) {
+            return;
+        }
+
+        long targetId = castingRule.finishCasting(state);
+        spawnCastingAttack(player, level, targetId);
+    }
+
+    private void spawnBasicAttack(
+            ServerPlayer player,
+            ServerLevel level,
+            ServerCombatState state
+    ) {
+        FluteBasicHitEntity entity =
+                new FluteBasicHitEntity(
+                        FragmentoEntities.FLUTE_BASIC_HIT.get(),
+                        level
+                );
+
+        entity.configure(player, state);
+        level.addFreshEntity(entity);
+    }
+
+    private void spawnInfusedAttack(
+            ServerPlayer player,
+            ServerLevel level,
+            ServerCombatState state
+    ) {
+        FluteVortexEntity entity =
+                new FluteVortexEntity(
+                        FragmentoEntities.FLUTE_VORTEX.get(),
+                        level
+                );
+
+        entity.configure(player, state);
+        level.addFreshEntity(entity);
+    }
+
+    private void spawnCastingAttack(
+            ServerPlayer player,
+            ServerLevel level,
+            long targetId
+    ) {
+        FluteCastingEntity entity =
+                new FluteCastingEntity(
+                        FragmentoEntities.FLUTE_CASTING.get(),
+                        level
+                );
+
+        entity.configure(player, targetId);
         level.addFreshEntity(entity);
     }
 }

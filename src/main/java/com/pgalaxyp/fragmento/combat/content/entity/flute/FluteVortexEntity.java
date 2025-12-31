@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.combat.content.entity.flute;
 
 import com.pgalaxyp.fragmento.combat.domain.hit.HitResult;
 import com.pgalaxyp.fragmento.combat.engine.entity.CombatHitEntity;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,11 +11,20 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
+import java.util.UUID;
 
 public final class FluteVortexEntity extends CombatHitEntity {
 
     public FluteVortexEntity(EntityType<?> type, Level level) {
         super(type, level);
+    }
+
+    public void configure(
+            net.minecraft.server.level.ServerPlayer player,
+            ServerCombatState state
+    ) {
+        this.ownerId = player.getUUID();
+        this.combatState = state;
     }
 
     @Override
@@ -25,21 +35,23 @@ public final class FluteVortexEntity extends CombatHitEntity {
         }
 
         Vec3 center = position();
-
         double radius = 4.5;
+
         AABB box = new AABB(
                 center.x - radius, center.y - radius, center.z - radius,
                 center.x + radius, center.y + radius, center.z + radius
         );
 
         List<LivingEntity> targets =
-                level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != owner);
+                level.getEntitiesOfClass(
+                        LivingEntity.class,
+                        box,
+                        e -> e.isAlive() && e != owner
+                );
 
         if (targets.isEmpty()) {
             return HitResult.miss();
         }
-
-        boolean damageApplied = false;
 
         for (LivingEntity target : targets) {
             Vec3 delta = center.subtract(target.position());
