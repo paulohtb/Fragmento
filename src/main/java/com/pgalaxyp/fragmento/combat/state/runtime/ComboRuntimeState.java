@@ -1,22 +1,14 @@
 package com.pgalaxyp.fragmento.combat.state.runtime;
 
-public final class ComboRuntimeState {
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
-    private int comboIndex;
-
-    public ComboRuntimeState() {
-        this.comboIndex = 0;
-    }
-
-    public int comboIndex() {
-        return comboIndex;
-    }
-
-    public void setComboIndex(int index) {
-        this.comboIndex = Math.max(0, index);
-    }
-
-    public void resetCombo() {
-        this.comboIndex = 0;
+public record ComboRuntimeState(
+        int stepIndex,
+        CombatTime nextStepAt,
+        boolean holding,
+        boolean holdLatched
+) {
+    public static ComboRuntimeState idle() {
+        return new ComboRuntimeState(0, CombatTime.ofTicks(0L), false, false);
     }
 }

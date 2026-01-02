@@ -8,19 +8,14 @@ import net.minecraft.network.FriendlyByteBuf;
 public final class CueCodec {
 
     public static VisualCuePayload decode(FriendlyByteBuf buf) {
-        boolean hasKey = buf.readBoolean();
-        AnimationKey key = hasKey ? new AnimationKey(buf.readUtf()) : null;
+        AnimationKey key = new AnimationKey(buf.readUtf());
         long startedAt = buf.readVarLong();
         return new VisualCuePayload(new AnimationCue(key, startedAt));
     }
 
     public static void encode(VisualCuePayload msg, FriendlyByteBuf buf) {
         AnimationCue cue = msg.cue();
-        AnimationKey key = cue.key();
-        buf.writeBoolean(key != null);
-        if (key != null) {
-            buf.writeUtf(key.id());
-        }
+        buf.writeUtf(cue.key().id());
         buf.writeVarLong(cue.startedAtTick());
     }
 

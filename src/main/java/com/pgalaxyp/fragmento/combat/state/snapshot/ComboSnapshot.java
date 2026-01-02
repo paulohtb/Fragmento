@@ -1,15 +1,14 @@
 package com.pgalaxyp.fragmento.combat.state.snapshot;
 
-public record ComboSnapshot(
-        int comboIndex
-) {
-    public ComboSnapshot {
-        if (comboIndex < 0) {
-            comboIndex = 0;
-        }
-    }
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
+public record ComboSnapshot(
+        int stepIndex,
+        CombatTime nextStepAt,
+        boolean holding,
+        boolean holdLatched
+) {
     public static ComboSnapshot idle() {
-        return new ComboSnapshot(0);
+        return new ComboSnapshot(0, CombatTime.ofTicks(0), false, false);
     }
 }

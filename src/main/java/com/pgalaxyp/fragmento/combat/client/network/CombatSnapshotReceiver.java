@@ -12,7 +12,7 @@ public final class CombatSnapshotReceiver {
     }
 
     public void apply(CombatSnapshotPayload payload) {
-        if (payload == null || payload.snapshot() == null) {
+        if (payload == null) {
             return;
         }
         state.apply(payload.snapshot());

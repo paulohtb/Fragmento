@@ -21,7 +21,7 @@ public final class CombatSnapshotReceiver {
     }
 
     public void apply(CombatSnapshotPayload payload) {
-        if (payload == null || payload.snapshot() == null) {
+        if (payload == null) {
             return;
         }
         state.apply(payload.snapshot());
@@ -41,7 +41,11 @@ public final class ClientCombatViewState {
         if (snapshot == null) {
             return;
         }
-        if (last == null || snapshot.version().isAfter(last.version())) {
+        if (last == null) {
+            last = snapshot;
+            return;
+        }
+        if (snapshot.version().isAfter(last.version())) {
             last = snapshot;
         }
     }
@@ -49,16 +53,10 @@ public final class ClientCombatViewState {
     public CombatSnapshot current() {
         return last;
     }
-}
 
-===== FluteInfusedSkillResolver.java =====
-package com.pgalaxyp.fragmento.combat.content.bard.flute;
-
-import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
-
-public final class FluteInfusedSkillResolver {
-
-    public FluteInfusedSkillResolver(SkillId byId) {}
+    public void clear() {
+        last = null;
+    }
 }
 
 ===== SkillRegistry.java =====
@@ -118,6 +116,7 @@ public record ComboChoreography(
         if (steps == null || steps.isEmpty()) {
             throw new IllegalArgumentException("Combo must have at least one step");
         }
+        steps = List.copyOf(steps);
     }
 
     public int size() {
@@ -125,9 +124,6 @@ public record ComboChoreography(
     }
 
     public ComboStep step(int index) {
-        if (index < 0 || index >= steps.size()) {
-            return steps.getFirst();
-        }
         return steps.get(index);
     }
 }
@@ -145,6 +141,9 @@ public record AnimationCue(
         long startedAtTick
 ) {
     public AnimationCue {
+        if (key == null) {
+            throw new IllegalArgumentException("AnimationCue sem key");
+        }
         if (startedAtTick < 0L) {
             throw new IllegalArgumentException("startedAtTick negativo");
         }
@@ -214,6 +213,19 @@ public record ActionId(
     }
 }
 
+===== CatalystFamilyId.java =====
+package com.pgalaxyp.fragmento.combat.domain.id;
+
+public record CatalystFamilyId(
+        String value
+) {
+    public CatalystFamilyId {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("CatalystFamilyId vazio");
+        }
+    }
+}
+
 ===== CatalystId.java =====
 package com.pgalaxyp.fragmento.combat.domain.id;
 
@@ -247,6 +259,49 @@ public record SkillId(int value) {
     }
 }
 
+===== AbilityIntent.java =====
+package com.pgalaxyp.fragmento.combat.domain.input;
+
+public record AbilityIntent(
+        SkillSlotId slot,
+        AbilityIntentKind kind
+) {
+    public AbilityIntent {
+        if (slot == null || kind == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== AbilityIntentKind.java =====
+package com.pgalaxyp.fragmento.combat.domain.input;
+
+public enum AbilityIntentKind {
+    PRESS,
+    TOGGLE,
+    CANCEL
+}
+
+===== AttackIntent.java =====
+package com.pgalaxyp.fragmento.combat.domain.input;
+
+public enum AttackIntent {
+    CLICK,
+    HOLD_START,
+    HOLD_STOP
+}
+
+===== SkillSlotId.java =====
+package com.pgalaxyp.fragmento.combat.domain.input;
+
+public record SkillSlotId(int index) {
+    public SkillSlotId {
+        if (index <= 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
 ===== SkillDefinition.java =====
 package com.pgalaxyp.fragmento.combat.domain.skill;
 
@@ -269,12 +324,12 @@ public record CombatTime(long ticks) {
         if (d == null) {
             return this;
         }
-        return new CombatTime(ticks + Math.max(0, d.ticks()));
+        return new CombatTime(ticks + Math.max(0L, d.ticks()));
     }
 
     public boolean isAfterOrEqual(CombatTime other) {
         if (other == null) {
-            return true;
+            return false;
         }
         return ticks >= other.ticks();
     }
@@ -315,21 +370,66 @@ package com.pgalaxyp.fragmento.combat.engine.network;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
 
 public final class CombatSnapshotSender {
 
-    private final ServerGamePacketListenerImpl connection;
-
-    public CombatSnapshotSender(ServerGamePacketListenerImpl connection) {
-        this.connection = connection;
-    }
-
-    public void sendSnapshot(ServerPlayer player, CombatSnapshot snapshot) {
+    public void send(ServerPlayer player, CombatSnapshot snapshot) {
         if (player == null || snapshot == null) {
             return;
         }
-        connection.send(new CombatSnapshotPayload(snapshot));
+        player.connection.send(new CombatSnapshotPayload(snapshot));
+    }
+}
+
+===== CombatRuntime.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
+import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+
+public final class CombatRuntime {
+
+    private final CombatClock clock;
+    private final CombatEngine combatEngine;
+    private final AbilityEngine abilityEngine;
+
+    private ServerCombatState state;
+
+    public CombatRuntime(
+            CombatClock clock,
+            CombatEngine combatEngine,
+            AbilityEngine abilityEngine,
+            ServerCombatState initial
+    ) {
+        this.clock = clock;
+        this.combatEngine = combatEngine;
+        this.abilityEngine = abilityEngine;
+        this.state = initial;
+    }
+
+    public void onAttackIntent(AttackIntent intent) {
+        CombatTime now = clock.now();
+        state = combatEngine.applyAttack(state, intent, now);
+    }
+
+    public void onAbilityIntent(AbilityIntent intent) {
+        CombatTime now = clock.now();
+        state = abilityEngine.apply(state, intent, now);
+    }
+
+    public void tick() {
+        CombatTime now = clock.now();
+        state = combatEngine.tick(state, now);
+        state = abilityEngine.tick(state, now);
+    }
+
+    public ServerCombatState state() {
+        return state;
     }
 }
 
@@ -418,16 +518,68 @@ public interface TickSource {
     long gameTick();
 }
 
+===== AbilityIntentCodec.java =====
+package com.pgalaxyp.fragmento.combat.network.codec.c2s;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
+import net.minecraft.network.FriendlyByteBuf;
+
+public final class AbilityIntentCodec {
+
+    public static AbilityIntentPayload decode(FriendlyByteBuf buf) {
+        SkillSlotId slot = new SkillSlotId(buf.readVarInt());
+        AbilityIntentKind kind = buf.readEnum(AbilityIntentKind.class);
+        return new AbilityIntentPayload(new AbilityIntent(slot, kind));
+    }
+
+    public static void encode(AbilityIntentPayload msg, FriendlyByteBuf buf) {
+        AbilityIntent intent = msg.intent();
+        buf.writeVarInt(intent.slot().index());
+        buf.writeEnum(intent.kind());
+    }
+
+    private AbilityIntentCodec() {}
+}
+
+===== AttackIntentCodec.java =====
+package com.pgalaxyp.fragmento.combat.network.codec.c2s;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
+import net.minecraft.network.FriendlyByteBuf;
+
+public final class AttackIntentCodec {
+
+    public static AttackIntentPayload decode(FriendlyByteBuf buf) {
+        AttackIntent intent = buf.readEnum(AttackIntent.class);
+        return new AttackIntentPayload(intent);
+    }
+
+    public static void encode(AttackIntentPayload msg, FriendlyByteBuf buf) {
+        buf.writeEnum(msg.intent());
+    }
+
+    private AttackIntentCodec() {}
+}
+
 ===== CombatSnapshotCodec.java =====
 package com.pgalaxyp.fragmento.combat.network.codec.s2c;
 
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
 import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.combat.state.snapshot.AbilitySnapshot;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
-import com.pgalaxyp.fragmento.combat.state.snapshot.SkillSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LoadoutSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LockSnapshot;
 import net.minecraft.network.FriendlyByteBuf;
 
 import java.util.HashMap;
@@ -438,8 +590,11 @@ public final class CombatSnapshotCodec {
     public static CombatSnapshotPayload decode(FriendlyByteBuf buf) {
         CombatSnapshotVersion version = new CombatSnapshotVersion(buf.readVarLong());
 
-        int comboIndex = buf.readVarInt();
-        ComboSnapshot weapon = new ComboSnapshot(comboIndex);
+        int stepIndex = buf.readVarInt();
+        CombatTime nextStepAt = CombatTime.ofTicks(buf.readVarLong());
+        boolean holding = buf.readBoolean();
+        boolean holdLatched = buf.readBoolean();
+        ComboSnapshot combo = new ComboSnapshot(stepIndex, nextStepAt, holding, holdLatched);
 
         int cooldownCount = buf.readVarInt();
         Map<SkillId, CombatTime> cooldowns = new HashMap<>();
@@ -449,12 +604,45 @@ public final class CombatSnapshotCodec {
             cooldowns.put(skillId, endsAt);
         }
 
-        SkillSnapshot skills = new SkillSnapshot(cooldowns);
+        int infusedCount = buf.readVarInt();
+        Map<SkillSlotId, SkillId> infused = new HashMap<>();
+        for (int i = 0; i < infusedCount; i++) {
+            SkillSlotId slot = new SkillSlotId(buf.readVarInt());
+            SkillId skillId = new SkillId(buf.readVarInt());
+            infused.put(slot, skillId);
+        }
+
+        int castCount = buf.readVarInt();
+        Map<SkillSlotId, AbilitySnapshot.CastState> casting = new HashMap<>();
+        for (int i = 0; i < castCount; i++) {
+            SkillSlotId slot = new SkillSlotId(buf.readVarInt());
+            CombatTime castEndsAt = CombatTime.ofTicks(buf.readVarLong());
+            boolean ready = buf.readBoolean();
+            casting.put(slot, new AbilitySnapshot.CastState(castEndsAt, ready));
+        }
+
+        AbilitySnapshot abilities = new AbilitySnapshot(cooldowns, infused, casting);
+
+        String actionKind = buf.readUtf();
+        CombatTime actionEndsAt = CombatTime.ofTicks(buf.readVarLong());
+        CombatTime itemSwapLockedUntil = CombatTime.ofTicks(buf.readVarLong());
+        LockSnapshot lock = new LockSnapshot(actionKind, actionEndsAt, itemSwapLockedUntil);
+
+        boolean hasCatalyst = buf.readBoolean();
+        CatalystId catalystId = hasCatalyst ? new CatalystId(buf.readVarInt()) : null;
+
+        boolean hasFamily = buf.readBoolean();
+        CatalystFamilyId familyId = hasFamily ? new CatalystFamilyId(buf.readUtf()) : null;
+
+        boolean offhandEmpty = buf.readBoolean();
+        LoadoutSnapshot loadout = new LoadoutSnapshot(catalystId, familyId, offhandEmpty);
 
         CombatSnapshot snapshot = new CombatSnapshot(
                 version,
-                weapon,
-                skills
+                combo,
+                abilities,
+                lock,
+                loadout
         );
 
         return new CombatSnapshotPayload(snapshot);
@@ -465,15 +653,54 @@ public final class CombatSnapshotCodec {
 
         buf.writeVarLong(snap.version().value());
 
-        ComboSnapshot weapon = snap.weapon();
-        buf.writeVarInt(weapon.comboIndex());
+        ComboSnapshot combo = snap.combo();
+        buf.writeVarInt(combo.stepIndex());
+        buf.writeVarLong(combo.nextStepAt().ticks());
+        buf.writeBoolean(combo.holding());
+        buf.writeBoolean(combo.holdLatched());
 
-        SkillSnapshot skills = snap.skills();
-        buf.writeVarInt(skills.cooldownEndsAt().size());
-        for (var entry : skills.cooldownEndsAt().entrySet()) {
+        AbilitySnapshot abilities = snap.abilities();
+
+        buf.writeVarInt(abilities.cooldownEndsAt().size());
+        for (var entry : abilities.cooldownEndsAt().entrySet()) {
             buf.writeVarInt(entry.getKey().value());
             buf.writeVarLong(entry.getValue().ticks());
         }
+
+        buf.writeVarInt(abilities.infusedArmed().size());
+        for (var entry : abilities.infusedArmed().entrySet()) {
+            buf.writeVarInt(entry.getKey().index());
+            buf.writeVarInt(entry.getValue().value());
+        }
+
+        buf.writeVarInt(abilities.casting().size());
+        for (var entry : abilities.casting().entrySet()) {
+            buf.writeVarInt(entry.getKey().index());
+            buf.writeVarLong(entry.getValue().castEndsAt().ticks());
+            buf.writeBoolean(entry.getValue().ready());
+        }
+
+        LockSnapshot lock = snap.lock();
+        buf.writeUtf(lock.actionKind());
+        buf.writeVarLong(lock.actionEndsAt().ticks());
+        buf.writeVarLong(lock.itemSwapLockedUntil().ticks());
+
+        LoadoutSnapshot loadout = snap.loadout();
+        if (loadout.equippedCatalyst() != null) {
+            buf.writeBoolean(true);
+            buf.writeVarInt(loadout.equippedCatalyst().value());
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        if (loadout.family() != null) {
+            buf.writeBoolean(true);
+            buf.writeUtf(loadout.family().value());
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        buf.writeBoolean(loadout.offhandEmpty());
     }
 
     private CombatSnapshotCodec() {}
@@ -490,23 +717,76 @@ import net.minecraft.network.FriendlyByteBuf;
 public final class CueCodec {
 
     public static VisualCuePayload decode(FriendlyByteBuf buf) {
-        boolean hasKey = buf.readBoolean();
-        AnimationKey key = hasKey ? new AnimationKey(buf.readUtf()) : null;
+        AnimationKey key = new AnimationKey(buf.readUtf());
         long startedAt = buf.readVarLong();
         return new VisualCuePayload(new AnimationCue(key, startedAt));
     }
 
     public static void encode(VisualCuePayload msg, FriendlyByteBuf buf) {
         AnimationCue cue = msg.cue();
-        AnimationKey key = cue.key();
-        buf.writeBoolean(key != null);
-        if (key != null) {
-            buf.writeUtf(key.id());
-        }
+        buf.writeUtf(cue.key().id());
         buf.writeVarLong(cue.startedAtTick());
     }
 
     private CueCodec() {}
+}
+
+===== AbilityIntentPayload.java =====
+package com.pgalaxyp.fragmento.combat.network.payload.c2s;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+
+public record AbilityIntentPayload(
+        AbilityIntent intent
+) implements CustomPacketPayload {
+
+    public static final Type<AbilityIntentPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath(
+                    "fragmento",
+                    "ability_intent"
+            ));
+
+    public AbilityIntentPayload {
+        if (intent == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+}
+
+===== AttackIntentPayload.java =====
+package com.pgalaxyp.fragmento.combat.network.payload.c2s;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+
+public record AttackIntentPayload(
+        AttackIntent intent
+) implements CustomPacketPayload {
+
+    public static final Type<AttackIntentPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath(
+                    "fragmento",
+                    "attack_intent"
+            ));
+
+    public AttackIntentPayload {
+        if (intent == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 }
 
 ===== CombatSnapshotPayload.java =====
@@ -563,13 +843,834 @@ public record VisualCuePayload(
     }
 }
 
-===== AnimationCueEmitter.java =====
+===== CastedRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.ability;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
+import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
+import com.pgalaxyp.fragmento.combat.state.runtime.AbilityRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public final class CastedRule {
+
+    private final CooldownRule cooldownRule;
+    private final AbilityConfig config;
+
+    public CastedRule(CooldownRule cooldownRule, AbilityConfig config) {
+        this.cooldownRule = cooldownRule;
+        this.config = config;
+    }
+
+    public AbilityRuntimeState apply(
+            AbilityRuntimeState state,
+            EquippedSkillsRuntimeState equipped,
+            AbilityIntent intent,
+            CombatTime now
+    ) {
+        if (state == null || equipped == null || intent == null || now == null) {
+            return state;
+        }
+
+        SkillSlotId slot = intent.slot();
+
+        if (intent.kind() == AbilityIntentKind.CANCEL) {
+            return cancel(state, slot);
+        }
+
+        if (intent.kind() != AbilityIntentKind.PRESS) {
+            return state;
+        }
+
+        if (state.casting().containsKey(slot)) {
+            return state;
+        }
+
+        SkillId skillId = equipped.skillInSlot(slot);
+        if (skillId == null) {
+            return state;
+        }
+
+        if (!cooldownRule.ready(state, skillId, now)) {
+            return state;
+        }
+
+        CombatTime endsAt = now.plus(config.castDuration(skillId));
+
+        Map<SkillSlotId, AbilityRuntimeState.CastRuntime> casting =
+                new HashMap<>(state.casting());
+
+        casting.put(slot, new AbilityRuntimeState.CastRuntime(skillId, endsAt, false));
+
+        return new AbilityRuntimeState(
+                state.cooldownEndsAt(),
+                state.infusedArmed(),
+                casting
+        );
+    }
+
+    public AdvanceResult advanceAndCollectFinished(
+            AbilityRuntimeState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return new AdvanceResult(state, Map.of());
+        }
+
+        Map<SkillSlotId, AbilityRuntimeState.CastRuntime> casting =
+                new HashMap<>(state.casting());
+
+        Map<SkillSlotId, SkillId> finished = new HashMap<>();
+
+        boolean changed = false;
+
+        for (var entry : state.casting().entrySet()) {
+            AbilityRuntimeState.CastRuntime cast = entry.getValue();
+            if (!cast.ready() && now.isAfterOrEqual(cast.castEndsAt())) {
+                casting.put(
+                        entry.getKey(),
+                        new AbilityRuntimeState.CastRuntime(
+                                cast.skillId(),
+                                cast.castEndsAt(),
+                                true
+                        )
+                );
+                changed = true;
+            }
+            if (cast.ready() && now.isAfterOrEqual(cast.castEndsAt())) {
+                finished.put(entry.getKey(), cast.skillId());
+            }
+        }
+
+        AbilityRuntimeState next = state;
+        if (changed) {
+            next = new AbilityRuntimeState(
+                    state.cooldownEndsAt(),
+                    state.infusedArmed(),
+                    casting
+            );
+        }
+
+        return new AdvanceResult(next, Map.copyOf(finished));
+    }
+
+    public AbilityRuntimeState finish(
+            AbilityRuntimeState state,
+            SkillSlotId slot,
+            SkillId skillId,
+            CombatTime now
+    ) {
+        if (state == null || slot == null || skillId == null || now == null) {
+            return state;
+        }
+
+        if (!state.casting().containsKey(slot)) {
+            return state;
+        }
+
+        Map<SkillSlotId, AbilityRuntimeState.CastRuntime> casting =
+                new HashMap<>(state.casting());
+        casting.remove(slot);
+
+        AbilityRuntimeState next = new AbilityRuntimeState(
+                state.cooldownEndsAt(),
+                state.infusedArmed(),
+                casting
+        );
+
+        return cooldownRule.startCooldown(next, skillId, config.cooldownDuration(skillId), now);
+    }
+
+    private AbilityRuntimeState cancel(
+            AbilityRuntimeState state,
+            SkillSlotId slot
+    ) {
+        if (!state.casting().containsKey(slot)) {
+            return state;
+        }
+
+        Map<SkillSlotId, AbilityRuntimeState.CastRuntime> casting =
+                new HashMap<>(state.casting());
+        casting.remove(slot);
+
+        return new AbilityRuntimeState(
+                state.cooldownEndsAt(),
+                state.infusedArmed(),
+                casting
+        );
+    }
+
+    public record AdvanceResult(
+            AbilityRuntimeState state,
+            Map<SkillSlotId, SkillId> finished
+    ) {}
+}
+
+===== InfusedRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.ability;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
+import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
+import com.pgalaxyp.fragmento.combat.state.runtime.AbilityRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public final class InfusedRule {
+
+    private final CooldownRule cooldownRule;
+    private final AbilityConfig config;
+
+    public InfusedRule(CooldownRule cooldownRule, AbilityConfig config) {
+        this.cooldownRule = cooldownRule;
+        this.config = config;
+    }
+
+    public AbilityRuntimeState toggle(
+            AbilityRuntimeState state,
+            EquippedSkillsRuntimeState equipped,
+            AbilityIntent intent,
+            CombatTime now
+    ) {
+        if (state == null || equipped == null || intent == null || now == null) {
+            return state;
+        }
+        if (intent.kind() != AbilityIntentKind.TOGGLE) {
+            return state;
+        }
+
+        SkillSlotId slot = intent.slot();
+        SkillId skillId = equipped.skillInSlot(slot);
+        if (skillId == null) {
+            return state;
+        }
+
+        if (!cooldownRule.ready(state, skillId, now)) {
+            return state;
+        }
+
+        Map<SkillSlotId, SkillId> infused = new HashMap<>(state.infusedArmed());
+        if (infused.containsKey(slot)) {
+            infused.remove(slot);
+        } else {
+            infused.put(slot, skillId);
+        }
+
+        return new AbilityRuntimeState(
+                state.cooldownEndsAt(),
+                infused,
+                state.casting()
+        );
+    }
+
+    public ConsumeResult consumeFirstArmed(
+            AbilityRuntimeState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return new ConsumeResult(state, null);
+        }
+        if (state.infusedArmed().isEmpty()) {
+            return new ConsumeResult(state, null);
+        }
+
+        SkillSlotId chosenSlot = null;
+        int best = Integer.MAX_VALUE;
+
+        for (SkillSlotId slot : state.infusedArmed().keySet()) {
+            if (slot != null && slot.index() < best) {
+                best = slot.index();
+                chosenSlot = slot;
+            }
+        }
+
+        if (chosenSlot == null) {
+            return new ConsumeResult(state, null);
+        }
+
+        SkillId skillId = state.infusedArmed().get(chosenSlot);
+        if (skillId == null) {
+            return new ConsumeResult(state, null);
+        }
+
+        Map<SkillSlotId, SkillId> infused = new HashMap<>(state.infusedArmed());
+        infused.remove(chosenSlot);
+
+        AbilityRuntimeState next = new AbilityRuntimeState(
+                state.cooldownEndsAt(),
+                infused,
+                state.casting()
+        );
+
+        return new ConsumeResult(next, skillId);
+    }
+
+    public AbilityRuntimeState startCooldownOnUse(
+            AbilityRuntimeState state,
+            SkillId skillId,
+            CombatTime now
+    ) {
+        if (state == null || skillId == null || now == null) {
+            return state;
+        }
+        return cooldownRule.startCooldown(state, skillId, config.cooldownDuration(skillId), now);
+    }
+
+    public record ConsumeResult(
+            AbilityRuntimeState state,
+            SkillId consumedSkillId
+    ) {}
+}
+
+===== AbilityEngine.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.id.ActionId;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
+import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
+import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
+import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
+import com.pgalaxyp.fragmento.combat.state.runtime.AbilityRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+
+public final class AbilityEngine {
+
+    private final EquipGateRule equipGate;
+    private final LockGateRule lockGate;
+    private final AbilityConfig config;
+    private final ActionLockRule actionLockRule;
+    private final InfusedRule infusedRule;
+    private final CastedRule castedRule;
+
+    public AbilityEngine(
+            EquipGateRule equipGate,
+            LockGateRule lockGate,
+            AbilityConfig config,
+            ActionLockRule actionLockRule,
+            InfusedRule infusedRule,
+            CastedRule castedRule
+    ) {
+        this.equipGate = equipGate;
+        this.lockGate = lockGate;
+        this.config = config;
+        this.actionLockRule = actionLockRule;
+        this.infusedRule = infusedRule;
+        this.castedRule = castedRule;
+    }
+
+    public ServerCombatState apply(
+            ServerCombatState state,
+            AbilityIntent intent,
+            CombatTime now
+    ) {
+        if (state == null || intent == null || now == null) {
+            return state;
+        }
+
+        if (!equipGate.allowAbility(state.loadout(), intent)) {
+            return state;
+        }
+
+        if (!lockGate.allowAbility(state.lock(), intent, now)) {
+            return state;
+        }
+
+        AbilityRuntimeState next = state.abilities();
+
+        next = infusedRule.toggle(next, state.equippedSkills(), intent, now);
+        next = castedRule.apply(next, state.equippedSkills(), intent, now);
+
+        if (next == state.abilities()) {
+            return state;
+        }
+
+        return state.withAbilities(next);
+    }
+
+    public ServerCombatState tick(
+            ServerCombatState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return state;
+        }
+
+        CastedRule.AdvanceResult advanced = castedRule.advanceAndCollectFinished(state.abilities(), now);
+
+        ServerCombatState out = state;
+        if (advanced.state() != state.abilities()) {
+            out = out.withAbilities(advanced.state());
+        }
+
+        if (advanced.finished().isEmpty()) {
+            return out;
+        }
+
+        for (var entry : advanced.finished().entrySet()) {
+            SkillId skillId = entry.getValue();
+            out = out.withAbilities(castedRule.finish(out.abilities(), entry.getKey(), skillId, now));
+            ActionLockState lock = actionLockRule.lock(new ActionId("cast_finish"), config.actionLockDuration(skillId), now);
+            out = out.withLock(lock);
+        }
+
+        return out;
+    }
+}
+
+===== ActionLockRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.id.ActionId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
+
+public final class ActionLockRule {
+
+    public ActionLockState lock(
+            ActionId action,
+            Duration duration,
+            CombatTime now
+    ) {
+        if (action == null || duration == null || now == null) {
+            return ActionLockState.idle();
+        }
+        CombatTime endsAt = now.plus(duration);
+        return new ActionLockState(
+                action.value(),
+                endsAt,
+                endsAt
+        );
+    }
+}
+
+===== CombatEngine.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.id.ActionId;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
+import com.pgalaxyp.fragmento.combat.rule.port.ComboConfig;
+import com.pgalaxyp.fragmento.combat.state.runtime.AbilityRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.ComboRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+
+public final class CombatEngine {
+
+    private final EquipGateRule equipGate;
+    private final LockGateRule lockGate;
+    private final ComboConfig comboConfig;
+    private final ActionLockRule actionLockRule;
+    private final ComboRule comboRule;
+    private final ComboTimingRule timingRule;
+    private final ComboResetRule resetRule;
+    private final HoldLatchRule holdLatchRule;
+    private final InfusedRule infusedRule;
+
+    public CombatEngine(
+            EquipGateRule equipGate,
+            LockGateRule lockGate,
+            ComboConfig comboConfig,
+            ActionLockRule actionLockRule,
+            ComboRule comboRule,
+            ComboTimingRule timingRule,
+            ComboResetRule resetRule,
+            HoldLatchRule holdLatchRule,
+            InfusedRule infusedRule
+    ) {
+        this.equipGate = equipGate;
+        this.lockGate = lockGate;
+        this.comboConfig = comboConfig;
+        this.actionLockRule = actionLockRule;
+        this.comboRule = comboRule;
+        this.timingRule = timingRule;
+        this.resetRule = resetRule;
+        this.holdLatchRule = holdLatchRule;
+        this.infusedRule = infusedRule;
+    }
+
+    public ServerCombatState applyAttack(
+            ServerCombatState state,
+            AttackIntent intent,
+            CombatTime now
+    ) {
+        if (state == null || intent == null || now == null) {
+            return state;
+        }
+
+        if (!equipGate.allowAttack(state.loadout(), intent)) {
+            return state;
+        }
+
+        if (!lockGate.allowAttack(state.lock(), now)) {
+            if (intent == AttackIntent.HOLD_START) {
+                ComboRuntimeState latched = comboRule.apply(state.combo(), intent, now);
+                if (latched != state.combo()) {
+                    return state.withCombo(latched);
+                }
+            }
+            return state;
+        }
+
+        ComboRuntimeState combo = state.combo();
+
+        combo = resetRule.resetIfFinished(combo, comboConfig.maxSteps(), now);
+
+        InfusedRule.ConsumeResult infused = null;
+        if (intent == AttackIntent.CLICK || intent == AttackIntent.HOLD_START) {
+            infused = infusedRule.consumeFirstArmed(state.abilities(), now);
+        }
+
+        ComboRuntimeState next = comboRule.apply(combo, intent, now);
+
+        boolean stepExecuted = next.stepIndex() != combo.stepIndex();
+
+        if (stepExecuted) {
+            next = timingRule.scheduleNext(next, comboConfig.stepDuration(), now);
+            next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
+        } else {
+            next = holdLatchRule.advanceIfLatched(next, now);
+            if (next.stepIndex() != combo.stepIndex()) {
+                next = timingRule.scheduleNext(next, comboConfig.stepDuration(), now);
+                next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
+                stepExecuted = true;
+            }
+        }
+
+        ServerCombatState out = state;
+        if (next != state.combo()) {
+            out = out.withCombo(next);
+        }
+
+        if (infused != null && infused.consumedSkillId() != null) {
+            AbilityRuntimeState abilities = infusedRule.startCooldownOnUse(infused.state(), infused.consumedSkillId(), now);
+            out = out.withAbilities(abilities);
+            out = out.withCombo(ComboRuntimeState.idle());
+            out = out.withLock(actionLockRule.lock(new ActionId("infused_execute"), comboConfig.actionLockDuration(), now));
+            return out;
+        }
+
+        if (stepExecuted) {
+            out = out.withLock(actionLockRule.lock(new ActionId("combo_step"), comboConfig.actionLockDuration(), now));
+        }
+
+        return out;
+    }
+
+    public ServerCombatState tick(
+            ServerCombatState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return state;
+        }
+
+        ComboRuntimeState next = holdLatchRule.advanceIfLatched(state.combo(), now);
+        if (next == state.combo()) {
+            return state;
+        }
+
+        next = timingRule.scheduleNext(next, comboConfig.stepDuration(), now);
+        next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
+
+        ServerCombatState out = state.withCombo(next);
+        out = out.withLock(actionLockRule.lock(new ActionId("combo_step"), comboConfig.actionLockDuration(), now));
+        return out;
+    }
+}
+
+===== ComboResetRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ComboRuntimeState;
+
+public final class ComboResetRule {
+
+    public ComboRuntimeState resetIfFinished(
+            ComboRuntimeState state,
+            int maxSteps,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return ComboRuntimeState.idle();
+        }
+
+        if (maxSteps <= 0) {
+            return ComboRuntimeState.idle();
+        }
+
+        if (state.stepIndex() < maxSteps) {
+            return state;
+        }
+
+        if (state.holding()) {
+            return new ComboRuntimeState(
+                    0,
+                    now,
+                    true,
+                    true
+            );
+        }
+
+        return ComboRuntimeState.idle();
+    }
+}
+
+===== ComboRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ComboRuntimeState;
+
+public final class ComboRule {
+
+    public ComboRuntimeState apply(
+            ComboRuntimeState state,
+            AttackIntent intent,
+            CombatTime now
+    ) {
+        if (state == null || intent == null || now == null) {
+            return ComboRuntimeState.idle();
+        }
+
+        if (intent == AttackIntent.CLICK) {
+            return new ComboRuntimeState(
+                    state.stepIndex() + 1,
+                    now,
+                    false,
+                    false
+            );
+        }
+
+        if (intent == AttackIntent.HOLD_START) {
+            boolean latch = state.holdLatched() || now.isBefore(state.nextStepAt());
+            return new ComboRuntimeState(
+                    state.stepIndex(),
+                    state.nextStepAt(),
+                    true,
+                    latch
+            );
+        }
+
+        if (intent == AttackIntent.HOLD_STOP) {
+            return new ComboRuntimeState(
+                    state.stepIndex(),
+                    state.nextStepAt(),
+                    false,
+                    false
+            );
+        }
+
+        return state;
+    }
+}
+
+===== ComboTimingRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.state.runtime.ComboRuntimeState;
+
+public final class ComboTimingRule {
+
+    public ComboRuntimeState scheduleNext(
+            ComboRuntimeState state,
+            Duration stepDuration,
+            CombatTime now
+    ) {
+        if (state == null || stepDuration == null || now == null) {
+            return ComboRuntimeState.idle();
+        }
+
+        return new ComboRuntimeState(
+                state.stepIndex(),
+                now.plus(stepDuration),
+                state.holding(),
+                state.holdLatched()
+        );
+    }
+}
+
+===== HoldLatchRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.combat;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ComboRuntimeState;
+
+public final class HoldLatchRule {
+
+    public ComboRuntimeState advanceIfLatched(
+            ComboRuntimeState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return ComboRuntimeState.idle();
+        }
+        if (!state.holdLatched()) {
+            return state;
+        }
+        if (now.isBefore(state.nextStepAt())) {
+            return state;
+        }
+        return new ComboRuntimeState(
+                state.stepIndex() + 1,
+                now,
+                state.holding(),
+                state.holding()
+        );
+    }
+}
+
+===== CooldownRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.cooldown;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.state.runtime.AbilityRuntimeState;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public final class CooldownRule {
+
+    public AbilityRuntimeState startCooldown(
+            AbilityRuntimeState state,
+            SkillId skillId,
+            Duration cooldown,
+            CombatTime now
+    ) {
+        if (state == null || skillId == null || cooldown == null || now == null) {
+            return state;
+        }
+
+        Map<SkillId, CombatTime> cds = new HashMap<>(state.cooldownEndsAt());
+        cds.put(skillId, now.plus(cooldown));
+
+        return new AbilityRuntimeState(
+                cds,
+                state.infusedArmed(),
+                state.casting()
+        );
+    }
+
+    public boolean ready(
+            AbilityRuntimeState state,
+            SkillId skillId,
+            CombatTime now
+    ) {
+        if (state == null || skillId == null || now == null) {
+            return false;
+        }
+        CombatTime ends = state.cooldownEndsAt().get(skillId);
+        if (ends == null) {
+            return true;
+        }
+        return now.isAfterOrEqual(ends);
+    }
+}
+
+===== EquipGateRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.gate;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.state.runtime.LoadoutRuntimeState;
+
+public final class EquipGateRule {
+
+    public boolean allowAttack(
+            LoadoutRuntimeState loadout,
+            AttackIntent intent
+    ) {
+        if (loadout == null || intent == null) {
+            return false;
+        }
+        return loadout.valid();
+    }
+
+    public boolean allowAbility(
+            LoadoutRuntimeState loadout,
+            AbilityIntent intent
+    ) {
+        if (loadout == null || intent == null) {
+            return false;
+        }
+        return loadout.valid();
+    }
+}
+
+===== LockGateRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.gate;
+
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
+
+public final class LockGateRule {
+
+    public boolean allowAttack(
+            ActionLockState lock,
+            CombatTime now
+    ) {
+        if (lock == null || now == null) {
+            return true;
+        }
+        return !lock.active(now);
+    }
+
+    public boolean allowAbility(
+            ActionLockState lock,
+            AbilityIntent intent,
+            CombatTime now
+    ) {
+        if (lock == null || intent == null || now == null) {
+            return true;
+        }
+
+        if (!lock.active(now)) {
+            return true;
+        }
+
+        return intent.kind() == AbilityIntentKind.CANCEL;
+    }
+}
+
+===== AbilityConfig.java =====
 package com.pgalaxyp.fragmento.combat.rule.port;
 
-import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
 
-public interface AnimationCueEmitter {
-    void emit(AnimationCue cue);
+public interface AbilityConfig {
+    Duration castDuration(SkillId skillId);
+    Duration cooldownDuration(SkillId skillId);
+    Duration actionLockDuration(SkillId skillId);
 }
 
 ===== CombatClock.java =====
@@ -577,239 +1678,285 @@ package com.pgalaxyp.fragmento.combat.rule.port;
 
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
+@FunctionalInterface
 public interface CombatClock {
     CombatTime now();
 }
 
-===== CastedRule.java =====
-package com.pgalaxyp.fragmento.combat.rule.skill;
+===== ComboConfig.java =====
+package com.pgalaxyp.fragmento.combat.rule.port;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+
+public interface ComboConfig {
+    int maxSteps();
+    Duration stepDuration();
+    Duration actionLockDuration();
+}
+
+===== CombatSimulation.java =====
+package com.pgalaxyp.fragmento.combat.simulation;
 
 import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.engine.runtime.CombatRuntime;
+import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
+import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.ActionLockRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboResetRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboTimingRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.HoldLatchRule;
+import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
+import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
+import com.pgalaxyp.fragmento.combat.rule.port.ComboConfig;
+import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
+import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
-import com.pgalaxyp.fragmento.combat.state.runtime.SkillRuntimeState;
+import java.util.Map;
 
-public final class CastedRule {
+public final class CombatSimulation {
 
-    private final int castDurationTicks;
+    public static CombatRuntime simpleSimulation() {
+        CombatClock clock = () -> CombatTime.ofTicks(0L);
 
-    public CastedRule(int castDurationTicks) {
-        this.castDurationTicks = Math.max(1, castDurationTicks);
+        ComboConfig comboConfig = new ComboConfig() {
+            @Override
+            public int maxSteps() {
+                return 3;
+            }
+
+            @Override
+            public Duration stepDuration() {
+                return Duration.ofTicks(10L);
+            }
+
+            @Override
+            public Duration actionLockDuration() {
+                return Duration.ofTicks(10L);
+            }
+        };
+
+        AbilityConfig abilityConfig = new AbilityConfig() {
+            @Override
+            public Duration castDuration(SkillId skillId) {
+                return Duration.ofTicks(20L);
+            }
+
+            @Override
+            public Duration cooldownDuration(SkillId skillId) {
+                return Duration.ofTicks(40L);
+            }
+
+            @Override
+            public Duration actionLockDuration(SkillId skillId) {
+                return Duration.ofTicks(10L);
+            }
+        };
+
+        CooldownRule cooldownRule = new CooldownRule();
+        ActionLockRule actionLockRule = new ActionLockRule();
+
+        InfusedRule infusedRule = new InfusedRule(cooldownRule, abilityConfig);
+        CastedRule castedRule = new CastedRule(cooldownRule, abilityConfig);
+
+        CombatEngine combatEngine =
+                new CombatEngine(
+                        new EquipGateRule(),
+                        new LockGateRule(),
+                        comboConfig,
+                        actionLockRule,
+                        new ComboRule(),
+                        new ComboTimingRule(),
+                        new ComboResetRule(),
+                        new HoldLatchRule(),
+                        infusedRule
+                );
+
+        AbilityEngine abilityEngine =
+                new AbilityEngine(
+                        new EquipGateRule(),
+                        new LockGateRule(),
+                        abilityConfig,
+                        actionLockRule,
+                        infusedRule,
+                        castedRule
+                );
+
+        ServerCombatState initial = ServerCombatState.initial()
+                .withEquippedSkills(new EquippedSkillsRuntimeState(
+                        Map.of(new SkillSlotId(1), new SkillId(1))
+                ));
+
+        return new CombatRuntime(
+                clock,
+                combatEngine,
+                abilityEngine,
+                initial
+        );
     }
 
-    public void startCasting(
-            ServerCombatState state,
-            SkillId skillId,
-            long targetEntityId,
-            CombatTime now
-    ) {
-        if (state == null || skillId == null || now == null) {
-            return;
-        }
-
-        SkillRuntimeState skills = state.skills();
-
-        if (skills.channelActive()) {
-            return;
-        }
-
-        CombatTime endsAt = CombatTime.ofTicks(
-                now.ticks() + castDurationTicks
-        );
-
-        SkillRuntimeState next = new SkillRuntimeState(
-                skills.cooldownEndsAt(),
-                Math.max(0L, targetEntityId),
-                endsAt,
-                true
-        );
-
-        state.setSkills(next);
-        state.bumpVersion();
-    }
-
-    public boolean isCastComplete(
-            ServerCombatState state,
-            CombatTime now
-    ) {
-        if (state == null || now == null) {
-            return false;
-        }
-
-        SkillRuntimeState skills = state.skills();
-
-        if (!skills.channelActive()) {
-            return false;
-        }
-
-        return now.isAfterOrEqual(skills.channelEndsAt());
-    }
-
-    public long finishCasting(
-            ServerCombatState state
-    ) {
-        if (state == null) {
-            return 0L;
-        }
-
-        SkillRuntimeState skills = state.skills();
-
-        if (!skills.channelActive()) {
-            return 0L;
-        }
-
-        long target = skills.channelTargetEntityId();
-
-        SkillRuntimeState next = new SkillRuntimeState(
-                skills.cooldownEndsAt(),
-                0L,
-                CombatTime.ofTicks(0L),
-                false
-        );
-
-        state.setSkills(next);
-        state.bumpVersion();
-
-        return target;
-    }
-
-    public void cancelCasting(
-            ServerCombatState state
-    ) {
-        if (state == null) {
-            return;
-        }
-
-        SkillRuntimeState skills = state.skills();
-
-        if (!skills.channelActive()) {
-            return;
-        }
-
-        SkillRuntimeState next = new SkillRuntimeState(
-                skills.cooldownEndsAt(),
-                0L,
-                CombatTime.ofTicks(0L),
-                false
-        );
-
-        state.setSkills(next);
-        state.bumpVersion();
+    public static void main(String[] args) {
+        CombatRuntime runtime = simpleSimulation();
+        runtime.onAttackIntent(AttackIntent.CLICK);
+        runtime.onAttackIntent(AttackIntent.HOLD_START);
+        runtime.tick();
+        runtime.onAbilityIntent(new AbilityIntent(new SkillSlotId(1), AbilityIntentKind.TOGGLE));
+        runtime.onAttackIntent(AttackIntent.CLICK);
+        runtime.tick();
     }
 }
 
-===== InfusedRule.java =====
-package com.pgalaxyp.fragmento.combat.rule.skill;
+===== AbilityRuntimeState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.snapshot.AbilitySnapshot;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+public record AbilityRuntimeState(
+        Map<SkillId, CombatTime> cooldownEndsAt,
+        Map<SkillSlotId, SkillId> infusedArmed,
+        Map<SkillSlotId, CastRuntime> casting
+) {
+
+    public record CastRuntime(
+            SkillId skillId,
+            CombatTime castEndsAt,
+            boolean ready
+    ) {
+        public CastRuntime {
+            if (skillId == null || castEndsAt == null) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    public AbilityRuntimeState {
+        cooldownEndsAt = Map.copyOf(Objects.requireNonNullElseGet(cooldownEndsAt, Map::of));
+        infusedArmed = Map.copyOf(Objects.requireNonNullElseGet(infusedArmed, Map::of));
+        casting = Map.copyOf(Objects.requireNonNullElseGet(casting, Map::of));
+    }
+
+    public static AbilityRuntimeState initial() {
+        return new AbilityRuntimeState(Map.of(), Map.of(), Map.of());
+    }
+
+    public AbilitySnapshot snapshot() {
+        return new AbilitySnapshot(
+                cooldownEndsAt,
+                infusedArmed,
+                casting.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> new AbilitySnapshot.CastState(
+                                        e.getValue().castEndsAt(),
+                                        e.getValue().ready()
+                                )
+                        ))
+        );
+    }
+}
+
+===== ActionLockState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
 
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
-import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 
-public final class InfusedRule {
-
-    private final int durationTicks;
-
-    public InfusedRule(int durationTicks) {
-        this.durationTicks = durationTicks;
+public record ActionLockState(
+        String actionKind,
+        CombatTime endsAt,
+        CombatTime itemSwapLockedUntil
+) {
+    public static ActionLockState idle() {
+        CombatTime zero = CombatTime.ofTicks(0L);
+        return new ActionLockState("", zero, zero);
     }
 
-    public void arm(ServerCombatState state, CombatTime now) {
-        if (state == null || now == null) {
-            return;
-        }
-
-        CombatTime until = CombatTime.ofTicks(now.ticks() + durationTicks);
-        state.infusion().arm(until);
-
-        state.bumpVersion();
-    }
-
-    public boolean consumeIfArmed(ServerCombatState state) {
-        if (state == null) {
+    public boolean active(CombatTime now) {
+        if (now == null) {
             return false;
         }
-        if (!state.infusion().armed()) {
-            return false;
-        }
-
-        state.infusion().consume();
-        state.bumpVersion();
-        return true;
+        return now.isBefore(endsAt);
     }
 }
 
 ===== ComboRuntimeState.java =====
 package com.pgalaxyp.fragmento.combat.state.runtime;
 
-public final class ComboRuntimeState {
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
-    private int comboIndex;
-
-    public ComboRuntimeState() {
-        this.comboIndex = 0;
-    }
-
-    public int comboIndex() {
-        return comboIndex;
-    }
-
-    public void setComboIndex(int index) {
-        this.comboIndex = Math.max(0, index);
-    }
-
-    public void resetCombo() {
-        this.comboIndex = 0;
+public record ComboRuntimeState(
+        int stepIndex,
+        CombatTime nextStepAt,
+        boolean holding,
+        boolean holdLatched
+) {
+    public static ComboRuntimeState idle() {
+        return new ComboRuntimeState(0, CombatTime.ofTicks(0L), false, false);
     }
 }
 
-===== InfusionRuntimeState.java =====
+===== EquippedSkillsRuntimeState.java =====
 package com.pgalaxyp.fragmento.combat.state.runtime;
 
-import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
 
-public final class InfusionRuntimeState {
+import java.util.Map;
+import java.util.Objects;
 
-    private boolean armed;
-    private CombatTime armedUntil;
-
-    public InfusionRuntimeState() {
-        this.armed = false;
-        this.armedUntil = null;
+public record EquippedSkillsRuntimeState(
+        Map<SkillSlotId, SkillId> bySlot
+) {
+    public EquippedSkillsRuntimeState {
+        bySlot = Map.copyOf(Objects.requireNonNullElseGet(bySlot, Map::of));
     }
 
-    public boolean armed() {
-        return armed;
+    public static EquippedSkillsRuntimeState empty() {
+        return new EquippedSkillsRuntimeState(Map.of());
     }
 
-    public CombatTime armedUntil() {
-        return armedUntil;
-    }
-
-    public void arm() {
-        this.armed = true;
-    }
-
-    public void arm(CombatTime until) {
-        this.armed = true;
-        this.armedUntil = until;
-    }
-
-    public void expiresAt(CombatTime until) {
-        this.armedUntil = until;
-    }
-
-    public boolean expired(CombatTime now) {
-        if (!armed) {
-            return true;
+    public SkillId skillInSlot(SkillSlotId slot) {
+        if (slot == null) {
+            return null;
         }
-        if (armedUntil == null || now == null) {
-            return false;
-        }
-        return now.ticks() >= armedUntil.ticks();
+        return bySlot.get(slot);
+    }
+}
+
+===== LoadoutRuntimeState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
+
+public record LoadoutRuntimeState(
+        CatalystId equippedCatalyst,
+        CatalystFamilyId family,
+        boolean offhandEmpty
+) {
+
+    public static LoadoutRuntimeState empty() {
+        return new LoadoutRuntimeState(null, null, true);
     }
 
-    public void consume() {
-        this.armed = false;
-        this.armedUntil = null;
+    public boolean valid() {
+        return equippedCatalyst != null && family != null && offhandEmpty;
     }
 }
 
@@ -819,88 +1966,91 @@ package com.pgalaxyp.fragmento.combat.state.runtime;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LoadoutSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LockSnapshot;
 
-public final class ServerCombatState {
+public record ServerCombatState(
+        CombatSnapshotVersion version,
+        LoadoutRuntimeState loadout,
+        EquippedSkillsRuntimeState equippedSkills,
+        ComboRuntimeState combo,
+        AbilityRuntimeState abilities,
+        ActionLockState lock
+) {
 
-    private CombatSnapshotVersion version;
-    private final ComboRuntimeState weapon;
-    private final InfusionRuntimeState infusion;
-    private SkillRuntimeState skills;
-
-    public ServerCombatState() {
-        this.version = CombatSnapshotVersion.initial();
-        this.weapon = new ComboRuntimeState();
-        this.infusion = new InfusionRuntimeState();
-        this.skills = SkillRuntimeState.initial();
+    public static ServerCombatState initial() {
+        return new ServerCombatState(
+                CombatSnapshotVersion.initial(),
+                LoadoutRuntimeState.empty(),
+                EquippedSkillsRuntimeState.empty(),
+                ComboRuntimeState.idle(),
+                AbilityRuntimeState.initial(),
+                ActionLockState.idle()
+        );
     }
 
-    public ComboRuntimeState weapon() {
-        return weapon;
+    public ServerCombatState withLoadout(LoadoutRuntimeState next) {
+        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
     }
 
-    public InfusionRuntimeState infusion() {
-        return infusion;
+    public ServerCombatState withEquippedSkills(EquippedSkillsRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
     }
 
-    public SkillRuntimeState skills() {
-        return skills;
+    public ServerCombatState withCombo(ComboRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
     }
 
-    public void setSkills(SkillRuntimeState next) {
-        this.skills = next;
+    public ServerCombatState withAbilities(AbilityRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
+    }
+
+    public ServerCombatState withLock(ActionLockState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
     }
 
     public CombatSnapshot snapshot() {
         return new CombatSnapshot(
                 version,
-                new ComboSnapshot(weapon.comboIndex()),
-                skills.snapshot()
+                new ComboSnapshot(
+                        combo.stepIndex(),
+                        combo.nextStepAt(),
+                        combo.holding(),
+                        combo.holdLatched()
+                ),
+                abilities.snapshot(),
+                new LockSnapshot(
+                        lock.actionKind(),
+                        lock.endsAt(),
+                        lock.itemSwapLockedUntil()
+                ),
+                new LoadoutSnapshot(
+                        loadout.equippedCatalyst(),
+                        loadout.family(),
+                        loadout.offhandEmpty()
+                )
         );
-    }
-
-    public void bumpVersion() {
-        version = version.next();
     }
 }
 
-===== SkillRuntimeState.java =====
-package com.pgalaxyp.fragmento.combat.state.runtime;
+===== AbilitySnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
 
 import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
-import com.pgalaxyp.fragmento.combat.state.snapshot.SkillSnapshot;
 
 import java.util.Map;
-import java.util.Objects;
 
-public record SkillRuntimeState(
+public record AbilitySnapshot(
         Map<SkillId, CombatTime> cooldownEndsAt,
-        long channelTargetEntityId,
-        CombatTime channelEndsAt,
-        boolean channelActive
+        Map<SkillSlotId, SkillId> infusedArmed,
+        Map<SkillSlotId, CastState> casting
 ) {
-    public SkillRuntimeState {
-        cooldownEndsAt = Map.copyOf(Objects.requireNonNullElseGet(cooldownEndsAt, Map::of));
-        channelEndsAt = channelEndsAt == null ? CombatTime.ofTicks(0L) : channelEndsAt;
-        channelTargetEntityId = Math.max(0L, channelTargetEntityId);
-    }
-
-    public static SkillRuntimeState initial() {
-        return new SkillRuntimeState(
-                Map.of(),
-                0L,
-                CombatTime.ofTicks(0L),
-                false
-        );
-    }
-
-    public CombatTime cooldownEnd(SkillId id) {
-        return id == null ? null : cooldownEndsAt.get(id);
-    }
-
-    public SkillSnapshot snapshot() {
-        return new SkillSnapshot(cooldownEndsAt);
-    }
+    public record CastState(
+            CombatTime castEndsAt,
+            boolean ready
+    ) {}
 }
 
 ===== CombatSnapshot.java =====
@@ -908,8 +2058,10 @@ package com.pgalaxyp.fragmento.combat.state.snapshot;
 
 public record CombatSnapshot(
         CombatSnapshotVersion version,
-        ComboSnapshot weapon,
-        SkillSnapshot skills
+        ComboSnapshot combo,
+        AbilitySnapshot abilities,
+        LockSnapshot lock,
+        LoadoutSnapshot loadout
 ) {}
 
 ===== CombatSnapshotVersion.java =====
@@ -943,32 +2095,38 @@ public record CombatSnapshotVersion(
 ===== ComboSnapshot.java =====
 package com.pgalaxyp.fragmento.combat.state.snapshot;
 
-public record ComboSnapshot(
-        int comboIndex
-) {
-    public ComboSnapshot {
-        if (comboIndex < 0) {
-            comboIndex = 0;
-        }
-    }
-
-    public static ComboSnapshot idle() {
-        return new ComboSnapshot(0);
-    }
-}
-
-===== SkillSnapshot.java =====
-package com.pgalaxyp.fragmento.combat.state.snapshot;
-
-import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
-import java.util.Map;
-
-public record SkillSnapshot(
-        Map<SkillId, CombatTime> cooldownEndsAt
+public record ComboSnapshot(
+        int stepIndex,
+        CombatTime nextStepAt,
+        boolean holding,
+        boolean holdLatched
 ) {
-    public static SkillSnapshot empty() {
-        return new SkillSnapshot(Map.of());
+    public static ComboSnapshot idle() {
+        return new ComboSnapshot(0, CombatTime.ofTicks(0), false, false);
     }
 }
+
+===== LoadoutSnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
+
+public record LoadoutSnapshot(
+        CatalystId equippedCatalyst,
+        CatalystFamilyId family,
+        boolean offhandEmpty
+) {}
+
+===== LockSnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+
+public record LockSnapshot(
+        String actionKind,
+        CombatTime actionEndsAt,
+        CombatTime itemSwapLockedUntil
+) {}

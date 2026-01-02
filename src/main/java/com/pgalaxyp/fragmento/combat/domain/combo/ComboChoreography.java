@@ -9,6 +9,7 @@ public record ComboChoreography(
         if (steps == null || steps.isEmpty()) {
             throw new IllegalArgumentException("Combo must have at least one step");
         }
+        steps = List.copyOf(steps);
     }
 
     public int size() {
@@ -16,9 +17,6 @@ public record ComboChoreography(
     }
 
     public ComboStep step(int index) {
-        if (index < 0 || index >= steps.size()) {
-            return steps.getFirst();
-        }
         return steps.get(index);
     }
 }

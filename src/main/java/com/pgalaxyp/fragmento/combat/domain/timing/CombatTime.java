@@ -10,12 +10,12 @@ public record CombatTime(long ticks) {
         if (d == null) {
             return this;
         }
-        return new CombatTime(ticks + Math.max(0, d.ticks()));
+        return new CombatTime(ticks + Math.max(0L, d.ticks()));
     }
 
     public boolean isAfterOrEqual(CombatTime other) {
         if (other == null) {
-            return true;
+            return false;
         }
         return ticks >= other.ticks();
     }

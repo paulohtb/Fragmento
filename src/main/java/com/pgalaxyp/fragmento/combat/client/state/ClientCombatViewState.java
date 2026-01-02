@@ -10,12 +10,20 @@ public final class ClientCombatViewState {
         if (snapshot == null) {
             return;
         }
-        if (last == null || snapshot.version().isAfter(last.version())) {
+        if (last == null) {
+            last = snapshot;
+            return;
+        }
+        if (snapshot.version().isAfter(last.version())) {
             last = snapshot;
         }
     }
 
     public CombatSnapshot current() {
         return last;
+    }
+
+    public void clear() {
+        last = null;
     }
 }

@@ -3,46 +3,69 @@ package com.pgalaxyp.fragmento.combat.state.runtime;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LoadoutSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.LockSnapshot;
 
-public final class ServerCombatState {
+public record ServerCombatState(
+        CombatSnapshotVersion version,
+        LoadoutRuntimeState loadout,
+        EquippedSkillsRuntimeState equippedSkills,
+        ComboRuntimeState combo,
+        AbilityRuntimeState abilities,
+        ActionLockState lock
+) {
 
-    private CombatSnapshotVersion version;
-    private final ComboRuntimeState weapon;
-    private final InfusionRuntimeState infusion;
-    private SkillRuntimeState skills;
-
-    public ServerCombatState() {
-        this.version = CombatSnapshotVersion.initial();
-        this.weapon = new ComboRuntimeState();
-        this.infusion = new InfusionRuntimeState();
-        this.skills = SkillRuntimeState.initial();
+    public static ServerCombatState initial() {
+        return new ServerCombatState(
+                CombatSnapshotVersion.initial(),
+                LoadoutRuntimeState.empty(),
+                EquippedSkillsRuntimeState.empty(),
+                ComboRuntimeState.idle(),
+                AbilityRuntimeState.initial(),
+                ActionLockState.idle()
+        );
     }
 
-    public ComboRuntimeState weapon() {
-        return weapon;
+    public ServerCombatState withLoadout(LoadoutRuntimeState next) {
+        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
     }
 
-    public InfusionRuntimeState infusion() {
-        return infusion;
+    public ServerCombatState withEquippedSkills(EquippedSkillsRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
     }
 
-    public SkillRuntimeState skills() {
-        return skills;
+    public ServerCombatState withCombo(ComboRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
     }
 
-    public void setSkills(SkillRuntimeState next) {
-        this.skills = next;
+    public ServerCombatState withAbilities(AbilityRuntimeState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
+    }
+
+    public ServerCombatState withLock(ActionLockState next) {
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
     }
 
     public CombatSnapshot snapshot() {
         return new CombatSnapshot(
                 version,
-                new ComboSnapshot(weapon.comboIndex()),
-                skills.snapshot()
+                new ComboSnapshot(
+                        combo.stepIndex(),
+                        combo.nextStepAt(),
+                        combo.holding(),
+                        combo.holdLatched()
+                ),
+                abilities.snapshot(),
+                new LockSnapshot(
+                        lock.actionKind(),
+                        lock.endsAt(),
+                        lock.itemSwapLockedUntil()
+                ),
+                new LoadoutSnapshot(
+                        loadout.equippedCatalyst(),
+                        loadout.family(),
+                        loadout.offhandEmpty()
+                )
         );
-    }
-
-    public void bumpVersion() {
-        version = version.next();
     }
 }

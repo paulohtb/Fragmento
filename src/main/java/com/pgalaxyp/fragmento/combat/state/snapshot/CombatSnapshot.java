@@ -2,6 +2,8 @@ package com.pgalaxyp.fragmento.combat.state.snapshot;
 
 public record CombatSnapshot(
         CombatSnapshotVersion version,
-        ComboSnapshot weapon,
-        SkillSnapshot skills
+        ComboSnapshot combo,
+        AbilitySnapshot abilities,
+        LockSnapshot lock,
+        LoadoutSnapshot loadout
 ) {}
