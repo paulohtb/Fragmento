@@ -1,0 +1,974 @@
+===== FragmentoMod.java =====
+package com.pgalaxyp.fragmento.bootstrap;
+
+import net.neoforged.fml.common.Mod;
+
+@Mod("fragmento")
+public final class FragmentoMod {}
+
+===== CombatSnapshotReceiver.java =====
+package com.pgalaxyp.fragmento.combat.client.network;
+
+import com.pgalaxyp.fragmento.combat.client.state.ClientCombatViewState;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+
+public final class CombatSnapshotReceiver {
+
+    private final ClientCombatViewState state;
+
+    public CombatSnapshotReceiver(ClientCombatViewState state) {
+        this.state = state;
+    }
+
+    public void apply(CombatSnapshotPayload payload) {
+        if (payload == null || payload.snapshot() == null) {
+            return;
+        }
+        state.apply(payload.snapshot());
+    }
+}
+
+===== ClientCombatViewState.java =====
+package com.pgalaxyp.fragmento.combat.client.state;
+
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+
+public final class ClientCombatViewState {
+
+    private CombatSnapshot last;
+
+    public void apply(CombatSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        if (last == null || snapshot.version().isAfter(last.version())) {
+            last = snapshot;
+        }
+    }
+
+    public CombatSnapshot current() {
+        return last;
+    }
+}
+
+===== FluteInfusedSkillResolver.java =====
+package com.pgalaxyp.fragmento.combat.content.bard.flute;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+
+public final class FluteInfusedSkillResolver {
+
+    public FluteInfusedSkillResolver(SkillId byId) {}
+}
+
+===== SkillRegistry.java =====
+package com.pgalaxyp.fragmento.combat.content.registry;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.skill.SkillDefinition;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+public record SkillRegistry(Map<SkillId, SkillDefinition> byId) {
+
+    public SkillRegistry {
+        byId = Map.copyOf(Objects.requireNonNullElseGet(byId, Map::of));
+    }
+
+    public SkillDefinition get(SkillId id) {
+        return id == null ? null : byId.get(id);
+    }
+
+    public boolean contains(SkillId id) {
+        return id != null && byId.containsKey(id);
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private final Map<SkillId, SkillDefinition> map = new HashMap<>();
+
+        public Builder put(SkillDefinition def) {
+            if (def == null || def.id() == null) {
+                return this;
+            }
+            map.put(def.id(), def);
+            return this;
+        }
+
+        public SkillRegistry build() {
+            return new SkillRegistry(map);
+        }
+    }
+}
+
+===== ComboChoreography.java =====
+package com.pgalaxyp.fragmento.combat.domain.combo;
+
+import java.util.List;
+
+public record ComboChoreography(
+        List<ComboStep> steps
+) {
+    public ComboChoreography {
+        if (steps == null || steps.isEmpty()) {
+            throw new IllegalArgumentException("Combo must have at least one step");
+        }
+    }
+
+    public int size() {
+        return steps.size();
+    }
+
+    public ComboStep step(int index) {
+        if (index < 0 || index >= steps.size()) {
+            return steps.getFirst();
+        }
+        return steps.get(index);
+    }
+}
+
+===== ComboStep.java =====
+package com.pgalaxyp.fragmento.combat.domain.combo;
+
+public record ComboStep() {}
+
+===== AnimationCue.java =====
+package com.pgalaxyp.fragmento.combat.domain.cue;
+
+public record AnimationCue(
+        AnimationKey key,
+        long startedAtTick
+) {
+    public AnimationCue {
+        if (startedAtTick < 0L) {
+            throw new IllegalArgumentException("startedAtTick negativo");
+        }
+    }
+}
+
+===== AnimationKey.java =====
+package com.pgalaxyp.fragmento.combat.domain.cue;
+
+public record AnimationKey(String id) {
+    public AnimationKey {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("AnimationKey vazio");
+        }
+    }
+}
+
+===== AnimationTimeline.java =====
+package com.pgalaxyp.fragmento.combat.domain.cue;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+
+public record AnimationTimeline(
+        AnimationKey key,
+        Duration duration
+) {
+    public AnimationTimeline {
+        if (key == null) {
+            throw new IllegalArgumentException("AnimationTimeline sem key");
+        }
+        if (duration == null) {
+            throw new IllegalArgumentException("AnimationTimeline sem duration");
+        }
+    }
+}
+
+===== HitResult.java =====
+package com.pgalaxyp.fragmento.combat.domain.hit;
+
+public record HitResult(
+        boolean hit,
+        boolean damageApplied
+) {
+    public static HitResult miss() {
+        return new HitResult(false, false);
+    }
+
+    public static HitResult hitNoDamage() {
+        return new HitResult(true, false);
+    }
+
+    public static HitResult damage() {
+        return new HitResult(true, true);
+    }
+}
+
+===== ActionId.java =====
+package com.pgalaxyp.fragmento.combat.domain.id;
+
+public record ActionId(
+        String value
+) {
+    public ActionId {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("ActionId must not be blank");
+        }
+    }
+}
+
+===== CatalystId.java =====
+package com.pgalaxyp.fragmento.combat.domain.id;
+
+public record CatalystId(int value) {
+    public CatalystId {
+        if (value < 0) {
+            throw new IllegalArgumentException("CatalystId negativo");
+        }
+    }
+}
+
+===== InfusionId.java =====
+package com.pgalaxyp.fragmento.combat.domain.id;
+
+public record InfusionId(String value) {
+    public InfusionId {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("InfusionId vazio");
+        }
+    }
+}
+
+===== SkillId.java =====
+package com.pgalaxyp.fragmento.combat.domain.id;
+
+public record SkillId(int value) {
+    public SkillId {
+        if (value < 0) {
+            throw new IllegalArgumentException("SkillId negativo");
+        }
+    }
+}
+
+===== SkillDefinition.java =====
+package com.pgalaxyp.fragmento.combat.domain.skill;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+
+public record SkillDefinition(
+        SkillId id
+) {}
+
+===== CombatTime.java =====
+package com.pgalaxyp.fragmento.combat.domain.timing;
+
+public record CombatTime(long ticks) {
+
+    public static CombatTime ofTicks(long ticks) {
+        return new CombatTime(Math.max(0L, ticks));
+    }
+
+    public CombatTime plus(Duration d) {
+        if (d == null) {
+            return this;
+        }
+        return new CombatTime(ticks + Math.max(0, d.ticks()));
+    }
+
+    public boolean isAfterOrEqual(CombatTime other) {
+        if (other == null) {
+            return true;
+        }
+        return ticks >= other.ticks();
+    }
+
+    public boolean isBefore(CombatTime other) {
+        if (other == null) {
+            return false;
+        }
+        return ticks < other.ticks();
+    }
+}
+
+===== Duration.java =====
+package com.pgalaxyp.fragmento.combat.domain.timing;
+
+public record Duration(long ticks) {
+
+    public static Duration ofTicks(long ticks) {
+        return new Duration(Math.max(0, ticks));
+    }
+
+    public static Duration ofSeconds(double seconds, int ticksPerSecond) {
+        if (seconds <= 0.0 || ticksPerSecond <= 0) {
+            return new Duration(0L);
+        }
+        long t = Math.round(seconds * (double) ticksPerSecond);
+        return new Duration(Math.max(0L, t));
+    }
+
+    public boolean isZero() {
+        return ticks <= 0;
+    }
+}
+
+===== CombatSnapshotSender.java =====
+package com.pgalaxyp.fragmento.combat.engine.network;
+
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+
+public final class CombatSnapshotSender {
+
+    private final ServerGamePacketListenerImpl connection;
+
+    public CombatSnapshotSender(ServerGamePacketListenerImpl connection) {
+        this.connection = connection;
+    }
+
+    public void sendSnapshot(ServerPlayer player, CombatSnapshot snapshot) {
+        if (player == null || snapshot == null) {
+            return;
+        }
+        connection.send(new CombatSnapshotPayload(snapshot));
+    }
+}
+
+===== TargetResolver.java =====
+package com.pgalaxyp.fragmento.combat.engine.targeting;
+
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
+import java.util.function.Predicate;
+
+public final class TargetResolver {
+
+    public LivingEntity findFirst(
+            ServerLevel level,
+            Vec3 origin,
+            double radius,
+            Predicate<LivingEntity> filter
+    ) {
+        AABB box = new AABB(
+                origin.x - radius, origin.y - radius, origin.z - radius,
+                origin.x + radius, origin.y + radius, origin.z + radius
+        );
+
+        List<LivingEntity> list =
+                level.getEntitiesOfClass(LivingEntity.class, box, filter);
+
+        if (list.isEmpty()) {
+            return null;
+        }
+
+        return list.getFirst();
+    }
+}
+
+===== LevelTickSource.java =====
+package com.pgalaxyp.fragmento.combat.engine.time;
+
+import net.minecraft.world.level.Level;
+
+public final class LevelTickSource implements TickSource {
+
+    private final Level level;
+
+    public LevelTickSource(Level level) {
+        this.level = level;
+    }
+
+    @Override
+    public long gameTick() {
+        if (level == null) {
+            return 0L;
+        }
+        return level.getGameTime();
+    }
+}
+
+===== TickClock.java =====
+package com.pgalaxyp.fragmento.combat.engine.time;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
+
+public final class TickClock implements CombatClock {
+
+    private final TickSource source;
+
+    public TickClock(TickSource source) {
+        this.source = source;
+    }
+
+    @Override
+    public CombatTime now() {
+        long t = source != null ? source.gameTick() : 0L;
+        return CombatTime.ofTicks(t);
+    }
+}
+
+===== TickSource.java =====
+package com.pgalaxyp.fragmento.combat.engine.time;
+
+public interface TickSource {
+    long gameTick();
+}
+
+===== CombatSnapshotCodec.java =====
+package com.pgalaxyp.fragmento.combat.network.codec.s2c;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
+import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.SkillSnapshot;
+import net.minecraft.network.FriendlyByteBuf;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public final class CombatSnapshotCodec {
+
+    public static CombatSnapshotPayload decode(FriendlyByteBuf buf) {
+        CombatSnapshotVersion version = new CombatSnapshotVersion(buf.readVarLong());
+
+        int comboIndex = buf.readVarInt();
+        ComboSnapshot weapon = new ComboSnapshot(comboIndex);
+
+        int cooldownCount = buf.readVarInt();
+        Map<SkillId, CombatTime> cooldowns = new HashMap<>();
+        for (int i = 0; i < cooldownCount; i++) {
+            SkillId skillId = new SkillId(buf.readVarInt());
+            CombatTime endsAt = CombatTime.ofTicks(buf.readVarLong());
+            cooldowns.put(skillId, endsAt);
+        }
+
+        SkillSnapshot skills = new SkillSnapshot(cooldowns);
+
+        CombatSnapshot snapshot = new CombatSnapshot(
+                version,
+                weapon,
+                skills
+        );
+
+        return new CombatSnapshotPayload(snapshot);
+    }
+
+    public static void encode(CombatSnapshotPayload msg, FriendlyByteBuf buf) {
+        CombatSnapshot snap = msg.snapshot();
+
+        buf.writeVarLong(snap.version().value());
+
+        ComboSnapshot weapon = snap.weapon();
+        buf.writeVarInt(weapon.comboIndex());
+
+        SkillSnapshot skills = snap.skills();
+        buf.writeVarInt(skills.cooldownEndsAt().size());
+        for (var entry : skills.cooldownEndsAt().entrySet()) {
+            buf.writeVarInt(entry.getKey().value());
+            buf.writeVarLong(entry.getValue().ticks());
+        }
+    }
+
+    private CombatSnapshotCodec() {}
+}
+
+===== CueCodec.java =====
+package com.pgalaxyp.fragmento.combat.network.codec.s2c;
+
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationKey;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.VisualCuePayload;
+import net.minecraft.network.FriendlyByteBuf;
+
+public final class CueCodec {
+
+    public static VisualCuePayload decode(FriendlyByteBuf buf) {
+        boolean hasKey = buf.readBoolean();
+        AnimationKey key = hasKey ? new AnimationKey(buf.readUtf()) : null;
+        long startedAt = buf.readVarLong();
+        return new VisualCuePayload(new AnimationCue(key, startedAt));
+    }
+
+    public static void encode(VisualCuePayload msg, FriendlyByteBuf buf) {
+        AnimationCue cue = msg.cue();
+        AnimationKey key = cue.key();
+        buf.writeBoolean(key != null);
+        if (key != null) {
+            buf.writeUtf(key.id());
+        }
+        buf.writeVarLong(cue.startedAtTick());
+    }
+
+    private CueCodec() {}
+}
+
+===== CombatSnapshotPayload.java =====
+package com.pgalaxyp.fragmento.combat.network.payload.s2c;
+
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+
+public record CombatSnapshotPayload(
+        CombatSnapshot snapshot
+) implements CustomPacketPayload {
+
+    public static final Type<CombatSnapshotPayload> TYPE =
+            new Type<>(ResourceLocation
+                    .fromNamespaceAndPath("fragmento", "combat_snapshot"));
+
+    public CombatSnapshotPayload {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("CombatSnapshotPayload sem snapshot");
+        }
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+}
+
+===== VisualCuePayload.java =====
+package com.pgalaxyp.fragmento.combat.network.payload.s2c;
+
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+
+public record VisualCuePayload(
+        AnimationCue cue
+) implements CustomPacketPayload {
+
+    public static final Type<VisualCuePayload> TYPE =
+            new Type<>(ResourceLocation
+                    .fromNamespaceAndPath("fragmento", "visual_cue"));
+
+    public VisualCuePayload {
+        if (cue == null) {
+            throw new IllegalArgumentException("VisualCuePayload sem cue");
+        }
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+}
+
+===== AnimationCueEmitter.java =====
+package com.pgalaxyp.fragmento.combat.rule.port;
+
+import com.pgalaxyp.fragmento.combat.domain.cue.AnimationCue;
+
+public interface AnimationCueEmitter {
+    void emit(AnimationCue cue);
+}
+
+===== CombatClock.java =====
+package com.pgalaxyp.fragmento.combat.rule.port;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+
+public interface CombatClock {
+    CombatTime now();
+}
+
+===== CastedRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.skill;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+import com.pgalaxyp.fragmento.combat.state.runtime.SkillRuntimeState;
+
+public final class CastedRule {
+
+    private final int castDurationTicks;
+
+    public CastedRule(int castDurationTicks) {
+        this.castDurationTicks = Math.max(1, castDurationTicks);
+    }
+
+    public void startCasting(
+            ServerCombatState state,
+            SkillId skillId,
+            long targetEntityId,
+            CombatTime now
+    ) {
+        if (state == null || skillId == null || now == null) {
+            return;
+        }
+
+        SkillRuntimeState skills = state.skills();
+
+        if (skills.channelActive()) {
+            return;
+        }
+
+        CombatTime endsAt = CombatTime.ofTicks(
+                now.ticks() + castDurationTicks
+        );
+
+        SkillRuntimeState next = new SkillRuntimeState(
+                skills.cooldownEndsAt(),
+                Math.max(0L, targetEntityId),
+                endsAt,
+                true
+        );
+
+        state.setSkills(next);
+        state.bumpVersion();
+    }
+
+    public boolean isCastComplete(
+            ServerCombatState state,
+            CombatTime now
+    ) {
+        if (state == null || now == null) {
+            return false;
+        }
+
+        SkillRuntimeState skills = state.skills();
+
+        if (!skills.channelActive()) {
+            return false;
+        }
+
+        return now.isAfterOrEqual(skills.channelEndsAt());
+    }
+
+    public long finishCasting(
+            ServerCombatState state
+    ) {
+        if (state == null) {
+            return 0L;
+        }
+
+        SkillRuntimeState skills = state.skills();
+
+        if (!skills.channelActive()) {
+            return 0L;
+        }
+
+        long target = skills.channelTargetEntityId();
+
+        SkillRuntimeState next = new SkillRuntimeState(
+                skills.cooldownEndsAt(),
+                0L,
+                CombatTime.ofTicks(0L),
+                false
+        );
+
+        state.setSkills(next);
+        state.bumpVersion();
+
+        return target;
+    }
+
+    public void cancelCasting(
+            ServerCombatState state
+    ) {
+        if (state == null) {
+            return;
+        }
+
+        SkillRuntimeState skills = state.skills();
+
+        if (!skills.channelActive()) {
+            return;
+        }
+
+        SkillRuntimeState next = new SkillRuntimeState(
+                skills.cooldownEndsAt(),
+                0L,
+                CombatTime.ofTicks(0L),
+                false
+        );
+
+        state.setSkills(next);
+        state.bumpVersion();
+    }
+}
+
+===== InfusedRule.java =====
+package com.pgalaxyp.fragmento.combat.rule.skill;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+
+public final class InfusedRule {
+
+    private final int durationTicks;
+
+    public InfusedRule(int durationTicks) {
+        this.durationTicks = durationTicks;
+    }
+
+    public void arm(ServerCombatState state, CombatTime now) {
+        if (state == null || now == null) {
+            return;
+        }
+
+        CombatTime until = CombatTime.ofTicks(now.ticks() + durationTicks);
+        state.infusion().arm(until);
+
+        state.bumpVersion();
+    }
+
+    public boolean consumeIfArmed(ServerCombatState state) {
+        if (state == null) {
+            return false;
+        }
+        if (!state.infusion().armed()) {
+            return false;
+        }
+
+        state.infusion().consume();
+        state.bumpVersion();
+        return true;
+    }
+}
+
+===== ComboRuntimeState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+public final class ComboRuntimeState {
+
+    private int comboIndex;
+
+    public ComboRuntimeState() {
+        this.comboIndex = 0;
+    }
+
+    public int comboIndex() {
+        return comboIndex;
+    }
+
+    public void setComboIndex(int index) {
+        this.comboIndex = Math.max(0, index);
+    }
+
+    public void resetCombo() {
+        this.comboIndex = 0;
+    }
+}
+
+===== InfusionRuntimeState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+
+public final class InfusionRuntimeState {
+
+    private boolean armed;
+    private CombatTime armedUntil;
+
+    public InfusionRuntimeState() {
+        this.armed = false;
+        this.armedUntil = null;
+    }
+
+    public boolean armed() {
+        return armed;
+    }
+
+    public CombatTime armedUntil() {
+        return armedUntil;
+    }
+
+    public void arm() {
+        this.armed = true;
+    }
+
+    public void arm(CombatTime until) {
+        this.armed = true;
+        this.armedUntil = until;
+    }
+
+    public void expiresAt(CombatTime until) {
+        this.armedUntil = until;
+    }
+
+    public boolean expired(CombatTime now) {
+        if (!armed) {
+            return true;
+        }
+        if (armedUntil == null || now == null) {
+            return false;
+        }
+        return now.ticks() >= armedUntil.ticks();
+    }
+
+    public void consume() {
+        this.armed = false;
+        this.armedUntil = null;
+    }
+}
+
+===== ServerCombatState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
+import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
+
+public final class ServerCombatState {
+
+    private CombatSnapshotVersion version;
+    private final ComboRuntimeState weapon;
+    private final InfusionRuntimeState infusion;
+    private SkillRuntimeState skills;
+
+    public ServerCombatState() {
+        this.version = CombatSnapshotVersion.initial();
+        this.weapon = new ComboRuntimeState();
+        this.infusion = new InfusionRuntimeState();
+        this.skills = SkillRuntimeState.initial();
+    }
+
+    public ComboRuntimeState weapon() {
+        return weapon;
+    }
+
+    public InfusionRuntimeState infusion() {
+        return infusion;
+    }
+
+    public SkillRuntimeState skills() {
+        return skills;
+    }
+
+    public void setSkills(SkillRuntimeState next) {
+        this.skills = next;
+    }
+
+    public CombatSnapshot snapshot() {
+        return new CombatSnapshot(
+                version,
+                new ComboSnapshot(weapon.comboIndex()),
+                skills.snapshot()
+        );
+    }
+
+    public void bumpVersion() {
+        version = version.next();
+    }
+}
+
+===== SkillRuntimeState.java =====
+package com.pgalaxyp.fragmento.combat.state.runtime;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.snapshot.SkillSnapshot;
+
+import java.util.Map;
+import java.util.Objects;
+
+public record SkillRuntimeState(
+        Map<SkillId, CombatTime> cooldownEndsAt,
+        long channelTargetEntityId,
+        CombatTime channelEndsAt,
+        boolean channelActive
+) {
+    public SkillRuntimeState {
+        cooldownEndsAt = Map.copyOf(Objects.requireNonNullElseGet(cooldownEndsAt, Map::of));
+        channelEndsAt = channelEndsAt == null ? CombatTime.ofTicks(0L) : channelEndsAt;
+        channelTargetEntityId = Math.max(0L, channelTargetEntityId);
+    }
+
+    public static SkillRuntimeState initial() {
+        return new SkillRuntimeState(
+                Map.of(),
+                0L,
+                CombatTime.ofTicks(0L),
+                false
+        );
+    }
+
+    public CombatTime cooldownEnd(SkillId id) {
+        return id == null ? null : cooldownEndsAt.get(id);
+    }
+
+    public SkillSnapshot snapshot() {
+        return new SkillSnapshot(cooldownEndsAt);
+    }
+}
+
+===== CombatSnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+public record CombatSnapshot(
+        CombatSnapshotVersion version,
+        ComboSnapshot weapon,
+        SkillSnapshot skills
+) {}
+
+===== CombatSnapshotVersion.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+public record CombatSnapshotVersion(
+        long value
+) {
+    public CombatSnapshotVersion {
+        if (value < 0) {
+            throw new IllegalArgumentException("Snapshot version must be >= 0");
+        }
+    }
+
+    public CombatSnapshotVersion next() {
+        return new CombatSnapshotVersion(value + 1);
+    }
+
+    public boolean isAfter(CombatSnapshotVersion other) {
+        if (other == null) {
+            return true;
+        }
+        return this.value > other.value;
+    }
+
+    public static CombatSnapshotVersion initial() {
+        return new CombatSnapshotVersion(0);
+    }
+}
+
+===== ComboSnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+public record ComboSnapshot(
+        int comboIndex
+) {
+    public ComboSnapshot {
+        if (comboIndex < 0) {
+            comboIndex = 0;
+        }
+    }
+
+    public static ComboSnapshot idle() {
+        return new ComboSnapshot(0);
+    }
+}
+
+===== SkillSnapshot.java =====
+package com.pgalaxyp.fragmento.combat.state.snapshot;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+
+import java.util.Map;
+
+public record SkillSnapshot(
+        Map<SkillId, CombatTime> cooldownEndsAt
+) {
+    public static SkillSnapshot empty() {
+        return new SkillSnapshot(Map.of());
+    }
+}

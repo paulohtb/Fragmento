@@ -2,23 +2,23 @@ package com.pgalaxyp.fragmento.combat.state.runtime;
 
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshotVersion;
-import com.pgalaxyp.fragmento.combat.state.snapshot.WeaponSnapshot;
+import com.pgalaxyp.fragmento.combat.state.snapshot.ComboSnapshot;
 
 public final class ServerCombatState {
 
     private CombatSnapshotVersion version;
-    private final WeaponRuntimeState weapon;
+    private final ComboRuntimeState weapon;
     private final InfusionRuntimeState infusion;
     private SkillRuntimeState skills;
 
     public ServerCombatState() {
         this.version = CombatSnapshotVersion.initial();
-        this.weapon = new WeaponRuntimeState();
+        this.weapon = new ComboRuntimeState();
         this.infusion = new InfusionRuntimeState();
         this.skills = SkillRuntimeState.initial();
     }
 
-    public WeaponRuntimeState weapon() {
+    public ComboRuntimeState weapon() {
         return weapon;
     }
 
@@ -37,7 +37,7 @@ public final class ServerCombatState {
     public CombatSnapshot snapshot() {
         return new CombatSnapshot(
                 version,
-                new WeaponSnapshot(weapon.comboIndex()),
+                new ComboSnapshot(weapon.comboIndex()),
                 skills.snapshot()
         );
     }

@@ -13,7 +13,10 @@ public final class JavaClassLogger {
             Paths.get("C:\\Users\\Loteria Aldeota\\Documents\\projetos\\analise f\\src\\main\\java");
 
     private static final List<String> TARGET_FOLDERS = List.of(
-            "fragmento/combat"
+            "fragmento/bootstrap",
+            "fragmento/combat",
+            "fragmento/foundation",
+            "fragmento/platform"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";

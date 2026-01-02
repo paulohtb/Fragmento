@@ -1,18 +1,15 @@
 package com.pgalaxyp.fragmento.tier.server.sync;
 
-import com.pgalaxyp.fragmento.platform.sync.VersionedStatePublisher;
 import com.pgalaxyp.fragmento.tier.client.sync.TierLevelSyncPacket;
 import java.util.UUID;
-
 import com.pgalaxyp.fragmento.tier.common.sync.TierStateView;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-public final class TierStatePublisher implements VersionedStatePublisher<TierStateView> {
+public final class TierStatePublisher {
 
-    @Override
     public void publish(UUID playerId, TierStateView state) {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null || playerId == null || state == null) return;
