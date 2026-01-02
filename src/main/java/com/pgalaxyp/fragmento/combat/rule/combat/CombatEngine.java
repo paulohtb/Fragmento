@@ -1,6 +1,5 @@
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
-import com.pgalaxyp.fragmento.combat.domain.id.ActionId;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
@@ -102,12 +101,12 @@ public final class CombatEngine {
             AbilityRuntimeState abilities = infusedRule.startCooldownOnUse(infused.state(), infused.consumedSkillId(), now);
             out = out.withAbilities(abilities);
             out = out.withCombo(ComboRuntimeState.idle());
-            out = out.withLock(actionLockRule.lock(new ActionId("infused_execute"), comboConfig.actionLockDuration(), now));
+            out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
             return out;
         }
 
         if (stepExecuted) {
-            out = out.withLock(actionLockRule.lock(new ActionId("combo_step"), comboConfig.actionLockDuration(), now));
+            out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
         }
 
         return out;
@@ -130,7 +129,7 @@ public final class CombatEngine {
         next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
 
         ServerCombatState out = state.withCombo(next);
-        out = out.withLock(actionLockRule.lock(new ActionId("combo_step"), comboConfig.actionLockDuration(), now));
+        out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
         return out;
     }
 }
