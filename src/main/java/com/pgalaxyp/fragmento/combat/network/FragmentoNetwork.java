@@ -6,7 +6,6 @@ import com.pgalaxyp.fragmento.combat.engine.network.ServerCombatPayloadHandler;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
-import com.pgalaxyp.fragmento.combat.network.payload.s2c.VisualCuePayload;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -38,12 +37,6 @@ public final class FragmentoNetwork {
                 CombatSnapshotPayload.TYPE,
                 CombatSnapshotPayload.STREAM_CODEC,
                 (payload, context) -> CLIENT_SNAPSHOT_RECEIVER.apply(payload)
-        );
-
-        registrar.playToClient(
-                VisualCuePayload.TYPE,
-                VisualCuePayload.STREAM_CODEC,
-                (payload, context) -> {}
         );
     }
 

@@ -7,12 +7,14 @@ import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
 import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
 import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class CombatRuntime {
 
     private final CombatClock clock;
     private final CombatEngine combatEngine;
     private final AbilityEngine abilityEngine;
+    private final RuntimeLoadoutSystem loadoutSystem = new RuntimeLoadoutSystem();
 
     private ServerCombatState state;
 
@@ -38,8 +40,9 @@ public final class CombatRuntime {
         state = abilityEngine.apply(state, intent, now);
     }
 
-    public void tick() {
+    public void tick(ServerPlayer player) {
         CombatTime now = clock.now();
+        state = loadoutSystem.tick(state, player, now);
         state = combatEngine.tick(state, now);
         state = abilityEngine.tick(state, now);
     }

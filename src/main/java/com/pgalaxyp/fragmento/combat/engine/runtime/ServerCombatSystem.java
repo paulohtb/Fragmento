@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.combat.engine.runtime;
 
-import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.engine.network.CombatSnapshotSender;
+import com.pgalaxyp.fragmento.combat.engine.restriction.ItemSwapBlocker;
 import com.pgalaxyp.fragmento.combat.engine.time.TickClock;
 import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
 import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
@@ -45,37 +45,15 @@ public final class ServerCombatSystem {
     private final ActionLockRule actionLockRule = new ActionLockRule();
 
     private final ComboConfig comboConfig = new ComboConfig() {
-        @Override
-        public int maxSteps() {
-            return 3;
-        }
-
-        @Override
-        public Duration stepDuration() {
-            return Duration.ofTicks(10L);
-        }
-
-        @Override
-        public Duration actionLockDuration() {
-            return Duration.ofTicks(10L);
-        }
+        public int maxSteps() { return 3; }
+        public com.pgalaxyp.fragmento.combat.domain.timing.Duration stepDuration() { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
+        public com.pgalaxyp.fragmento.combat.domain.timing.Duration actionLockDuration() { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
     };
 
     private final AbilityConfig abilityConfig = new AbilityConfig() {
-        @Override
-        public Duration castDuration(SkillId skillId) {
-            return Duration.ofTicks(20L);
-        }
-
-        @Override
-        public Duration cooldownDuration(SkillId skillId) {
-            return Duration.ofTicks(40L);
-        }
-
-        @Override
-        public Duration actionLockDuration(SkillId skillId) {
-            return Duration.ofTicks(10L);
-        }
+        public com.pgalaxyp.fragmento.combat.domain.timing.Duration castDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(20); }
+        public com.pgalaxyp.fragmento.combat.domain.timing.Duration cooldownDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(40); }
+        public com.pgalaxyp.fragmento.combat.domain.timing.Duration actionLockDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
     };
 
     private final InfusedRule infusedRule = new InfusedRule(cooldownRule, abilityConfig);
@@ -106,6 +84,7 @@ public final class ServerCombatSystem {
 
     private ServerCombatSystem() {
         NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(new ItemSwapBlocker());
     }
 
     public static ServerCombatSystem get() {
@@ -113,18 +92,12 @@ public final class ServerCombatSystem {
     }
 
     public void onAttackIntent(ServerPlayer player, AttackIntent intent) {
-        if (player == null || intent == null) {
-            return;
-        }
         CombatRuntime rt = runtimeFor(player);
         rt.onAttackIntent(intent);
         sendIfChanged(player, rt.state());
     }
 
     public void onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
-        if (player == null || intent == null) {
-            return;
-        }
         CombatRuntime rt = runtimeFor(player);
         rt.onAbilityIntent(intent);
         sendIfChanged(player, rt.state());
@@ -132,42 +105,40 @@ public final class ServerCombatSystem {
 
     @SubscribeEvent
     public void onPlayerTick(PlayerTickEvent.Post event) {
-        if (event == null) {
-            return;
-        }
         if (!(event.getEntity() instanceof ServerPlayer sp)) {
             return;
         }
 
         CombatRuntime rt = runtimeFor(sp);
-        rt.tick();
+        rt.tick(sp);
         sendIfChanged(sp, rt.state());
     }
 
+    public ServerCombatState stateFor(ServerPlayer player) {
+        CombatRuntime rt = runtimes.get(player.getUUID());
+        return rt != null ? rt.state() : null;
+    }
+
+    public CombatTime now(ServerPlayer player) {
+        return CombatTime.ofTicks(player.level().getGameTime());
+    }
+
     private CombatRuntime runtimeFor(ServerPlayer player) {
-        UUID id = player.getUUID();
-        CombatRuntime rt = runtimes.get(id);
-        if (rt != null) {
-            return rt;
-        }
-
-        CombatClock clock = new TickClock(() -> player.level().getGameTime());
-
-        CombatRuntime created = new CombatRuntime(
-                clock,
-                combatEngine,
-                abilityEngine,
-                ServerCombatState.initial()
+        return runtimes.computeIfAbsent(
+                player.getUUID(),
+                id -> {
+                    CombatClock clock = new TickClock(() -> player.level().getGameTime());
+                    return new CombatRuntime(
+                            clock,
+                            combatEngine,
+                            abilityEngine,
+                            ServerCombatState.initial()
+                    );
+                }
         );
-
-        runtimes.put(id, created);
-        return created;
     }
 
     private void sendIfChanged(ServerPlayer player, ServerCombatState state) {
-        if (player == null || state == null) {
-            return;
-        }
         long v = state.version().value();
         long last = lastSentVersion.getOrDefault(player.getUUID(), Long.MIN_VALUE);
         if (v == last) {

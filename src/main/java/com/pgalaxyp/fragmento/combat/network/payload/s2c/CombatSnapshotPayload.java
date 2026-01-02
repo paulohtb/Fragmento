@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.network.payload.s2c;
 
+import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
 import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
@@ -30,12 +31,6 @@ public record CombatSnapshotPayload(
     public static final StreamCodec<ByteBuf, CombatSnapshotPayload> STREAM_CODEC =
             StreamCodec.of(CombatSnapshotPayload::write, CombatSnapshotPayload::read);
 
-    public CombatSnapshotPayload {
-        if (snapshot == null) {
-            throw new IllegalArgumentException("CombatSnapshotPayload sem snapshot");
-        }
-    }
-
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
@@ -55,26 +50,26 @@ public record CombatSnapshotPayload(
         AbilitySnapshot abilities = snap.abilities();
 
         ByteBufCodecs.VAR_INT.encode(buf, abilities.cooldownEndsAt().size());
-        for (var entry : abilities.cooldownEndsAt().entrySet()) {
-            ByteBufCodecs.VAR_INT.encode(buf, entry.getKey().value());
-            ByteBufCodecs.VAR_LONG.encode(buf, entry.getValue().ticks());
+        for (var e : abilities.cooldownEndsAt().entrySet()) {
+            ByteBufCodecs.VAR_INT.encode(buf, e.getKey().value());
+            ByteBufCodecs.VAR_LONG.encode(buf, e.getValue().ticks());
         }
 
         ByteBufCodecs.VAR_INT.encode(buf, abilities.infusedArmed().size());
-        for (var entry : abilities.infusedArmed().entrySet()) {
-            ByteBufCodecs.VAR_INT.encode(buf, entry.getKey().index());
-            ByteBufCodecs.VAR_INT.encode(buf, entry.getValue().value());
+        for (var e : abilities.infusedArmed().entrySet()) {
+            ByteBufCodecs.VAR_INT.encode(buf, e.getKey().index());
+            ByteBufCodecs.VAR_INT.encode(buf, e.getValue().value());
         }
 
         ByteBufCodecs.VAR_INT.encode(buf, abilities.casting().size());
-        for (var entry : abilities.casting().entrySet()) {
-            ByteBufCodecs.VAR_INT.encode(buf, entry.getKey().index());
-            ByteBufCodecs.VAR_LONG.encode(buf, entry.getValue().castEndsAt().ticks());
-            ByteBufCodecs.BOOL.encode(buf, entry.getValue().ready());
+        for (var e : abilities.casting().entrySet()) {
+            ByteBufCodecs.VAR_INT.encode(buf, e.getKey().index());
+            ByteBufCodecs.VAR_LONG.encode(buf, e.getValue().castEndsAt().ticks());
+            ByteBufCodecs.BOOL.encode(buf, e.getValue().ready());
         }
 
         LockSnapshot lock = snap.lock();
-        ByteBufCodecs.STRING_UTF8.encode(buf, lock.actionKind());
+        ByteBufCodecs.VAR_INT.encode(buf, lock.actionKind().ordinal());
         ByteBufCodecs.VAR_LONG.encode(buf, lock.actionEndsAt().ticks());
         ByteBufCodecs.VAR_LONG.encode(buf, lock.itemSwapLockedUntil().ticks());
 
@@ -98,7 +93,8 @@ public record CombatSnapshotPayload(
     }
 
     private static CombatSnapshotPayload read(ByteBuf buf) {
-        CombatSnapshotVersion version = new CombatSnapshotVersion(ByteBufCodecs.VAR_LONG.decode(buf));
+        CombatSnapshotVersion version =
+                new CombatSnapshotVersion(ByteBufCodecs.VAR_LONG.decode(buf));
 
         int stepIndex = ByteBufCodecs.VAR_INT.decode(buf);
         CombatTime nextStepAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
@@ -106,55 +102,59 @@ public record CombatSnapshotPayload(
         boolean holdLatched = ByteBufCodecs.BOOL.decode(buf);
         ComboSnapshot combo = new ComboSnapshot(stepIndex, nextStepAt, holding, holdLatched);
 
-        int cooldownCount = ByteBufCodecs.VAR_INT.decode(buf);
-        Map<SkillId, CombatTime> cooldowns = new HashMap<>();
-        for (int i = 0; i < cooldownCount; i++) {
-            SkillId skillId = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
-            CombatTime endsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-            cooldowns.put(skillId, endsAt);
+        int cdCount = ByteBufCodecs.VAR_INT.decode(buf);
+        Map<SkillId, CombatTime> cds = new HashMap<>();
+        for (int i = 0; i < cdCount; i++) {
+            cds.put(
+                    new SkillId(ByteBufCodecs.VAR_INT.decode(buf)),
+                    CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf))
+            );
         }
 
         int infusedCount = ByteBufCodecs.VAR_INT.decode(buf);
         Map<SkillSlotId, SkillId> infused = new HashMap<>();
         for (int i = 0; i < infusedCount; i++) {
-            SkillSlotId slot = new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf));
-            SkillId skillId = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
-            infused.put(slot, skillId);
+            infused.put(
+                    new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf)),
+                    new SkillId(ByteBufCodecs.VAR_INT.decode(buf))
+            );
         }
 
         int castCount = ByteBufCodecs.VAR_INT.decode(buf);
         Map<SkillSlotId, AbilitySnapshot.CastState> casting = new HashMap<>();
         for (int i = 0; i < castCount; i++) {
-            SkillSlotId slot = new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf));
-            CombatTime castEndsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-            boolean ready = ByteBufCodecs.BOOL.decode(buf);
-            casting.put(slot, new AbilitySnapshot.CastState(castEndsAt, ready));
+            casting.put(
+                    new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf)),
+                    new AbilitySnapshot.CastState(
+                            CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf)),
+                            ByteBufCodecs.BOOL.decode(buf)
+                    )
+            );
         }
 
-        AbilitySnapshot abilities = new AbilitySnapshot(
-                Map.copyOf(cooldowns),
-                Map.copyOf(infused),
-                Map.copyOf(casting)
-        );
+        AbilitySnapshot abilities =
+                new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
 
-        String actionKind = ByteBufCodecs.STRING_UTF8.decode(buf);
-        CombatTime actionEndsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        CombatTime itemSwapLockedUntil = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        LockSnapshot lock = new LockSnapshot(actionKind, actionEndsAt, itemSwapLockedUntil);
+        ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+        CombatTime endsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        CombatTime swapLock = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        LockSnapshot lock = new LockSnapshot(kind, endsAt, swapLock);
 
-        CatalystId catalystId = null;
+        CatalystId catalyst = null;
         if (ByteBufCodecs.BOOL.decode(buf)) {
-            catalystId = new CatalystId(ByteBufCodecs.VAR_INT.decode(buf));
+            catalyst = new CatalystId(ByteBufCodecs.VAR_INT.decode(buf));
         }
 
-        CatalystFamilyId familyId = null;
+        CatalystFamilyId family = null;
         if (ByteBufCodecs.BOOL.decode(buf)) {
-            familyId = new CatalystFamilyId(ByteBufCodecs.STRING_UTF8.decode(buf));
+            family = new CatalystFamilyId(ByteBufCodecs.STRING_UTF8.decode(buf));
         }
 
         boolean offhandEmpty = ByteBufCodecs.BOOL.decode(buf);
-        LoadoutSnapshot loadout = new LoadoutSnapshot(catalystId, familyId, offhandEmpty);
+        LoadoutSnapshot loadout = new LoadoutSnapshot(catalyst, family, offhandEmpty);
 
-        return new CombatSnapshotPayload(new CombatSnapshot(version, combo, abilities, lock, loadout));
+        return new CombatSnapshotPayload(
+                new CombatSnapshot(version, combo, abilities, lock, loadout)
+        );
     }
 }

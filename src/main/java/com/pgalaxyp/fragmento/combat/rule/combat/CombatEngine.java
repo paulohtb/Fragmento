@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
+import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
@@ -68,7 +69,6 @@ public final class CombatEngine {
         }
 
         ComboRuntimeState combo = state.combo();
-
         combo = resetRule.resetIfFinished(combo, comboConfig.maxSteps(), now);
 
         InfusedRule.ConsumeResult infused = null;
@@ -77,7 +77,6 @@ public final class CombatEngine {
         }
 
         ComboRuntimeState next = comboRule.apply(combo, intent, now);
-
         boolean stepExecuted = next.stepIndex() != combo.stepIndex();
 
         if (stepExecuted) {
@@ -98,15 +97,33 @@ public final class CombatEngine {
         }
 
         if (infused != null && infused.consumedSkillId() != null) {
-            AbilityRuntimeState abilities = infusedRule.startCooldownOnUse(infused.state(), infused.consumedSkillId(), now);
+            AbilityRuntimeState abilities =
+                    infusedRule.startCooldownOnUse(
+                            infused.state(),
+                            infused.consumedSkillId(),
+                            now
+                    );
+
             out = out.withAbilities(abilities);
             out = out.withCombo(ComboRuntimeState.idle());
-            out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
+            out = out.withLock(
+                    actionLockRule.lock(
+                            ActionKind.INFUSED_EXECUTE,
+                            comboConfig.actionLockDuration(),
+                            now
+                    )
+            );
             return out;
         }
 
         if (stepExecuted) {
-            out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
+            out = out.withLock(
+                    actionLockRule.lock(
+                            ActionKind.COMBO_STEP,
+                            comboConfig.actionLockDuration(),
+                            now
+                    )
+            );
         }
 
         return out;
@@ -129,7 +146,13 @@ public final class CombatEngine {
         next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
 
         ServerCombatState out = state.withCombo(next);
-        out = out.withLock(actionLockRule.lock(comboConfig.actionLockDuration(), now));
+        out = out.withLock(
+                actionLockRule.lock(
+                        ActionKind.COMBO_STEP,
+                        comboConfig.actionLockDuration(),
+                        now
+                )
+        );
         return out;
     }
 }

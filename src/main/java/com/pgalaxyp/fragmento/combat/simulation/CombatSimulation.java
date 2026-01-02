@@ -112,9 +112,7 @@ public final class CombatSimulation {
         CombatRuntime runtime = simpleSimulation();
         runtime.onAttackIntent(AttackIntent.CLICK);
         runtime.onAttackIntent(AttackIntent.HOLD_START);
-        runtime.tick();
         runtime.onAbilityIntent(new AbilityIntent(new SkillSlotId(1), AbilityIntentKind.TOGGLE));
         runtime.onAttackIntent(AttackIntent.CLICK);
-        runtime.tick();
     }
 }

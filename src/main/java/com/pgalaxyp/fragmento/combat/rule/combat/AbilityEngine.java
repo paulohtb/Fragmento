@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
+import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
@@ -74,7 +75,8 @@ public final class AbilityEngine {
             return state;
         }
 
-        CastedRule.AdvanceResult advanced = castedRule.advanceAndCollectFinished(state.abilities(), now);
+        CastedRule.AdvanceResult advanced =
+                castedRule.advanceAndCollectFinished(state.abilities(), now);
 
         ServerCombatState out = state;
         if (advanced.state() != state.abilities()) {
@@ -87,8 +89,23 @@ public final class AbilityEngine {
 
         for (var entry : advanced.finished().entrySet()) {
             SkillId skillId = entry.getValue();
-            out = out.withAbilities(castedRule.finish(out.abilities(), entry.getKey(), skillId, now));
-            ActionLockState lock = actionLockRule.lock(config.actionLockDuration(skillId), now);
+
+            out = out.withAbilities(
+                    castedRule.finish(
+                            out.abilities(),
+                            entry.getKey(),
+                            skillId,
+                            now
+                    )
+            );
+
+            ActionLockState lock =
+                    actionLockRule.lock(
+                            ActionKind.CAST_FINISH,
+                            config.actionLockDuration(skillId),
+                            now
+                    );
+
             out = out.withLock(lock);
         }
 
