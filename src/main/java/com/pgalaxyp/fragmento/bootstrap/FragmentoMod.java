@@ -1,9 +1,8 @@
 package com.pgalaxyp.fragmento.bootstrap;
 
 import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.combat.content.FragmentoContent;
-import com.pgalaxyp.fragmento.combat.engine.runtime.FragmentoCombatRuntime;
-import com.pgalaxyp.fragmento.combat.network.FragmentoNetwork;
+import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
+import com.pgalaxyp.fragmento.rpg.network.RpgNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -14,15 +13,17 @@ public final class FragmentoMod {
 
     public FragmentoMod(IEventBus modBus) {
         FragmentoLog.initFileLogging();
-        FragmentoLog.runtime("bootstrap start modid={}", MODID);
+        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap start modid={}", MODID);
 
-        FragmentoContent.register(modBus);
-        FragmentoLog.runtime("bootstrap content registered");
+        RpgBootstrap bootstrap = new RpgBootstrap();
 
-        FragmentoNetwork.register(modBus);
-        FragmentoLog.runtime("bootstrap network registered");
+        bootstrap.registerContent(modBus);
+        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap content registered");
 
-        FragmentoCombatRuntime.init();
-        FragmentoLog.runtime("bootstrap combat runtime ready");
+        RpgNetwork.register(modBus);
+        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap network registered");
+
+        bootstrap.initRuntime();
+        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap combat runtime ready");
     }
 }

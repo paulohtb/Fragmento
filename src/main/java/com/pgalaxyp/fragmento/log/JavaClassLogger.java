@@ -14,7 +14,7 @@ public final class JavaClassLogger {
 
     private static final List<String> TARGET_FOLDERS = List.of(
             "java/com/pgalaxyp/fragmento/bootstrap",
-            "java/com/pgalaxyp/fragmento/combat"
+            "java/com/pgalaxyp/fragmento/rpg"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";

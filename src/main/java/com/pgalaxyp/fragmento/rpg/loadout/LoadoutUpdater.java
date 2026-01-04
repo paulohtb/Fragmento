@@ -1,0 +1,32 @@
+package com.pgalaxyp.fragmento.rpg.loadout;
+
+import com.pgalaxyp.fragmento.rpg.state.runtime.EquippedSkillsState;
+import com.pgalaxyp.fragmento.rpg.state.runtime.LoadoutState;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
+import net.minecraft.server.level.ServerPlayer;
+
+public final class LoadoutUpdater {
+
+    private final LoadoutResolver resolver = new LoadoutResolver();
+    private final EquippedSkillsResolver skills = new EquippedSkillsResolver();
+
+    public ServerCombatState update(ServerCombatState state, ServerPlayer player) {
+        if (state == null || player == null) {
+            return state;
+        }
+
+        LoadoutState next = resolver.resolve(player);
+        if (next.equals(state.loadout())) {
+            return state;
+        }
+
+        ServerCombatState out = state.withLoadout(next);
+
+        EquippedSkillsState eq = skills.forPlayer(player, next);
+        if (!eq.equals(out.equippedSkills())) {
+            out = out.withEquippedSkills(eq);
+        }
+
+        return out;
+    }
+}
