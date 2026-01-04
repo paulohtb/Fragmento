@@ -18,7 +18,7 @@ public final class RpgEntityRegistry {
             ENTITY_TYPES.register(
                     "cut",
                     () -> EntityType.Builder.of(CutEffectEntity::new, MobCategory.MISC)
-                            .sized(1.6f, 1.6f)
+                            .sized(1.0f, 1.0f)
                             .clientTrackingRange(64)
                             .updateInterval(1)
                             .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "cut").toString())

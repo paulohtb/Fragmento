@@ -19,8 +19,8 @@ public final class EffectApplier {
                 RpgEntityRegistry.CUT.get(),
                 e.ownerId(),
                 e.targetId(),
-                target,
                 spawn,
+                target,
                 e.lifeTicks(),
                 e.damage(),
                 e.orientation()

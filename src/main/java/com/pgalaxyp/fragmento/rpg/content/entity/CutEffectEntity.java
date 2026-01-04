@@ -5,28 +5,39 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.Optional;
 import java.util.UUID;
 
 public final class CutEffectEntity extends Entity {
 
-    private static final EntityDataAccessor<Integer> DATA_LIFE_TICKS =
+    private static final EntityDataAccessor<Integer> DATA_LIFE =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.INT);
-
+    private static final EntityDataAccessor<Integer> DATA_AGE =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Byte> DATA_ORIENTATION =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.BYTE);
 
-    private static final EntityDataAccessor<Boolean> DATA_HIT =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_MOVE_X =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_MOVE_Y =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_MOVE_Z =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
+
+    private static final EntityDataAccessor<Float> DATA_AIM_X =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_AIM_Y =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_AIM_Z =
+            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
 
     private UUID ownerId;
     private UUID targetId;
@@ -42,32 +53,33 @@ public final class CutEffectEntity extends Entity {
             EntityType<CutEffectEntity> type,
             UUID ownerId,
             UUID targetId,
-            Vec3 targetPoint,
             Vec3 spawn,
+            Vec3 target,
             int lifeTicks,
             float damage,
             CutOrientation orientation
     ) {
         CutEffectEntity e = new CutEffectEntity(type, level);
-
         e.ownerId = ownerId;
         e.targetId = targetId;
         e.damage = damage;
 
-        e.entityData.set(DATA_LIFE_TICKS, Math.max(1, lifeTicks));
-        e.entityData.set(DATA_ORIENTATION, (byte) (orientation != null ? orientation.ordinal() : CutOrientation.VERTICAL.ordinal()));
-        e.entityData.set(DATA_HIT, false);
+        Vec3 moveDir = target.subtract(spawn).normalize();
+        Vec3 aimDir = target.subtract(spawn).normalize();
+
+        e.entityData.set(DATA_LIFE, Math.max(1, lifeTicks));
+        e.entityData.set(DATA_AGE, 0);
+        e.entityData.set(DATA_ORIENTATION, (byte) orientation.ordinal());
+
+        e.entityData.set(DATA_MOVE_X, (float) moveDir.x);
+        e.entityData.set(DATA_MOVE_Y, (float) moveDir.y);
+        e.entityData.set(DATA_MOVE_Z, (float) moveDir.z);
+
+        e.entityData.set(DATA_AIM_X, (float) aimDir.x);
+        e.entityData.set(DATA_AIM_Y, (float) aimDir.y);
+        e.entityData.set(DATA_AIM_Z, (float) aimDir.z);
 
         e.setPos(spawn);
-
-        Vec3 dir = targetPoint.subtract(spawn);
-        if (dir.lengthSqr() < 1.0E-8) dir = new Vec3(0.0, 0.0, 1.0);
-        dir = dir.normalize();
-
-        double speed = 0.8;
-        e.setDeltaMovement(dir.scale(speed));
-        e.applyRotFromDir(dir);
-
         level.addFreshEntity(e);
     }
 
@@ -75,51 +87,38 @@ public final class CutEffectEntity extends Entity {
     public void tick() {
         super.tick();
 
-        if (!(level() instanceof ServerLevel sl)) return;
+        if (level().isClientSide) {
+            return;
+        }
 
-        if (tickCount > lifeTicks()) {
+        int age = entityData.get(DATA_AGE) + 1;
+        entityData.set(DATA_AGE, age);
+
+        if (age >= entityData.get(DATA_LIFE)) {
             discard();
             return;
         }
 
-        if (entityData.get(DATA_HIT)) return;
+        move(MoverType.SELF, moveDir().scale(0.6));
 
-        updateHoming(sl);
-
-        Vec3 from = position();
-        Vec3 to = from.add(getDeltaMovement());
-        setPos(to);
-
-        tryHit(sl, from, to);
+        if (level() instanceof ServerLevel sl) {
+            tryHit(sl);
+        }
     }
 
-    private void updateHoming(ServerLevel sl) {
-        if (targetId == null) return;
+    private void tryHit(ServerLevel sl) {
+        if (targetId == null || damage <= 0) return;
 
         Entity e = sl.getEntity(targetId);
         if (!(e instanceof LivingEntity le) || !le.isAlive()) return;
 
-        Vec3 desired = le.getBoundingBox().getCenter().subtract(position());
-        if (desired.lengthSqr() < 1.0E-8) return;
-        desired = desired.normalize();
+        Vec3 n = aimDir();
+        Vec3 up = new Vec3(0, 1, 0);
 
-        Vec3 current = getDeltaMovement().normalize();
-        Vec3 blended = current.scale(0.65).add(desired.scale(0.35)).normalize();
+        Vec3 u = up.cross(n).normalize();
 
-        double speed = 0.8;
-        setDeltaMovement(blended.scale(speed));
-        applyRotFromDir(blended);
-    }
-
-    private void tryHit(ServerLevel sl, Vec3 from, Vec3 to) {
-        if (targetId == null || damage <= 0.0f) return;
-
-        Entity e = sl.getEntity(targetId);
-        if (!(e instanceof LivingEntity le) || !le.isAlive()) return;
-
-        AABB box = le.getBoundingBox().inflate(0.6);
-        Optional<Vec3> hit = box.clip(from, to);
-        if (hit.isEmpty()) return;
+        AABB hit = orientedBox(position(), u, up, n, 0.6, 0.6, 0.15);
+        if (!hit.intersects(le.getBoundingBox())) return;
 
         DamageSource src = sl.damageSources().generic();
         if (ownerId != null) {
@@ -130,22 +129,54 @@ public final class CutEffectEntity extends Entity {
         }
 
         le.hurt(src, damage);
-        entityData.set(DATA_HIT, true);
-        setDeltaMovement(Vec3.ZERO);
+        damage = 0;
     }
 
-    private void applyRotFromDir(Vec3 dir) {
-        float yaw = (float) (Mth.atan2(dir.x, dir.z) * 57.295776);
-        float pitch = (float) (Mth.atan2(dir.y, Math.sqrt(dir.x * dir.x + dir.z * dir.z)) * 57.295776);
+    private static AABB orientedBox(Vec3 c, Vec3 u, Vec3 v, Vec3 n, double eu, double ev, double en) {
+        Vec3 uu = u.scale(eu);
+        Vec3 vv = v.scale(ev);
+        Vec3 nn = n.scale(en);
 
-        setYRot(yaw);
-        setXRot(pitch);
-        yRotO = yaw;
-        xRotO = pitch;
+        Vec3[] p = new Vec3[]{
+                c.add(uu).add(vv).add(nn),
+                c.add(uu).add(vv).subtract(nn),
+                c.add(uu).subtract(vv).add(nn),
+                c.add(uu).subtract(vv).subtract(nn),
+                c.subtract(uu).add(vv).add(nn),
+                c.subtract(uu).add(vv).subtract(nn),
+                c.subtract(uu).subtract(vv).add(nn),
+                c.subtract(uu).subtract(vv).subtract(nn)
+        };
+
+        double minX = p[0].x, minY = p[0].y, minZ = p[0].z;
+        double maxX = minX, maxY = minY, maxZ = minZ;
+
+        for (Vec3 vtx : p) {
+            minX = Math.min(minX, vtx.x);
+            minY = Math.min(minY, vtx.y);
+            minZ = Math.min(minZ, vtx.z);
+            maxX = Math.max(maxX, vtx.x);
+            maxY = Math.max(maxY, vtx.y);
+            maxZ = Math.max(maxZ, vtx.z);
+        }
+
+        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
-    public int lifeTicks() {
-        return entityData.get(DATA_LIFE_TICKS);
+    public Vec3 moveDir() {
+        return new Vec3(
+                entityData.get(DATA_MOVE_X),
+                entityData.get(DATA_MOVE_Y),
+                entityData.get(DATA_MOVE_Z)
+        );
+    }
+
+    public Vec3 aimDir() {
+        return new Vec3(
+                entityData.get(DATA_AIM_X),
+                entityData.get(DATA_AIM_Y),
+                entityData.get(DATA_AIM_Z)
+        );
     }
 
     public CutOrientation getOrientation() {
@@ -153,31 +184,21 @@ public final class CutEffectEntity extends Entity {
     }
 
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(DATA_LIFE_TICKS, 1);
-        builder.define(DATA_ORIENTATION, (byte) 0);
-        builder.define(DATA_HIT, false);
+    protected void defineSynchedData(SynchedEntityData.Builder b) {
+        b.define(DATA_LIFE, 1);
+        b.define(DATA_AGE, 0);
+        b.define(DATA_ORIENTATION, (byte) 0);
+        b.define(DATA_MOVE_X, 0f);
+        b.define(DATA_MOVE_Y, 0f);
+        b.define(DATA_MOVE_Z, 1f);
+        b.define(DATA_AIM_X, 0f);
+        b.define(DATA_AIM_Y, 0f);
+        b.define(DATA_AIM_Z, 1f);
     }
 
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-        if (tag.hasUUID("owner")) ownerId = tag.getUUID("owner");
-        if (tag.hasUUID("target")) targetId = tag.getUUID("target");
-
-        damage = tag.getFloat("dmg");
-        entityData.set(DATA_LIFE_TICKS, tag.getInt("life"));
-        entityData.set(DATA_ORIENTATION, tag.getByte("orient"));
-        entityData.set(DATA_HIT, tag.getBoolean("hit"));
-    }
+    protected void readAdditionalSaveData(CompoundTag tag) {}
 
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
-        if (ownerId != null) tag.putUUID("owner", ownerId);
-        if (targetId != null) tag.putUUID("target", targetId);
-
-        tag.putFloat("dmg", damage);
-        tag.putInt("life", lifeTicks());
-        tag.putByte("orient", entityData.get(DATA_ORIENTATION));
-        tag.putBoolean("hit", entityData.get(DATA_HIT));
-    }
+    protected void addAdditionalSaveData(CompoundTag tag) {}
 }

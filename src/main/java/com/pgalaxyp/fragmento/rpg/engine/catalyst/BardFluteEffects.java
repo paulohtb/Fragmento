@@ -15,6 +15,7 @@ import java.util.List;
 
 public final class BardFluteEffects implements CatalystEffectAdapter {
 
+    private static final int CUT_LIFE_TICKS = 15;
     private final AimResolver aim = new AimResolver();
 
     @Override
@@ -29,15 +30,14 @@ public final class BardFluteEffects implements CatalystEffectAdapter {
 
         AimResolver.Aim a = aim.resolve(player, 20.0, 5.0);
         LivingEntity target = a.target();
-        Vec3 targetPoint = target != null ? target.getBoundingBox().getCenter() : a.point();
+        Vec3 targetPoint = target != null
+                ? target.getBoundingBox().getCenter()
+                : a.point();
 
         Vec3 forward = player.getLookAngle().normalize();
-        Vec3 right = forward.cross(new Vec3(0.0, 1.0, 0.0));
-        if (right.lengthSqr() < 1.0E-6) {
-            right = new Vec3(1.0, 0.0, 0.0);
-        } else {
-            right = right.normalize();
-        }
+        Vec3 right = forward.cross(new Vec3(0, 1, 0));
+        if (right.lengthSqr() < 1.0E-6) right = new Vec3(1, 0, 0);
+        right = right.normalize();
 
         Vec3 spawn;
         CutOrientation orientation;
@@ -49,16 +49,11 @@ public final class BardFluteEffects implements CatalystEffectAdapter {
             spawn = targetPoint.subtract(right.scale(4.0));
             orientation = CutOrientation.HORIZONTAL;
         } else {
-            spawn = targetPoint.add(0.0, 4.0, 0.0);
+            spawn = targetPoint.add(0, 4.0, 0);
             orientation = CutOrientation.VERTICAL;
         }
 
-        int lifeTicks = player.getRandom().nextInt(6) + 10;
-
-        float dmg;
-        if (comboStep == 1) dmg = 3.0f;
-        else if (comboStep == 2) dmg = 4.0f;
-        else dmg = 5.0f;
+        float dmg = comboStep == 1 ? 3.0f : comboStep == 2 ? 4.0f : 5.0f;
 
         return List.of(
                 new SpawnCutEffect(
@@ -70,7 +65,7 @@ public final class BardFluteEffects implements CatalystEffectAdapter {
                         targetPoint.x,
                         targetPoint.y,
                         targetPoint.z,
-                        lifeTicks,
+                        CUT_LIFE_TICKS,
                         dmg,
                         orientation
                 )
