@@ -2,7 +2,11 @@ package com.pgalaxyp.fragmento.combat.engine.runtime;
 
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
+import com.pgalaxyp.fragmento.combat.engine.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.combat.engine.registry.FragmentoCombatRegistries;
 import com.pgalaxyp.fragmento.combat.state.runtime.LoadoutRuntimeState;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -17,31 +21,35 @@ public final class LoadoutResolver {
         ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
         ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
 
-        if (!off.isEmpty()) {
+        if (off != null && !off.isEmpty()) {
             return LoadoutRuntimeState.empty();
         }
 
-        CatalystId catalyst = extractCatalyst(main);
-        CatalystFamilyId family = extractFamily(main);
-
-        if (catalyst == null || family == null) {
+        CatalystDefinition def = FragmentoCombatRegistries.catalysts().resolve(main);
+        if (def == null) {
             return LoadoutRuntimeState.empty();
         }
 
-        return new LoadoutRuntimeState(catalyst, family, true);
+        CatalystId catalystId = deriveStableId(main);
+        CatalystFamilyId family = def.family();
+
+        if (catalystId == null || family == null) {
+            return LoadoutRuntimeState.empty();
+        }
+
+        return new LoadoutRuntimeState(catalystId, family, true);
     }
 
-    private CatalystId extractCatalyst(ItemStack stack) {
+    private static CatalystId deriveStableId(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
-        return new CatalystId(stack.getItem().hashCode());
-    }
-
-    private CatalystFamilyId extractFamily(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (key == null) {
             return null;
         }
-        return new CatalystFamilyId(stack.getItem().toString());
+        int raw = key.toString().hashCode();
+        int id = Math.floorMod(raw, Integer.MAX_VALUE);
+        return new CatalystId(id);
     }
 }

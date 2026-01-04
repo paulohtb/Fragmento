@@ -8,11 +8,7 @@ public final class RuntimeLoadoutSystem {
 
     private final LoadoutUpdater updater = new LoadoutUpdater();
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            ServerPlayer player,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, ServerPlayer player, CombatTime now) {
         return updater.update(state, player);
     }
 }

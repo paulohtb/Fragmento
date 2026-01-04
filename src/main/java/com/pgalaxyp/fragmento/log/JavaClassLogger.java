@@ -10,13 +10,11 @@ import java.util.stream.Stream;
 public final class JavaClassLogger {
 
     private static final Path BASE_DIR =
-            Paths.get("C:\\Users\\Loteria Aldeota\\Documents\\projetos\\analise f\\src\\main\\java");
+            Paths.get("C:\\Users\\User\\Documents\\Projetos\\Fragmento\\src\\main");
 
     private static final List<String> TARGET_FOLDERS = List.of(
-            "fragmento/bootstrap",
-            "fragmento/combat",
-            "fragmento/foundation",
-            "fragmento/platform"
+            "java/com/pgalaxyp/fragmento/bootstrap",
+            "java/com/pgalaxyp/fragmento/combat"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";
@@ -24,6 +22,7 @@ public final class JavaClassLogger {
     public static void main(String[] args) throws IOException {
 
         Path logDir = BASE_DIR
+                .resolve("java")
                 .resolve("com")
                 .resolve("pgalaxyp")
                 .resolve("fragmento")
@@ -35,8 +34,6 @@ public final class JavaClassLogger {
 
         for (String folderName : TARGET_FOLDERS) {
             Path targetDir = BASE_DIR
-                    .resolve("com")
-                    .resolve("pgalaxyp")
                     .resolve(folderName);
 
             if (Files.isDirectory(targetDir)) {
@@ -56,18 +53,23 @@ public final class JavaClassLogger {
     private static void collectJavaFiles(Path directory, List<String> outputLines) {
         try (Stream<Path> files = Files.walk(directory)) {
             files
-                    .filter(p -> p.toString().endsWith(".java"))
-                    .forEach(javaFile -> processJavaFile(javaFile, outputLines));
+                    .filter(Files::isRegularFile)
+                    .filter(p ->
+                            p.toString().endsWith(".java") ||
+                                    p.toString().endsWith(".json")
+                    )
+                    .forEach(file -> processFile(file, outputLines));
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void processJavaFile(Path javaFile, List<String> outputLines) {
-        outputLines.add("===== " + javaFile.getFileName() + " =====");
+    private static void processFile(Path file, List<String> outputLines) {
+        outputLines.add("===== " + file.getFileName() + " =====");
 
         try {
-            outputLines.addAll(Files.readAllLines(javaFile, StandardCharsets.UTF_8));
+            outputLines.addAll(Files.readAllLines(file, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

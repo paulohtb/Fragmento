@@ -1,16 +1,421 @@
 ===== FragmentoMod.java =====
 package com.pgalaxyp.fragmento.bootstrap;
 
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.content.FragmentoContent;
+import com.pgalaxyp.fragmento.combat.engine.runtime.FragmentoCombatRuntime;
+import com.pgalaxyp.fragmento.combat.network.FragmentoNetwork;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
-@Mod("fragmento")
-public final class FragmentoMod {}
+@Mod(FragmentoMod.MODID)
+public final class FragmentoMod {
+
+    public static final String MODID = "fragmento";
+
+    public FragmentoMod(IEventBus modBus) {
+        FragmentoLog.runtime("bootstrap start modid={}", MODID);
+
+        FragmentoContent.register(modBus);
+        FragmentoLog.runtime("bootstrap content registered");
+
+        FragmentoNetwork.register(modBus);
+        FragmentoLog.runtime("bootstrap network registered");
+
+        FragmentoCombatRuntime.init();
+        FragmentoLog.runtime("bootstrap combat runtime ready");
+    }
+}
+
+===== FragmentoLog.java =====
+package com.pgalaxyp.fragmento.bootstrap.logging;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.function.Consumer;
+
+public final class FragmentoLog {
+
+    private static final int MAX_QUEUE = 1024;
+
+    private static final BlockingQueue<String> QUEUE =
+            new ArrayBlockingQueue<>(MAX_QUEUE);
+
+    private static final DateTimeFormatter FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    public static void runtime(String message, Object... args) {
+        log("RUNTIME", format(message, args));
+    }
+
+    public static void combat(String message, Object... args) {
+        log("COMBAT", format(message, args));
+    }
+
+    public static void intent(String message, Object... args) {
+        log("INTENT", format(message, args));
+    }
+
+    public static void network(String message, Object... args) {
+        log("NET", format(message, args));
+    }
+
+    public static void snapshot(String message, Object... args) {
+        log("SNAPSHOT", format(message, args));
+    }
+
+    public static void inventory(String message, Object... args) {
+        log("INV", format(message, args));
+    }
+
+    public static void runtimeEx(Throwable t, String message, Object... args) {
+        logEx("RUNTIME", t, message, args);
+    }
+
+    public static void combatEx(Throwable t, String message, Object... args) {
+        logEx("COMBAT", t, message, args);
+    }
+
+    public static void intentEx(Throwable t, String message, Object... args) {
+        logEx("INTENT", t, message, args);
+    }
+
+    public static void networkEx(Throwable t, String message, Object... args) {
+        logEx("NET", t, message, args);
+    }
+
+    public static void snapshotEx(Throwable t, String message, Object... args) {
+        logEx("SNAPSHOT", t, message, args);
+    }
+
+    public static void inventoryEx(Throwable t, String message, Object... args) {
+        logEx("INV", t, message, args);
+    }
+
+    private static void log(String tag, String message) {
+        if (tag == null || message == null) {
+            return;
+        }
+
+        String line =
+                "[" + FORMAT.format(LocalDateTime.now()) + "] "
+                        + "[" + tag + "] "
+                        + message;
+
+        QUEUE.offer(line);
+    }
+
+    private static void logEx(String tag, Throwable t, String message, Object... args) {
+        log(tag, format(message, args));
+
+        if (t == null) {
+            return;
+        }
+
+        log(tag, "exception.class=" + t.getClass().getName());
+
+        if (t.getMessage() != null) {
+            log(tag, "exception.message=" + t.getMessage());
+        }
+
+        StackTraceElement[] st = t.getStackTrace();
+        if (st == null) {
+            return;
+        }
+
+        int max = Math.min(6, st.length);
+        for (int i = 0; i < max; i++) {
+            log(tag, "at " + st[i]);
+        }
+    }
+
+    public static void flushTo(Consumer<String> sink) {
+        if (sink == null) {
+            return;
+        }
+
+        String line;
+        while ((line = QUEUE.poll()) != null) {
+            sink.accept(line);
+        }
+    }
+
+    private static String format(String msg, Object... args) {
+        if (msg == null) {
+            return "";
+        }
+        if (args == null || args.length == 0) {
+            return msg;
+        }
+        return String.format(msg.replace("{}", "%s"), args);
+    }
+
+    private FragmentoLog() {}
+}
+
+===== FragmentoClientEvents.java =====
+package com.pgalaxyp.fragmento.combat.client;
+
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
+import com.pgalaxyp.fragmento.combat.client.input.ClientCombatInputController;
+import com.pgalaxyp.fragmento.combat.client.network.CombatIntentSender;
+import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
+import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
+import org.lwjgl.glfw.GLFW;
+
+@EventBusSubscriber(modid = FragmentoMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
+public final class FragmentoClientEvents {
+
+    private static final ClientCombatInputController INPUT =
+            new ClientCombatInputController(new CombatIntentSender());
+
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        INPUT.clientTick();
+    }
+
+    @SubscribeEvent
+    public static void onMouse(InputEvent.MouseButton.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null) {
+            return;
+        }
+
+        if (!catalystActive()) {
+            return;
+        }
+
+        if (event.getButton() != 0) {
+            return;
+        }
+
+        if (event.getAction() == GLFW.GLFW_PRESS) {
+            event.setCanceled(true);
+            INPUT.onAttackClick();
+        }
+    }
+
+    private static boolean catalystActive() {
+        var snap = CombatClientProxy.state().current();
+        if (snap == null) return false;
+        var loadout = snap.loadout();
+        if (loadout == null) return false;
+        return loadout.equippedCatalyst() != null
+                && loadout.family() != null
+                && loadout.offhandEmpty();
+    }
+
+    private FragmentoClientEvents() {}
+}
+
+===== FragmentoClientModEvents.java =====
+package com.pgalaxyp.fragmento.combat.client;
+
+import com.pgalaxyp.fragmento.combat.client.input.FragmentoClientKeys;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+
+import static com.pgalaxyp.fragmento.bootstrap.FragmentoMod.MODID;
+
+@EventBusSubscriber(modid = MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+public final class FragmentoClientModEvents {
+
+    @SubscribeEvent
+    public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
+        event.register(FragmentoClientKeys.NORMAL_SKILL);
+    }
+
+    private FragmentoClientModEvents() {}
+}
+
+===== FragmentoClientRenderModEvents.java =====
+package com.pgalaxyp.fragmento.combat.client;
+
+import com.pgalaxyp.fragmento.combat.client.render.CutRenderer;
+import com.pgalaxyp.fragmento.combat.content.entity.FragmentoEntities;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+
+import static com.pgalaxyp.fragmento.bootstrap.FragmentoMod.MODID;
+
+@EventBusSubscriber(modid = MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+public final class FragmentoClientRenderModEvents {
+
+    @SubscribeEvent
+    public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(FragmentoEntities.CUT.get(), CutRenderer::new);
+    }
+
+    private FragmentoClientRenderModEvents() {
+    }
+}
+
+===== ClientCombatInputController.java =====
+package com.pgalaxyp.fragmento.combat.client.input;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.client.network.CombatIntentSender;
+import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+
+public final class ClientCombatInputController {
+
+    private static final SkillSlotId NORMAL_SLOT = new SkillSlotId(1);
+    private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
+
+    private final CombatIntentSender sender;
+
+    private boolean wasAttackDown;
+
+    public ClientCombatInputController(CombatIntentSender sender) {
+        this.sender = sender;
+    }
+
+    private boolean catalystActive() {
+        var snap = CombatClientProxy.state().current();
+        if (snap == null) return false;
+        var loadout = snap.loadout();
+        if (loadout == null) return false;
+        return loadout.equippedCatalyst() != null
+                && loadout.family() != null
+                && loadout.offhandEmpty();
+    }
+
+    public void clientTick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.options == null) {
+            wasAttackDown = false;
+            return;
+        }
+
+        boolean active = catalystActive();
+
+        KeyMapping attack = mc.options.keyAttack;
+        if (attack != null) {
+            boolean down = attack.isDown();
+
+            if (active) {
+                if (down && !wasAttackDown) {
+                    sender.sendAttack(AttackIntent.HOLD_START);
+                }
+
+                if (!down && wasAttackDown) {
+                    sender.sendAttack(AttackIntent.HOLD_STOP);
+                }
+            }
+
+            wasAttackDown = down;
+        } else {
+            wasAttackDown = false;
+        }
+
+        KeyMapping normal = FragmentoClientKeys.NORMAL_SKILL;
+        if (normal != null) {
+            while (normal.consumeClick()) {
+                if (active) {
+                    sender.sendAbility(new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE));
+                }
+            }
+        }
+    }
+
+    public void onAttackClick() {
+        if (!catalystActive()) {
+            return;
+        }
+        try {
+            sender.sendAttack(AttackIntent.CLICK);
+        } catch (Throwable t) {
+            FragmentoLog.intentEx(t, "client onAttackClick crashed");
+        }
+    }
+
+    public void onUseItemClick() {
+        if (!catalystActive()) {
+            return;
+        }
+        try {
+            sender.sendAbility(new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS));
+        } catch (Throwable t) {
+            FragmentoLog.intentEx(t, "client onUseItemClick crashed");
+        }
+    }
+}
+
+===== FragmentoClientKeys.java =====
+package com.pgalaxyp.fragmento.combat.client.input;
+
+import net.minecraft.client.KeyMapping;
+import org.lwjgl.glfw.GLFW;
+
+public final class FragmentoClientKeys {
+
+    public static final KeyMapping NORMAL_SKILL =
+            new KeyMapping(
+                    "key.fragmento.normal_skill",
+                    GLFW.GLFW_KEY_R,
+                    "key.categories.fragmento"
+            );
+
+    private FragmentoClientKeys() {}
+}
+
+===== CombatIntentSender.java =====
+package com.pgalaxyp.fragmento.combat.client.network;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
+import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+public final class CombatIntentSender {
+
+    public void sendAttack(AttackIntent intent) {
+        if (intent == null) {
+            return;
+        }
+        FragmentoLog.intent("C2S attack intent={}", intent);
+        PacketDistributor.sendToServer(new AttackIntentPayload(intent));
+    }
+
+    public void sendAbility(AbilityIntent intent) {
+        if (intent == null) {
+            return;
+        }
+        FragmentoLog.intent(
+                "C2S ability kind={} slot={}",
+                intent.kind(),
+                intent.slot().index()
+        );
+        PacketDistributor.sendToServer(new AbilityIntentPayload(intent));
+    }
+}
 
 ===== CombatSnapshotReceiver.java =====
 package com.pgalaxyp.fragmento.combat.client.network;
 
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import com.pgalaxyp.fragmento.combat.client.state.ClientCombatViewState;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 
 public final class CombatSnapshotReceiver {
 
@@ -22,15 +427,150 @@ public final class CombatSnapshotReceiver {
 
     public void apply(CombatSnapshotPayload payload) {
         if (payload == null) {
+            FragmentoLog.snapshot("client snapshot receiver ignore, payloadNull=true");
             return;
         }
-        state.apply(payload.snapshot());
+
+        CombatSnapshot snap = payload.snapshot();
+        if (snap == null || snap.version() == null) {
+            FragmentoLog.snapshot("client snapshot receiver ignore, snapshotNull={} versionNull={}", snap == null, snap != null && snap.version() == null);
+            return;
+        }
+
+        FragmentoLog.snapshot(
+                "client snapshot apply, version={}",
+                snap.version().value()
+        );
+
+        state.apply(snap);
+    }
+}
+
+===== CombatClientProxy.java =====
+package com.pgalaxyp.fragmento.combat.client.proxy;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.client.network.CombatSnapshotReceiver;
+import com.pgalaxyp.fragmento.combat.client.state.ClientCombatViewState;
+import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+public final class CombatClientProxy {
+
+    private static final ClientCombatViewState STATE = new ClientCombatViewState();
+    private static final CombatSnapshotReceiver RECEIVER = new CombatSnapshotReceiver(STATE);
+
+    public static void handleSnapshot(CombatSnapshotPayload payload, IPayloadContext context) {
+        if (payload == null || context == null) {
+            FragmentoLog.snapshot("client handleSnapshot ignore, payloadNull={} contextNull={}", payload == null, context == null);
+            return;
+        }
+
+        long v = payload.snapshot() != null && payload.snapshot().version() != null ? payload.snapshot().version().value() : -1L;
+
+        FragmentoLog.snapshot(
+                "client handleSnapshot enqueueWork, version={} ctx.playerPresent={}",
+                v,
+                context.player() != null
+        );
+
+        context.enqueueWork(() -> {
+            try {
+                RECEIVER.apply(payload);
+            } catch (Throwable t) {
+                FragmentoLog.snapshotEx(t, "client handleSnapshot crashed, version={}", v);
+            }
+        });
+    }
+
+    public static ClientCombatViewState state() {
+        return STATE;
+    }
+
+    private CombatClientProxy() {}
+}
+
+===== CutRenderer.java =====
+package com.pgalaxyp.fragmento.combat.client.render;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.pgalaxyp.fragmento.combat.content.entity.CutEntity;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import org.joml.Matrix4f;
+
+public final class CutRenderer extends EntityRenderer<CutEntity> {
+
+    private static final ResourceLocation WHITE =
+            ResourceLocation.withDefaultNamespace("textures/misc/white.png");
+
+    public CutRenderer(EntityRendererProvider.Context ctx) {
+        super(ctx);
+    }
+
+    @Override
+    public void render(
+            CutEntity entity,
+            float entityYaw,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight
+    ) {
+        if (entity == null) {
+            return;
+        }
+
+        int life = Math.max(1, entity.lifeTicks());
+        float t = (entity.ageTicks() + partialTick) / (float) life;
+        t = Mth.clamp(t, 0.0f, 1.0f);
+
+        float alpha = 1.0f - t;
+        alpha = alpha * alpha;
+
+        poseStack.pushPose();
+
+        poseStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
+        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(35.0f));
+        poseStack.scale(2.2f, 1.0f, 1.0f);
+
+        VertexConsumer vc = bufferSource.getBuffer(RenderType.entityTranslucent(WHITE));
+        Matrix4f m = poseStack.last().pose();
+
+        float w = 0.55f;
+        float h = 0.22f;
+
+        float u0 = 0.0f;
+        float v0 = 0.0f;
+        float u1 = 1.0f;
+        float v1 = 1.0f;
+
+        vc.addVertex(m, -w, -h, 0.0f).setColor(1.0f, 1.0f, 1.0f, alpha).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(packedLight).setNormal(0.0f, 0.0f, 1.0f);
+        vc.addVertex(m,  w, -h, 0.0f).setColor(1.0f, 1.0f, 1.0f, alpha).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(packedLight).setNormal(0.0f, 0.0f, 1.0f);
+        vc.addVertex(m,  w,  h, 0.0f).setColor(1.0f, 1.0f, 1.0f, alpha).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(packedLight).setNormal(0.0f, 0.0f, 1.0f);
+        vc.addVertex(m, -w,  h, 0.0f).setColor(1.0f, 1.0f, 1.0f, alpha).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(packedLight).setNormal(0.0f, 0.0f, 1.0f);
+
+        poseStack.popPose();
+
+        super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+    }
+
+    @Override
+    public ResourceLocation getTextureLocation(CutEntity entity) {
+        return WHITE;
     }
 }
 
 ===== ClientCombatViewState.java =====
 package com.pgalaxyp.fragmento.combat.client.state;
 
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 
 public final class ClientCombatViewState {
@@ -38,16 +578,32 @@ public final class ClientCombatViewState {
     private CombatSnapshot last;
 
     public void apply(CombatSnapshot snapshot) {
-        if (snapshot == null) {
+        if (snapshot == null || snapshot.version() == null) {
+            FragmentoLog.snapshot("client viewState apply ignore, snapshotNull={} versionNull={}", snapshot == null, snapshot != null && snapshot.version() == null);
             return;
         }
+
         if (last == null) {
             last = snapshot;
+            FragmentoLog.snapshot("client viewState apply accepted first, version={}", snapshot.version().value());
             return;
         }
+
+        long inV = snapshot.version().value();
+        long curV = last.version() != null ? last.version().value() : -1L;
+
         if (snapshot.version().isAfter(last.version())) {
             last = snapshot;
+            FragmentoLog.snapshot("client viewState apply accepted newer, from={} to={}", curV, inV);
+            return;
         }
+
+        if (inV == curV) {
+            FragmentoLog.snapshot("client viewState apply ignored equal, version={}", inV);
+            return;
+        }
+
+        FragmentoLog.snapshot("client viewState apply ignored older, current={} incoming={}", curV, inV);
     }
 
     public CombatSnapshot current() {
@@ -55,14 +611,598 @@ public final class ClientCombatViewState {
     }
 
     public void clear() {
+        if (last != null && last.version() != null) {
+            FragmentoLog.snapshot("client viewState cleared, lastVersion={}", last.version().value());
+        } else {
+            FragmentoLog.snapshot("client viewState cleared, lastWasNull={}", last == null);
+        }
         last = null;
     }
+}
+
+===== FluteItem.java =====
+package com.pgalaxyp.fragmento.combat.content.catalyst;
+
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+
+public final class FluteItem extends Item {
+
+    public FluteItem(Properties properties) {
+        super(properties);
+    }
+
+    public static boolean isFlute(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        return stack.getItem() instanceof FluteItem;
+    }
+}
+
+===== FragmentoCatalystDefinitions.java =====
+package com.pgalaxyp.fragmento.combat.content.catalyst;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.content.skill.FragmentoSkills;
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatEffect;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatProfile;
+import com.pgalaxyp.fragmento.combat.engine.profile.SpawnCutEffect;
+import com.pgalaxyp.fragmento.combat.engine.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.combat.engine.registry.FragmentoCombatRegistries;
+import com.pgalaxyp.fragmento.combat.engine.targeting.AimResolver;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class FragmentoCatalystDefinitions {
+
+    private static final SkillSlotId NORMAL_SLOT = new SkillSlotId(1);
+    private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
+
+    private static final TagKey<Item> CATALYSTS_TAG =
+            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("fragmento", "catalysts"));
+
+    public static void registerAll() {
+        registerBardoFlute();
+        registerDefaultTag();
+    }
+
+    private static void registerBardoFlute() {
+        Map<SkillSlotId, SkillId> skills = new HashMap<>();
+        skills.put(NORMAL_SLOT, FragmentoSkills.BARDO_NORMAL_INFUSED);
+        skills.put(SPECIAL_SLOT, FragmentoSkills.BARDO_SPECIAL_CASTED);
+
+        CombatProfile profile = new CombatProfile() {
+
+            private final AimResolver aim = new AimResolver();
+
+            @Override
+            public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
+                if (skillId == null || skillId.value() != FragmentoSkills.BARDO_NORMAL_INFUSED.value()) {
+                    return List.of();
+                }
+
+                AimResolver.Aim a = aim.resolve(player, 6.0, 4.0);
+
+                Vec3 eye = player.getEyePosition();
+                Vec3 spawn = eye.add(player.getLookAngle().scale(0.8));
+
+                SpawnCutEffect cut = new SpawnCutEffect(
+                        player.getUUID(),
+                        a.target() != null ? a.target().getUUID() : null,
+                        spawn.x, spawn.y, spawn.z,
+                        a.aimPoint().x, a.aimPoint().y, a.aimPoint().z,
+                        8,
+                        4.0f,
+                        false
+                );
+
+                FragmentoLog.combat(
+                        "bardo infused execute, player.uuid={} target={} aimKind={}",
+                        player.getUUID(),
+                        a.target() != null ? a.target().getUUID() : null,
+                        a.kind()
+                );
+
+                return List.of(cut);
+            }
+
+            @Override
+            public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+                return List.of();
+            }
+
+            @Override
+            public List<CombatEffect> onCastFinish(ServerPlayer player, SkillId skillId, CombatTime now) {
+                return List.of();
+            }
+        };
+
+        CatalystDefinition def = new CatalystDefinition(
+                new CatalystFamilyId("bardo"),
+                FluteItem::isFlute,
+                skills,
+                profile
+        );
+
+        FragmentoCombatRegistries.catalysts().register(def);
+    }
+
+    private static void registerDefaultTag() {
+        CatalystDefinition def = new CatalystDefinition(
+                new CatalystFamilyId("default"),
+                stack -> stack != null && !stack.isEmpty() && stack.is(CATALYSTS_TAG),
+                Map.of(),
+                CombatProfile.NOOP
+        );
+
+        FragmentoCombatRegistries.catalysts().register(def);
+    }
+
+    private FragmentoCatalystDefinitions() {}
+}
+
+===== FragmentoCatalysts.java =====
+package com.pgalaxyp.fragmento.combat.content.catalyst;
+
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
+import net.minecraft.world.item.Item;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.DeferredHolder;
+
+import java.util.function.Supplier;
+
+public final class FragmentoCatalysts {
+
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(FragmentoMod.MODID);
+
+    public static final DeferredHolder<Item, FluteItem> FLUTE =
+            ITEMS.register("flute", () ->
+                    new FluteItem(
+                            new Item.Properties()
+                                    .stacksTo(1))
+            );
+
+    public static void register(IEventBus modBus) {
+        ITEMS.register(modBus);
+    }
+
+    private FragmentoCatalysts() {}
+}
+
+===== CutEntity.java =====
+package com.pgalaxyp.fragmento.combat.content.entity;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
+import java.util.UUID;
+
+public final class CutEntity extends Entity {
+
+    private static final double HIT_RADIUS = 0.35;
+
+    private UUID ownerId;
+    private UUID targetId;
+
+    private int age;
+    private int lifeTicks;
+
+    private double aimX;
+    private double aimY;
+    private double aimZ;
+
+    private boolean guided;
+    private float damage;
+
+    public CutEntity(EntityType<? extends CutEntity> type, Level level) {
+        super(type, level);
+        this.noPhysics = true;
+    }
+
+    public static void spawn(
+            ServerLevel level,
+            EntityType<CutEntity> type,
+            LivingEntity owner,
+            LivingEntity target,
+            Vec3 spawnPos,
+            Vec3 aimPoint,
+            int lifeTicks,
+            float damage,
+            boolean verticalOnly
+    ) {
+        if (level == null || type == null || owner == null || spawnPos == null || aimPoint == null) {
+            FragmentoLog.combat(
+                    "cut spawn ignore, levelNull={} typeNull={} ownerNull={} spawnNull={} aimNull={}",
+                    level == null,
+                    type == null,
+                    owner == null,
+                    spawnPos == null,
+                    aimPoint == null
+            );
+            return;
+        }
+
+        CutEntity e = new CutEntity(type, level);
+        e.ownerId = owner.getUUID();
+        e.targetId = target != null ? target.getUUID() : null;
+
+        e.age = 0;
+        e.lifeTicks = Math.max(1, lifeTicks);
+        e.damage = Math.max(0.0f, damage);
+
+        e.aimX = aimPoint.x;
+        e.aimY = aimPoint.y;
+        e.aimZ = aimPoint.z;
+
+        e.guided = !verticalOnly;
+
+        e.setPos(spawnPos);
+        e.faceTowards(new Vec3(e.aimX, e.aimY, e.aimZ), verticalOnly);
+
+        level.addFreshEntity(e);
+
+        FragmentoLog.combat(
+                "cut spawned, eid={} owner.uuid={} target.uuid={} guided={} verticalOnly={} lifeTicks={} dmg={} spawn={} aim={}",
+                e.getId(),
+                e.ownerId,
+                e.targetId,
+                e.guided,
+                verticalOnly,
+                e.lifeTicks,
+                e.damage,
+                vec(spawnPos),
+                vec(aimPoint)
+        );
+    }
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {}
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        age = tag.getInt("age");
+        lifeTicks = tag.getInt("life");
+        damage = tag.getFloat("dmg");
+        guided = tag.getBoolean("g");
+
+        if (tag.contains("owner")) ownerId = tag.getUUID("owner");
+        if (tag.contains("target")) targetId = tag.getUUID("target");
+
+        aimX = tag.getDouble("ax");
+        aimY = tag.getDouble("ay");
+        aimZ = tag.getDouble("az");
+
+        FragmentoLog.combat(
+                "cut read nbt, eid={} age={} life={} dmg={} guided={} owner.uuid={} target.uuid={} aim={}",
+                getId(),
+                age,
+                lifeTicks,
+                damage,
+                guided,
+                ownerId,
+                targetId,
+                vec(new Vec3(aimX, aimY, aimZ))
+        );
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("age", age);
+        tag.putInt("life", lifeTicks);
+        tag.putFloat("dmg", damage);
+        tag.putBoolean("g", guided);
+
+        if (ownerId != null) tag.putUUID("owner", ownerId);
+        if (targetId != null) tag.putUUID("target", targetId);
+
+        tag.putDouble("ax", aimX);
+        tag.putDouble("ay", aimY);
+        tag.putDouble("az", aimZ);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        if (level().isClientSide) {
+            return;
+        }
+
+        age++;
+        if (age > lifeTicks) {
+            FragmentoLog.combat(
+                    "cut discard expired, eid={} age={} lifeTicks={} owner.uuid={} target.uuid={}",
+                    getId(),
+                    age,
+                    lifeTicks,
+                    ownerId,
+                    targetId
+            );
+            discard();
+            return;
+        }
+
+        Vec3 aim = resolveAim();
+        Vec3 pos = position();
+
+        Vec3 to = aim.subtract(pos);
+        double dist = to.length();
+
+        if (dist <= HIT_RADIUS) {
+            FragmentoLog.combat(
+                    "cut hit radius reached, eid={} age={} dist={} owner.uuid={} target.uuid={} pos={} aim={}",
+                    getId(),
+                    age,
+                    dist,
+                    ownerId,
+                    targetId,
+                    vec(pos),
+                    vec(aim)
+            );
+            tryApplyHit();
+            discard();
+            return;
+        }
+
+        int remaining = Math.max(1, lifeTicks - age + 1);
+        Vec3 dir = to.scale(1.0 / Math.max(0.0001, dist));
+        Vec3 move = dir.scale(dist / remaining);
+
+        setPos(pos.add(move));
+        faceTowards(aim, false);
+
+        if ((age % 10) == 0) {
+            FragmentoLog.combat(
+                    "cut tick, eid={} age={} lifeTicks={} remaining={} guided={} dist={} pos={} aim={}",
+                    getId(),
+                    age,
+                    lifeTicks,
+                    remaining,
+                    guided,
+                    dist,
+                    vec(position()),
+                    vec(aim)
+            );
+        }
+    }
+
+    private Vec3 resolveAim() {
+        if (!(level() instanceof ServerLevel sl)) {
+            return new Vec3(aimX, aimY, aimZ);
+        }
+
+        if (guided && targetId != null) {
+            Entity e = sl.getEntity(targetId);
+            if (e instanceof LivingEntity le && le.isAlive()) {
+                Vec3 c = le.getBoundingBox().getCenter();
+                double dx = Math.abs(c.x - aimX);
+                double dy = Math.abs(c.y - aimY);
+                double dz = Math.abs(c.z - aimZ);
+
+                aimX = c.x;
+                aimY = c.y;
+                aimZ = c.z;
+
+                if ((age % 10) == 0 || dx > 0.5 || dy > 0.5 || dz > 0.5) {
+                    FragmentoLog.combat(
+                            "cut resolveAim guided update, eid={} age={} target.uuid={} target.eid={} aimNow={} delta=(%.3f,%.3f,%.3f)",
+                            getId(),
+                            age,
+                            targetId,
+                            le.getId(),
+                            vec(c),
+                            dx,
+                            dy,
+                            dz
+                    );
+                }
+
+                return c;
+            } else {
+                if ((age % 10) == 0) {
+                    FragmentoLog.combat(
+                            "cut resolveAim guided lost target, eid={} age={} target.uuid={} found={} alive={}",
+                            getId(),
+                            age,
+                            targetId,
+                            e != null,
+                            e instanceof LivingEntity le2 && le2.isAlive()
+                    );
+                }
+            }
+        }
+
+        return new Vec3(aimX, aimY, aimZ);
+    }
+
+    private void faceTowards(Vec3 aim, boolean verticalOnly) {
+        Vec3 d = aim.subtract(position());
+
+        if (verticalOnly) {
+            setXRot(-90.0f);
+            xRotO = -90.0f;
+            return;
+        }
+
+        float yaw = (float) (Mth.atan2(d.z, d.x) * (180.0 / Math.PI)) - 90.0f;
+        setYRot(yaw);
+        yRotO = yaw;
+    }
+
+    private void tryApplyHit() {
+        if (!(level() instanceof ServerLevel sl)) {
+            FragmentoLog.combat("cut tryApplyHit ignore, notServerLevel=true eid={}", getId());
+            return;
+        }
+        if (targetId == null || damage <= 0.0f) {
+            FragmentoLog.combat(
+                    "cut tryApplyHit ignore, targetNullOrNoDamage eid={} target.uuid={} dmg={}",
+                    getId(),
+                    targetId,
+                    damage
+            );
+            return;
+        }
+
+        Entity t = sl.getEntity(targetId);
+        if (!(t instanceof LivingEntity target) || !target.isAlive()) {
+            FragmentoLog.combat(
+                    "cut tryApplyHit ignore, targetMissingOrDead eid={} target.uuid={} found={} alive={}",
+                    getId(),
+                    targetId,
+                    t != null,
+                    t instanceof LivingEntity le && le.isAlive()
+            );
+            return;
+        }
+
+        AABB box = getBoundingBox().inflate(HIT_RADIUS);
+        List<LivingEntity> hits = sl.getEntitiesOfClass(LivingEntity.class, box, e ->
+                e.isAlive() && e.getUUID().equals(targetId)
+        );
+
+        if (hits.isEmpty()) {
+            FragmentoLog.combat(
+                    "cut tryApplyHit miss, eid={} target.uuid={} box={}",
+                    getId(),
+                    targetId,
+                    box.toString()
+            );
+            return;
+        }
+
+        DamageSource src = sl.damageSources().generic();
+        if (ownerId != null) {
+            Entity o = sl.getEntity(ownerId);
+            if (o instanceof LivingEntity le) {
+                src = sl.damageSources().mobAttack(le);
+            }
+        }
+
+        boolean ok = target.hurt(src, damage);
+
+        FragmentoLog.combat(
+                "cut tryApplyHit applied, eid={} owner.uuid={} target.uuid={} target.eid={} dmg={} ok={} target.hpAfter={}",
+                getId(),
+                ownerId,
+                targetId,
+                target.getId(),
+                damage,
+                ok,
+                target.getHealth()
+        );
+    }
+
+    public int ageTicks() {
+        return age;
+    }
+
+    public int lifeTicks() {
+        return lifeTicks;
+    }
+
+    private static String vec(Vec3 v) {
+        if (v == null) {
+            return "null";
+        }
+        return String.format("(%.3f,%.3f,%.3f)", v.x, v.y, v.z);
+    }
+}
+
+===== FragmentoEntities.java =====
+package com.pgalaxyp.fragmento.combat.content.entity;
+
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+public final class FragmentoEntities {
+
+    private static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
+            DeferredRegister.create(Registries.ENTITY_TYPE, FragmentoMod.MODID);
+
+    public static final DeferredHolder<EntityType<?>, EntityType<CutEntity>> CUT =
+            ENTITY_TYPES.register("cut", () -> EntityType.Builder.of(CutEntity::new, MobCategory.MISC)
+                    .sized(0.1f, 0.1f)
+                    .clientTrackingRange(64)
+                    .updateInterval(1)
+                    .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "cut").toString()));
+
+    public static void register(IEventBus modBus) {
+        ENTITY_TYPES.register(modBus);
+    }
+
+    private FragmentoEntities() {}
+}
+
+===== FragmentoContent.java =====
+package com.pgalaxyp.fragmento.combat.content;
+
+import com.pgalaxyp.fragmento.combat.content.catalyst.FragmentoCatalystDefinitions;
+import com.pgalaxyp.fragmento.combat.content.catalyst.FragmentoCatalysts;
+import com.pgalaxyp.fragmento.combat.content.entity.FragmentoEntities;
+import net.neoforged.bus.api.IEventBus;
+
+public final class FragmentoContent {
+
+    public static void register(IEventBus modBus) {
+        FragmentoEntities.register(modBus);
+        FragmentoCatalysts.register(modBus);
+
+        FragmentoCatalystDefinitions.registerAll();
+    }
+
+    private FragmentoContent() {
+    }
+}
+
+===== FragmentoSkills.java =====
+package com.pgalaxyp.fragmento.combat.content.skill;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+
+public final class FragmentoSkills {
+
+    public static final SkillId BARDO_NORMAL_INFUSED = new SkillId(1);
+    public static final SkillId BARDO_SPECIAL_CASTED = new SkillId(2);
+
+    private FragmentoSkills() {}
 }
 
 ===== ActionKind.java =====
 package com.pgalaxyp.fragmento.combat.domain.action;
 
 public enum ActionKind {
+    NONE,
     COMBO_STEP,
     INFUSED_EXECUTE,
     CAST_FINISH
@@ -199,9 +1339,36 @@ public record Duration(long ticks) {
     }
 }
 
+===== CombatSnapshotFingerprint.java =====
+package com.pgalaxyp.fragmento.combat.engine.network;
+
+import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
+
+public record CombatSnapshotFingerprint(
+        int comboHash,
+        int abilityHash,
+        int lockHash,
+        int loadoutHash
+) {
+
+    public static CombatSnapshotFingerprint of(CombatSnapshot s) {
+        if (s == null) {
+            return new CombatSnapshotFingerprint(0, 0, 0, 0);
+        }
+
+        return new CombatSnapshotFingerprint(
+                s.combo() != null ? s.combo().hashCode() : 0,
+                s.abilities() != null ? s.abilities().hashCode() : 0,
+                s.lock() != null ? s.lock().hashCode() : 0,
+                s.loadout() != null ? s.loadout().hashCode() : 0
+        );
+    }
+}
+
 ===== CombatSnapshotSender.java =====
 package com.pgalaxyp.fragmento.combat.engine.network;
 
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
 import com.pgalaxyp.fragmento.combat.state.snapshot.CombatSnapshot;
 import net.minecraft.server.level.ServerPlayer;
@@ -210,10 +1377,41 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class CombatSnapshotSender {
 
     public void send(ServerPlayer player, CombatSnapshot snapshot) {
-        if (player == null || snapshot == null) {
+        if (player == null || snapshot == null || snapshot.version() == null) {
+            FragmentoLog.snapshot(
+                    "snapshotSender send ignore, playerNull={} snapshotNull={} versionNull={}",
+                    player == null,
+                    snapshot == null,
+                    snapshot != null && snapshot.version() == null
+            );
             return;
         }
-        PacketDistributor.sendToPlayer(player, new CombatSnapshotPayload(snapshot));
+
+        FragmentoLog.snapshot(
+                "snapshotSender send start, player.name={} player.uuid={} player.eid={} version={} step={} lockKind={}",
+                player.getGameProfile().getName(),
+                player.getUUID(),
+                player.getId(),
+                snapshot.version().value(),
+                snapshot.combo() != null ? snapshot.combo().stepIndex() : -1,
+                snapshot.lock() != null ? snapshot.lock().actionKind() : null
+        );
+
+        try {
+            PacketDistributor.sendToPlayer(player, new CombatSnapshotPayload(snapshot));
+            FragmentoLog.snapshot(
+                    "snapshotSender send ok, player.uuid={} version={}",
+                    player.getUUID(),
+                    snapshot.version().value()
+            );
+        } catch (Throwable t) {
+            FragmentoLog.snapshotEx(
+                    t,
+                    "snapshotSender send failed, player.uuid={} version={}",
+                    player.getUUID(),
+                    snapshot.version().value()
+            );
+        }
     }
 }
 
@@ -222,9 +1420,10 @@ package com.pgalaxyp.fragmento.combat.engine.network;
 
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.combat.engine.runtime.ServerCombatSystem;
+import com.pgalaxyp.fragmento.combat.engine.runtime.FragmentoCombatRuntime;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public final class ServerCombatPayloadHandler {
@@ -232,70 +1431,436 @@ public final class ServerCombatPayloadHandler {
     public static void handleAttackIntent(AttackIntentPayload payload, IPayloadContext context) {
         if (payload == null || context == null) {
             return;
-        } else {
-            context.player();
         }
-        if (!(context.player() instanceof net.minecraft.server.level.ServerPlayer sp)) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
+
         AttackIntent intent = payload.intent();
         if (intent == null) {
             return;
         }
-        ServerCombatSystem.get().onAttackIntent(sp, intent);
+
+        context.enqueueWork(() -> FragmentoCombatRuntime.get().onAttackIntent(player, intent));
     }
 
     public static void handleAbilityIntent(AbilityIntentPayload payload, IPayloadContext context) {
         if (payload == null || context == null) {
             return;
-        } else {
-            context.player();
         }
-        if (!(context.player() instanceof net.minecraft.server.level.ServerPlayer sp)) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
+
         AbilityIntent intent = payload.intent();
         if (intent == null) {
             return;
         }
-        ServerCombatSystem.get().onAbilityIntent(sp, intent);
+
+        context.enqueueWork(() -> FragmentoCombatRuntime.get().onAbilityIntent(player, intent));
     }
 
     private ServerCombatPayloadHandler() {}
 }
 
-===== ItemSwapBlocker.java =====
+===== CombatEffect.java =====
+package com.pgalaxyp.fragmento.combat.engine.profile;
+
+public sealed interface CombatEffect permits SpawnCutEffect {}
+
+===== CombatProfile.java =====
+package com.pgalaxyp.fragmento.combat.engine.profile;
+
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.List;
+
+public interface CombatProfile {
+
+    CombatProfile NOOP = new CombatProfile() {
+        @Override
+        public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+            return List.of();
+        }
+
+        @Override
+        public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
+            return List.of();
+        }
+
+        @Override
+        public List<CombatEffect> onCastFinish(ServerPlayer player, SkillId skillId, CombatTime now) {
+            return List.of();
+        }
+    };
+
+    List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now);
+
+    List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now);
+
+    List<CombatEffect> onCastFinish(ServerPlayer player, SkillId skillId, CombatTime now);
+}
+
+===== SpawnCutEffect.java =====
+package com.pgalaxyp.fragmento.combat.engine.profile;
+
+import java.util.UUID;
+
+public record SpawnCutEffect(
+        UUID ownerId,
+        UUID targetId,
+        double spawnX,
+        double spawnY,
+        double spawnZ,
+        double aimX,
+        double aimY,
+        double aimZ,
+        int lifeTicks,
+        float damage,
+        boolean verticalOnly
+) implements CombatEffect {}
+
+===== CatalystDefinition.java =====
+package com.pgalaxyp.fragmento.combat.engine.registry;
+
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatProfile;
+import net.minecraft.world.item.ItemStack;
+import java.util.Map;
+
+public final class CatalystDefinition {
+
+    private final CatalystFamilyId family;
+    private final CatalystMatcher matcher;
+    private final Map<SkillSlotId, SkillId> skillsBySlot;
+    private final CombatProfile profile;
+
+    public CatalystDefinition(
+            CatalystFamilyId family,
+            CatalystMatcher matcher,
+            Map<SkillSlotId, SkillId> skillsBySlot,
+            CombatProfile profile
+    ) {
+        if (family == null || matcher == null || skillsBySlot == null || profile == null) {
+            throw new IllegalArgumentException();
+        }
+        this.family = family;
+        this.matcher = matcher;
+        this.skillsBySlot = Map.copyOf(skillsBySlot);
+        this.profile = profile;
+    }
+
+    public CatalystFamilyId family() {
+        return family;
+    }
+
+    public boolean matches(ItemStack stack) {
+        return matcher.matches(stack);
+    }
+
+    public Map<SkillSlotId, SkillId> skillsBySlot() {
+        return skillsBySlot;
+    }
+
+    public CombatProfile profile() {
+        return profile;
+    }
+
+    public interface CatalystMatcher {
+        boolean matches(ItemStack stack);
+    }
+}
+
+===== CatalystRegistry.java =====
+package com.pgalaxyp.fragmento.combat.engine.registry;
+
+import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatProfile;
+import net.minecraft.world.item.ItemStack;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class CatalystRegistry {
+
+    private final List<CatalystDefinition> definitions = new ArrayList<>();
+
+    public void register(CatalystDefinition def) {
+        if (def == null) {
+            return;
+        }
+        definitions.add(def);
+    }
+
+    public CatalystDefinition resolve(ItemStack mainHand) {
+        if (mainHand == null || mainHand.isEmpty()) {
+            return null;
+        }
+        for (CatalystDefinition def : definitions) {
+            if (def != null && def.matches(mainHand)) {
+                return def;
+            }
+        }
+        return null;
+    }
+
+    public CombatProfile profileFor(CatalystFamilyId family) {
+        if (family == null) {
+            return CombatProfile.NOOP;
+        }
+        for (CatalystDefinition def : definitions) {
+            if (def != null && family.equals(def.family())) {
+                return def.profile();
+            }
+        }
+        return CombatProfile.NOOP;
+    }
+}
+
+===== FragmentoCombatRegistries.java =====
+package com.pgalaxyp.fragmento.combat.engine.registry;
+
+public final class FragmentoCombatRegistries {
+
+    private static final CatalystRegistry CATALYSTS = new CatalystRegistry();
+
+    public static CatalystRegistry catalysts() {
+        return CATALYSTS;
+    }
+
+    private FragmentoCombatRegistries() {
+    }
+}
+
+===== CombatInteractionGuard.java =====
 package com.pgalaxyp.fragmento.combat.engine.restriction;
 
-import com.pgalaxyp.fragmento.combat.engine.runtime.ServerCombatSystem;
+import com.pgalaxyp.fragmento.combat.engine.runtime.CombatSession;
+import com.pgalaxyp.fragmento.combat.engine.runtime.CombatSessionManager;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
-public final class ItemSwapBlocker {
+public final class CombatInteractionGuard {
+
+    private final CombatSessionManager sessions;
+
+    public CombatInteractionGuard(CombatSessionManager sessions) {
+        this.sessions = sessions;
+    }
+
+    private boolean shouldBlock(ServerPlayer player) {
+        CombatSession session = sessions.sessionFor(player);
+        ServerCombatState state = session.state();
+        if (state == null) return false;
+
+        if (state.loadout() == null || !state.loadout().valid()) return false;
+
+        ActionLockState lock = state.lock();
+        if (lock == null) return false;
+
+        CombatTime now = CombatTime.ofTicks(player.level().getGameTime());
+        return lock.blocksVanillaInteraction(now);
+    }
 
     @SubscribeEvent
-    public void onEquipmentChange(LivingEquipmentChangeEvent event) {
+    public void onAttackEntity(AttackEntityEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!shouldBlock(player)) return;
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!shouldBlock(player)) return;
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!shouldBlock(player)) return;
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!shouldBlock(player)) return;
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onBreak(BlockEvent.BreakEvent event) {
+        if (!(event.getPlayer() instanceof ServerPlayer player)) return;
+        if (!shouldBlock(player)) return;
+        event.setCanceled(true);
+    }
+}
+
+===== CombatInventoryLock.java =====
+package com.pgalaxyp.fragmento.combat.engine.restriction;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+public final class CombatInventoryLock {
+
+    private record Snapshot(int selected, ItemStack main, ItemStack off) {
+        private Snapshot(int selected, ItemStack main, ItemStack off) {
+            this.selected = selected;
+            this.main = main == null ? ItemStack.EMPTY : main.copy();
+            this.off = off == null ? ItemStack.EMPTY : off.copy();
+        }
+    }
+
+    private final Map<UUID, Snapshot> remembered = new HashMap<>();
+    private final Map<UUID, Boolean> reentryGuard = new HashMap<>();
+
+    public void sync(ServerPlayer player, boolean shouldLock) {
+        if (player == null) return;
+
+        UUID id = player.getUUID();
+        boolean locked = remembered.containsKey(id);
+
+        if (shouldLock && !locked) {
+            remember(player);
+            FragmentoLog.inventory("invLock enter, player.uuid={}", id);
+            return;
+        }
+
+        if (!shouldLock && locked) {
+            clear(player);
+            FragmentoLog.inventory("invLock exit, player.uuid={}", id);
+        }
+    }
+
+    public void tick(ServerPlayer player) {
+        if (player == null) return;
+
+        UUID id = player.getUUID();
+        Snapshot snap = remembered.get(id);
+        if (snap == null) return;
+
+        if (Boolean.TRUE.equals(reentryGuard.get(id))) {
+            return;
+        }
+
+        int selected = player.getInventory().selected;
+        ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
+        ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
+
+        boolean changed = false;
+
+        if (selected != snap.selected) {
+            player.getInventory().selected = snap.selected;
+            changed = true;
+        }
+
+        if (!ItemStack.isSameItemSameComponents(main, snap.main)) {
+            player.setItemSlot(EquipmentSlot.MAINHAND, snap.main.copy());
+            changed = true;
+        }
+
+        if (!ItemStack.isSameItemSameComponents(off, snap.off)) {
+            player.setItemSlot(EquipmentSlot.OFFHAND, snap.off.copy());
+            changed = true;
+        }
+
+        if (changed) {
+            reentryGuard.put(id, Boolean.TRUE);
+            try {
+                player.inventoryMenu.broadcastChanges();
+            } catch (Throwable t) {
+                FragmentoLog.inventoryEx(t, "invLock broadcastChanges failed, player.uuid={}", id);
+            } finally {
+                reentryGuard.put(id, Boolean.FALSE);
+            }
+        }
+    }
+
+    public void remember(ServerPlayer player) {
+        if (player == null) return;
+
+        UUID id = player.getUUID();
+        int selected = player.getInventory().selected;
+        ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
+        ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
+
+        remembered.put(id, new Snapshot(selected, main, off));
+        reentryGuard.put(id, Boolean.FALSE);
+
+        FragmentoLog.inventory(
+                "invLock remember, player.uuid={} selected={} main={} off={}",
+                id,
+                selected,
+                stackKey(main),
+                stackKey(off)
+        );
+    }
+
+    public void clear(ServerPlayer player) {
+        if (player == null) return;
+
+        UUID id = player.getUUID();
+        remembered.remove(id);
+        reentryGuard.remove(id);
+    }
+
+    private static String stackKey(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return "empty";
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return key != null ? key + " x" + stack.getCount() : stack.getItem().toString() + " x" + stack.getCount();
+    }
+}
+
+===== CombatEventRouter.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+
+public final class CombatEventRouter {
+
+    private final CombatRuntime runtime;
+
+    public CombatEventRouter(CombatRuntime runtime) {
+        this.runtime = runtime;
+    }
+
+    @SubscribeEvent
+    public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        runtime.onTick(player);
+    }
 
-        if (event.getSlot() != EquipmentSlot.OFFHAND) {
+    @SubscribeEvent
+    public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-
-        ServerCombatState state = ServerCombatSystem.get().stateFor(player);
-        if (state == null) {
-            return;
-        }
-
-        if (!state.lock().active(ServerCombatSystem.get().now(player))) {
-            return;
-        }
-
-        player.setItemSlot(EquipmentSlot.OFFHAND, event.getFrom());
+        runtime.onLogout(player);
     }
 }
 
@@ -305,53 +1870,647 @@ package com.pgalaxyp.fragmento.combat.engine.runtime;
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.engine.network.CombatSnapshotFingerprint;
+import com.pgalaxyp.fragmento.combat.engine.network.CombatSnapshotSender;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatEffect;
+import com.pgalaxyp.fragmento.combat.engine.profile.SpawnCutEffect;
+import com.pgalaxyp.fragmento.combat.engine.restriction.CombatInventoryLock;
+import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public final class CombatRuntime {
+
+    private final Map<UUID, CombatSnapshotFingerprint> lastFingerprint = new HashMap<>();
+
+    private final CombatSnapshotSender snapshotSender = new CombatSnapshotSender();
+    private final CombatInventoryLock inventoryLock = new CombatInventoryLock();
+
+    private final CombatSessionManager sessions;
+
+    public CombatRuntime() {
+        this.sessions = CombatWiring.createSessionManager();
+    }
+
+    public CombatSessionManager sessions() {
+        return sessions;
+    }
+
+    public void onAttackIntent(ServerPlayer player, AttackIntent intent) {
+        if (player == null || intent == null) return;
+
+        CombatSession session = sessions.sessionFor(player);
+        CombatSession.Update up = session.onAttackIntent(player, intent);
+
+        applyUpdate(player, up);
+    }
+
+    public void onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
+        if (player == null || intent == null) return;
+
+        CombatSession session = sessions.sessionFor(player);
+        CombatSession.Update up = session.onAbilityIntent(player, intent);
+
+        applyUpdate(player, up);
+    }
+
+    public void onTick(ServerPlayer player) {
+        if (player == null) return;
+
+        CombatSession session = sessions.sessionFor(player);
+        CombatSession.Update up = session.tick(player);
+
+        applyUpdate(player, up);
+    }
+
+    public void onLogout(ServerPlayer player) {
+        if (player == null) return;
+
+        UUID id = player.getUUID();
+
+        sessions.clear(player);
+        lastFingerprint.remove(id);
+        inventoryLock.clear(player);
+    }
+
+    private void applyUpdate(ServerPlayer player, CombatSession.Update up) {
+        if (player == null || up == null) return;
+
+        ServerCombatState state = up.state();
+        List<CombatEffect> effects = up.effects();
+
+        applyEffects(player, effects);
+        syncInventoryLock(player, state);
+        tickInventoryLock(player, state);
+        sendIfChanged(player, state);
+    }
+
+    private void applyEffects(ServerPlayer player, List<CombatEffect> effects) {
+        if (player == null || effects == null || effects.isEmpty()) return;
+        if (!(player.level() instanceof ServerLevel sl)) return;
+
+        for (CombatEffect e : effects) {
+            if (e instanceof SpawnCutEffect s) {
+                FragmentoEffectApplier.applySpawnCut(sl, s);
+            }
+        }
+    }
+
+    private void sendIfChanged(ServerPlayer player, ServerCombatState state) {
+        if (player == null || state == null) return;
+
+        var snap = state.snapshot();
+        CombatSnapshotFingerprint now = CombatSnapshotFingerprint.of(snap);
+
+        CombatSnapshotFingerprint last =
+                lastFingerprint.get(player.getUUID());
+
+        if (now.equals(last)) {
+            return;
+        }
+
+        lastFingerprint.put(player.getUUID(), now);
+        snapshotSender.send(player, snap);
+    }
+
+    private void syncInventoryLock(ServerPlayer player, ServerCombatState state) {
+        if (player == null || state == null) return;
+
+        if (state.loadout() == null || !state.loadout().valid()) {
+            inventoryLock.sync(player, false);
+            return;
+        }
+
+        CombatTime now = CombatTime.ofTicks(player.level().getGameTime());
+        ActionLockState lock = state.lock();
+
+        boolean shouldLock = lock != null && lock.itemSwapLocked(now);
+        inventoryLock.sync(player, shouldLock);
+    }
+
+    private void tickInventoryLock(ServerPlayer player, ServerCombatState state) {
+        if (player == null || state == null) return;
+
+        if (state.loadout() == null || !state.loadout().valid()) {
+            return;
+        }
+
+        CombatTime now = CombatTime.ofTicks(player.level().getGameTime());
+        ActionLockState lock = state.lock();
+
+        if (lock != null && lock.itemSwapLocked(now)) {
+            inventoryLock.tick(player);
+        }
+    }
+}
+
+===== CombatSession.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatEffect;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatProfile;
 import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
 import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
 import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerPlayer;
 
-public final class CombatRuntime {
+import java.util.ArrayList;
+import java.util.List;
+
+public final class CombatSession {
+
+    public interface ProfileResolver {
+        CombatProfile resolve(ServerCombatState state);
+    }
 
     private final CombatClock clock;
     private final CombatEngine combatEngine;
     private final AbilityEngine abilityEngine;
-    private final RuntimeLoadoutSystem loadoutSystem = new RuntimeLoadoutSystem();
+    private final RuntimeLoadoutSystem loadoutSystem;
+    private final ProfileResolver profiles;
 
     private ServerCombatState state;
 
-    public CombatRuntime(
+    public CombatSession(
             CombatClock clock,
             CombatEngine combatEngine,
             AbilityEngine abilityEngine,
+            RuntimeLoadoutSystem loadoutSystem,
+            ProfileResolver profiles,
             ServerCombatState initial
     ) {
         this.clock = clock;
         this.combatEngine = combatEngine;
         this.abilityEngine = abilityEngine;
+        this.loadoutSystem = loadoutSystem;
+        this.profiles = profiles;
         this.state = initial;
     }
 
-    public void onAttackIntent(AttackIntent intent) {
+    public Update onAttackIntent(ServerPlayer player, AttackIntent intent) {
+        if (player == null || intent == null) {
+            return Update.noChange(state);
+        }
+
         CombatTime now = clock.now();
+
+        ServerCombatState before = state;
+        state = loadoutSystem.tick(state, player, now);
         state = combatEngine.applyAttack(state, intent, now);
+
+        return collectTransitions(player, before, state, now);
     }
 
-    public void onAbilityIntent(AbilityIntent intent) {
+    public Update onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
+        if (player == null || intent == null) {
+            return Update.noChange(state);
+        }
+
         CombatTime now = clock.now();
+
+        ServerCombatState before = state;
+        state = loadoutSystem.tick(state, player, now);
         state = abilityEngine.apply(state, intent, now);
+
+        return collectTransitions(player, before, state, now);
     }
 
-    public void tick(ServerPlayer player) {
+    public Update tick(ServerPlayer player) {
+        if (player == null) {
+            return Update.noChange(state);
+        }
+
         CombatTime now = clock.now();
+
+        ServerCombatState before = state;
+
         state = loadoutSystem.tick(state, player, now);
         state = combatEngine.tick(state, now);
         state = abilityEngine.tick(state, now);
+
+        return collectTransitions(player, before, state, now);
     }
 
     public ServerCombatState state() {
         return state;
     }
+
+    private Update collectTransitions(
+            ServerPlayer player,
+            ServerCombatState before,
+            ServerCombatState after,
+            CombatTime now
+    ) {
+        if (before == null || after == null) {
+            return Update.noChange(state);
+        }
+
+        List<CombatEffect> effects = new ArrayList<>();
+
+        int beforeStep = before.combo() != null ? before.combo().stepIndex() : 0;
+        int afterStep = after.combo() != null ? after.combo().stepIndex() : 0;
+
+        ActionKind beforeLock = before.lock() != null ? before.lock().actionKind() : ActionKind.NONE;
+        ActionKind afterLock = after.lock() != null ? after.lock().actionKind() : ActionKind.NONE;
+
+        boolean changed = after.version() != null && before.version() != null
+                && after.version().value() != before.version().value();
+
+        if (afterStep != beforeStep) {
+            CombatProfile profile = safeProfile(after);
+            try {
+                effects.addAll(profile.onComboStep(player, afterStep, now));
+            } catch (Throwable t) {
+                FragmentoLog.combatEx(
+                        t,
+                        "session profile onComboStep crashed, player.uuid={} step={} profile={}",
+                        player.getUUID(),
+                        afterStep,
+                        profile.getClass().getName()
+                );
+            }
+        }
+
+        if (afterLock == ActionKind.INFUSED_EXECUTE && beforeLock != ActionKind.INFUSED_EXECUTE) {
+            CombatProfile profile = safeProfile(after);
+            try {
+                effects.addAll(profile.onInfusedExecute(player, after.lock().skillId(), now));
+            } catch (Throwable t) {
+                FragmentoLog.combatEx(
+                        t,
+                        "session profile onInfusedExecute crashed, player.uuid={} skillId={} profile={}",
+                        player.getUUID(),
+                        after.lock().skillId() != null ? after.lock().skillId().value() : null,
+                        profile.getClass().getName()
+                );
+            }
+        }
+
+        if (afterLock == ActionKind.CAST_FINISH && beforeLock != ActionKind.CAST_FINISH) {
+            CombatProfile profile = safeProfile(after);
+            try {
+                effects.addAll(profile.onCastFinish(player, after.lock().skillId(), now));
+            } catch (Throwable t) {
+                FragmentoLog.combatEx(
+                        t,
+                        "session profile onCastFinish crashed, player.uuid={} skillId={} profile={}",
+                        player.getUUID(),
+                        after.lock().skillId() != null ? after.lock().skillId().value() : null,
+                        profile.getClass().getName()
+                );
+            }
+        }
+
+        if (!changed && effects.isEmpty()) {
+            return Update.noChange(after);
+        }
+
+        return new Update(after, List.copyOf(effects));
+    }
+
+    private CombatProfile safeProfile(ServerCombatState st) {
+        if (profiles == null) {
+            return CombatProfile.NOOP;
+        }
+        try {
+            CombatProfile p = profiles.resolve(st);
+            return p != null ? p : CombatProfile.NOOP;
+        } catch (Throwable ignored) {
+            return CombatProfile.NOOP;
+        }
+    }
+
+    public record Update(
+            ServerCombatState state,
+            List<CombatEffect> effects
+    ) {
+        public static Update noChange(ServerCombatState state) {
+            return new Update(state, List.of());
+        }
+    }
+}
+
+===== CombatSessionManager.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.engine.profile.CombatProfile;
+import com.pgalaxyp.fragmento.combat.engine.registry.FragmentoCombatRegistries;
+import com.pgalaxyp.fragmento.combat.engine.time.TickClock;
+import com.pgalaxyp.fragmento.combat.engine.time.TickSource;
+import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
+import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
+import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+public final class CombatSessionManager {
+
+    private final Map<UUID, CombatSession> sessions = new HashMap<>();
+
+    private final CombatEngine combatEngine;
+    private final AbilityEngine abilityEngine;
+
+    private final RuntimeLoadoutSystem loadoutSystem = new RuntimeLoadoutSystem();
+
+    public CombatSessionManager(
+            CombatEngine combatEngine,
+            AbilityEngine abilityEngine
+    ) {
+        this.combatEngine = combatEngine;
+        this.abilityEngine = abilityEngine;
+    }
+
+    public CombatSession sessionFor(ServerPlayer player) {
+        UUID id = player.getUUID();
+
+        CombatSession existing = sessions.get(id);
+        if (existing != null) {
+            return existing;
+        }
+
+        TickSource src = () -> player.level().getGameTime();
+        CombatClock clock = new TickClock(src);
+
+        CombatSession.ProfileResolver resolver = st -> {
+            if (st == null || st.loadout() == null || st.loadout().family() == null) {
+                return CombatProfile.NOOP;
+            }
+            return FragmentoCombatRegistries.catalysts().profileFor(st.loadout().family());
+        };
+
+        CombatSession created = new CombatSession(
+                clock,
+                combatEngine,
+                abilityEngine,
+                loadoutSystem,
+                resolver,
+                ServerCombatState.initial()
+        );
+
+        sessions.put(id, created);
+
+        FragmentoLog.runtime(
+                "session created, player.uuid={} sessions.size={}",
+                id,
+                sessions.size()
+        );
+
+        return created;
+    }
+
+    public void clear(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        sessions.remove(player.getUUID());
+    }
+
+    public int size() {
+        return sessions.size();
+    }
+}
+
+===== CombatWiring.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.combat.content.skill.FragmentoSkills;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
+import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
+import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
+import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.ActionLockRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboResetRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.ComboTimingRule;
+import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
+import com.pgalaxyp.fragmento.combat.rule.combat.HoldLatchRule;
+import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
+import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
+import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
+import com.pgalaxyp.fragmento.combat.rule.port.ComboConfig;
+
+public final class CombatWiring {
+
+    public static CombatSessionManager createSessionManager() {
+        EquipGateRule equipGate = new EquipGateRule();
+        LockGateRule lockGate = new LockGateRule();
+        CooldownRule cooldownRule = new CooldownRule();
+        ActionLockRule actionLockRule = new ActionLockRule();
+
+        ComboConfig comboConfig = new ComboConfig() {
+            public int maxSteps() {
+                return 3;
+            }
+
+            public Duration stepDuration() {
+                return Duration.ofTicks(10);
+            }
+
+            public Duration actionLockDuration() {
+                return Duration.ofTicks(10);
+            }
+        };
+
+        AbilityConfig abilityConfig = new AbilityConfig() {
+            public Duration castDuration(SkillId skillId) {
+                if (skillId != null && skillId.value() == FragmentoSkills.BARDO_SPECIAL_CASTED.value()) {
+                    return Duration.ofTicks(40);
+                }
+                return Duration.ofTicks(0);
+            }
+
+            public Duration cooldownDuration(SkillId skillId) {
+                if (skillId != null && skillId.value() == FragmentoSkills.BARDO_NORMAL_INFUSED.value()) {
+                    return Duration.ofTicks(200);
+                }
+                if (skillId != null && skillId.value() == FragmentoSkills.BARDO_SPECIAL_CASTED.value()) {
+                    return Duration.ofTicks(400);
+                }
+                return Duration.ofTicks(0);
+            }
+
+            public Duration actionLockDuration(SkillId skillId) {
+                return Duration.ofTicks(10);
+            }
+        };
+
+        InfusedRule infusedRule = new InfusedRule(cooldownRule, abilityConfig);
+        CastedRule castedRule = new CastedRule(cooldownRule, abilityConfig);
+
+        CombatEngine combatEngine = new CombatEngine(
+                equipGate,
+                lockGate,
+                comboConfig,
+                actionLockRule,
+                new ComboRule(),
+                new ComboTimingRule(),
+                new ComboResetRule(),
+                new HoldLatchRule(),
+                infusedRule
+        );
+
+        AbilityEngine abilityEngine = new AbilityEngine(
+                equipGate,
+                lockGate,
+                abilityConfig,
+                actionLockRule,
+                infusedRule,
+                castedRule
+        );
+
+        return new CombatSessionManager(combatEngine, abilityEngine);
+    }
+
+    private CombatWiring() {}
+}
+
+===== EquippedSkillsAssigner.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.combat.engine.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.combat.engine.registry.FragmentoCombatRegistries;
+import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
+import com.pgalaxyp.fragmento.combat.state.runtime.LoadoutRuntimeState;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+
+public final class EquippedSkillsAssigner {
+
+    public EquippedSkillsRuntimeState forPlayer(ServerPlayer player, LoadoutRuntimeState loadout) {
+        if (player == null || loadout == null || !loadout.valid()) {
+            return EquippedSkillsRuntimeState.empty();
+        }
+
+        ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
+        CatalystDefinition def = FragmentoCombatRegistries.catalysts().resolve(main);
+        if (def == null) {
+            return EquippedSkillsRuntimeState.empty();
+        }
+
+        return new EquippedSkillsRuntimeState(def.skillsBySlot());
+    }
+}
+
+===== FragmentoCombatRuntime.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.engine.restriction.CombatInteractionGuard;
+import net.neoforged.neoforge.common.NeoForge;
+
+public final class FragmentoCombatRuntime {
+
+    private static volatile CombatRuntime RUNTIME;
+
+    public static void init() {
+        if (RUNTIME != null) {
+            return;
+        }
+
+        synchronized (FragmentoCombatRuntime.class) {
+            if (RUNTIME != null) {
+                return;
+            }
+
+            CombatRuntime created = new CombatRuntime();
+
+            NeoForge.EVENT_BUS.register(new CombatEventRouter(created));
+            NeoForge.EVENT_BUS.register(new CombatInteractionGuard(created.sessions()));
+
+            RUNTIME = created;
+
+            FragmentoLog.runtime("combat runtime init ok");
+        }
+    }
+
+    public static CombatRuntime get() {
+        CombatRuntime rt = RUNTIME;
+        if (rt == null) {
+            init();
+            rt = RUNTIME;
+        }
+        return rt;
+    }
+
+    private FragmentoCombatRuntime() {}
+}
+
+===== FragmentoEffectApplier.java =====
+package com.pgalaxyp.fragmento.combat.engine.runtime;
+
+import com.pgalaxyp.fragmento.combat.content.entity.CutEntity;
+import com.pgalaxyp.fragmento.combat.content.entity.FragmentoEntities;
+import com.pgalaxyp.fragmento.combat.engine.profile.SpawnCutEffect;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.UUID;
+
+public final class FragmentoEffectApplier {
+
+    public static void applySpawnCut(ServerLevel level, SpawnCutEffect e) {
+        if (level == null || e == null) {
+            return;
+        }
+
+        UUID ownerId = e.ownerId();
+        if (ownerId == null) {
+            return;
+        }
+
+        Entity ownerEntity = level.getEntity(ownerId);
+        if (!(ownerEntity instanceof LivingEntity owner)) {
+            return;
+        }
+
+        LivingEntity target = null;
+        UUID targetId = e.targetId();
+        if (targetId != null) {
+            Entity targetEntity = level.getEntity(targetId);
+            if (targetEntity instanceof LivingEntity le && le.isAlive()) {
+                target = le;
+            }
+        }
+
+        Vec3 spawn = new Vec3(e.spawnX(), e.spawnY(), e.spawnZ());
+        Vec3 aim = new Vec3(e.aimX(), e.aimY(), e.aimZ());
+
+        CutEntity.spawn(
+                level,
+                FragmentoEntities.CUT.get(),
+                owner,
+                target,
+                spawn,
+                aim,
+                e.lifeTicks(),
+                e.damage(),
+                e.verticalOnly()
+        );
+    }
+
+    private FragmentoEffectApplier() {}
 }
 
 ===== LoadoutResolver.java =====
@@ -359,7 +2518,11 @@ package com.pgalaxyp.fragmento.combat.engine.runtime;
 
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.combat.domain.id.CatalystId;
+import com.pgalaxyp.fragmento.combat.engine.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.combat.engine.registry.FragmentoCombatRegistries;
 import com.pgalaxyp.fragmento.combat.state.runtime.LoadoutRuntimeState;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -374,38 +2537,43 @@ public final class LoadoutResolver {
         ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
         ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
 
-        if (!off.isEmpty()) {
+        if (off != null && !off.isEmpty()) {
             return LoadoutRuntimeState.empty();
         }
 
-        CatalystId catalyst = extractCatalyst(main);
-        CatalystFamilyId family = extractFamily(main);
-
-        if (catalyst == null || family == null) {
+        CatalystDefinition def = FragmentoCombatRegistries.catalysts().resolve(main);
+        if (def == null) {
             return LoadoutRuntimeState.empty();
         }
 
-        return new LoadoutRuntimeState(catalyst, family, true);
+        CatalystId catalystId = deriveStableId(main);
+        CatalystFamilyId family = def.family();
+
+        if (catalystId == null || family == null) {
+            return LoadoutRuntimeState.empty();
+        }
+
+        return new LoadoutRuntimeState(catalystId, family, true);
     }
 
-    private CatalystId extractCatalyst(ItemStack stack) {
+    private static CatalystId deriveStableId(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
-        return new CatalystId(stack.getItem().hashCode());
-    }
-
-    private CatalystFamilyId extractFamily(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (key == null) {
             return null;
         }
-        return new CatalystFamilyId(stack.getItem().toString());
+        int raw = key.toString().hashCode();
+        int id = Math.floorMod(raw, Integer.MAX_VALUE);
+        return new CatalystId(id);
     }
 }
 
 ===== LoadoutUpdater.java =====
 package com.pgalaxyp.fragmento.combat.engine.runtime;
 
+import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
 import com.pgalaxyp.fragmento.combat.state.runtime.LoadoutRuntimeState;
 import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerPlayer;
@@ -413,6 +2581,7 @@ import net.minecraft.server.level.ServerPlayer;
 public final class LoadoutUpdater {
 
     private final LoadoutResolver resolver = new LoadoutResolver();
+    private final EquippedSkillsAssigner skills = new EquippedSkillsAssigner();
 
     public ServerCombatState update(ServerCombatState state, ServerPlayer player) {
         if (state == null || player == null) {
@@ -424,7 +2593,14 @@ public final class LoadoutUpdater {
             return state;
         }
 
-        return state.withLoadout(next);
+        ServerCombatState out = state.withLoadout(next);
+
+        EquippedSkillsRuntimeState eq = skills.forPlayer(player, next);
+        if (!eq.equals(out.equippedSkills())) {
+            out = out.withEquippedSkills(eq);
+        }
+
+        return out;
     }
 }
 
@@ -439,164 +2615,88 @@ public final class RuntimeLoadoutSystem {
 
     private final LoadoutUpdater updater = new LoadoutUpdater();
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            ServerPlayer player,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, ServerPlayer player, CombatTime now) {
         return updater.update(state, player);
     }
 }
 
-===== ServerCombatSystem.java =====
-package com.pgalaxyp.fragmento.combat.engine.runtime;
+===== AimResolver.java =====
+package com.pgalaxyp.fragmento.combat.engine.targeting;
 
-import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
-import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
-import com.pgalaxyp.fragmento.combat.engine.network.CombatSnapshotSender;
-import com.pgalaxyp.fragmento.combat.engine.restriction.ItemSwapBlocker;
-import com.pgalaxyp.fragmento.combat.engine.time.TickClock;
-import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
-import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
-import com.pgalaxyp.fragmento.combat.rule.combat.ActionLockRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboResetRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboTimingRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.HoldLatchRule;
-import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
-import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
-import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
-import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
-import com.pgalaxyp.fragmento.combat.rule.port.ComboConfig;
-import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
-import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.*;
 
-public final class ServerCombatSystem {
+import java.util.List;
 
-    private static final ServerCombatSystem INSTANCE = new ServerCombatSystem();
+public final class AimResolver {
 
-    private final Map<UUID, CombatRuntime> runtimes = new HashMap<>();
-    private final Map<UUID, Long> lastSentVersion = new HashMap<>();
+    private static final double DOT_MIN = 0.85;
 
-    private final CombatSnapshotSender snapshotSender = new CombatSnapshotSender();
-
-    private final EquipGateRule equipGate = new EquipGateRule();
-    private final LockGateRule lockGate = new LockGateRule();
-    private final CooldownRule cooldownRule = new CooldownRule();
-    private final ActionLockRule actionLockRule = new ActionLockRule();
-
-    private final ComboConfig comboConfig = new ComboConfig() {
-        public int maxSteps() { return 3; }
-        public com.pgalaxyp.fragmento.combat.domain.timing.Duration stepDuration() { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
-        public com.pgalaxyp.fragmento.combat.domain.timing.Duration actionLockDuration() { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
-    };
-
-    private final AbilityConfig abilityConfig = new AbilityConfig() {
-        public com.pgalaxyp.fragmento.combat.domain.timing.Duration castDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(20); }
-        public com.pgalaxyp.fragmento.combat.domain.timing.Duration cooldownDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(40); }
-        public com.pgalaxyp.fragmento.combat.domain.timing.Duration actionLockDuration(com.pgalaxyp.fragmento.combat.domain.id.SkillId id) { return com.pgalaxyp.fragmento.combat.domain.timing.Duration.ofTicks(10); }
-    };
-
-    private final InfusedRule infusedRule = new InfusedRule(cooldownRule, abilityConfig);
-    private final CastedRule castedRule = new CastedRule(cooldownRule, abilityConfig);
-
-    private final CombatEngine combatEngine =
-            new CombatEngine(
-                    equipGate,
-                    lockGate,
-                    comboConfig,
-                    actionLockRule,
-                    new ComboRule(),
-                    new ComboTimingRule(),
-                    new ComboResetRule(),
-                    new HoldLatchRule(),
-                    infusedRule
-            );
-
-    private final AbilityEngine abilityEngine =
-            new AbilityEngine(
-                    equipGate,
-                    lockGate,
-                    abilityConfig,
-                    actionLockRule,
-                    infusedRule,
-                    castedRule
-            );
-
-    private ServerCombatSystem() {
-        NeoForge.EVENT_BUS.register(this);
-        NeoForge.EVENT_BUS.register(new ItemSwapBlocker());
-    }
-
-    public static ServerCombatSystem get() {
-        return INSTANCE;
-    }
-
-    public void onAttackIntent(ServerPlayer player, AttackIntent intent) {
-        CombatRuntime rt = runtimeFor(player);
-        rt.onAttackIntent(intent);
-        sendIfChanged(player, rt.state());
-    }
-
-    public void onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
-        CombatRuntime rt = runtimeFor(player);
-        rt.onAbilityIntent(intent);
-        sendIfChanged(player, rt.state());
-    }
-
-    @SubscribeEvent
-    public void onPlayerTick(PlayerTickEvent.Post event) {
-        if (!(event.getEntity() instanceof ServerPlayer sp)) {
-            return;
+    public record Aim(
+            LivingEntity target,
+            Vec3 point,
+            Kind kind
+    ) {
+        public enum Kind {
+            TARGET,
+            BLOCK,
+            EMPTY
         }
 
-        CombatRuntime rt = runtimeFor(sp);
-        rt.tick(sp);
-        sendIfChanged(sp, rt.state());
-    }
-
-    public ServerCombatState stateFor(ServerPlayer player) {
-        CombatRuntime rt = runtimes.get(player.getUUID());
-        return rt != null ? rt.state() : null;
-    }
-
-    public CombatTime now(ServerPlayer player) {
-        return CombatTime.ofTicks(player.level().getGameTime());
-    }
-
-    private CombatRuntime runtimeFor(ServerPlayer player) {
-        return runtimes.computeIfAbsent(
-                player.getUUID(),
-                id -> {
-                    CombatClock clock = new TickClock(() -> player.level().getGameTime());
-                    return new CombatRuntime(
-                            clock,
-                            combatEngine,
-                            abilityEngine,
-                            ServerCombatState.initial()
-                    );
-                }
-        );
-    }
-
-    private void sendIfChanged(ServerPlayer player, ServerCombatState state) {
-        long v = state.version().value();
-        long last = lastSentVersion.getOrDefault(player.getUUID(), Long.MIN_VALUE);
-        if (v == last) {
-            return;
+        public Vec3 aimPoint() {
+            if (target != null && target.isAlive()) {
+                return target.getBoundingBox().getCenter();
+            }
+            return point;
         }
-        lastSentVersion.put(player.getUUID(), v);
-        snapshotSender.send(player, state.snapshot());
+    }
+
+    public Aim resolve(ServerPlayer player, double maxRange, double emptyRange) {
+        if (player == null) {
+            return new Aim(null, Vec3.ZERO, Aim.Kind.EMPTY);
+        }
+
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle().normalize();
+
+        AABB box = player.getBoundingBox()
+                .expandTowards(look.scale(maxRange))
+                .inflate(1.5);
+
+        List<LivingEntity> entities =
+                player.level().getEntitiesOfClass(
+                        LivingEntity.class,
+                        box,
+                        e -> e.isAlive() && e != player
+                );
+
+        LivingEntity best = null;
+        double bestDist = maxRange * maxRange;
+
+        for (LivingEntity e : entities) {
+            Vec3 center = e.getBoundingBox().getCenter();
+            Vec3 dir = center.subtract(eye);
+            double dist = dir.lengthSqr();
+            if (dist > bestDist) continue;
+
+            double dot = look.dot(dir.normalize());
+            if (dot < DOT_MIN) continue;
+
+            best = e;
+            bestDist = dist;
+        }
+
+        if (best != null) {
+            return new Aim(best, best.getBoundingBox().getCenter(), Aim.Kind.TARGET);
+        }
+
+        HitResult hit = player.pick(maxRange, 0.0F, false);
+        if (hit instanceof BlockHitResult bhr) {
+            return new Aim(null, Vec3.atCenterOf(bhr.getBlockPos()), Aim.Kind.BLOCK);
+        }
+
+        return new Aim(null, eye.add(look.scale(emptyRange)), Aim.Kind.EMPTY);
     }
 }
 
@@ -631,25 +2731,22 @@ public interface TickSource {
 ===== FragmentoNetwork.java =====
 package com.pgalaxyp.fragmento.combat.network;
 
-import com.pgalaxyp.fragmento.combat.client.network.CombatSnapshotReceiver;
-import com.pgalaxyp.fragmento.combat.client.state.ClientCombatViewState;
+import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
 import com.pgalaxyp.fragmento.combat.engine.network.ServerCombatPayloadHandler;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
-@EventBusSubscriber(modid = "fragmento", bus = EventBusSubscriber.Bus.MOD)
 public final class FragmentoNetwork {
 
-    private static final ClientCombatViewState CLIENT_STATE = new ClientCombatViewState();
-    private static final CombatSnapshotReceiver CLIENT_SNAPSHOT_RECEIVER = new CombatSnapshotReceiver(CLIENT_STATE);
+    public static void register(IEventBus modBus) {
+        modBus.addListener(FragmentoNetwork::onRegister);
+    }
 
-    @SubscribeEvent
-    public static void register(RegisterPayloadHandlersEvent event) {
+    private static void onRegister(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
 
         registrar.playToServer(
@@ -667,7 +2764,7 @@ public final class FragmentoNetwork {
         registrar.playToClient(
                 CombatSnapshotPayload.TYPE,
                 CombatSnapshotPayload.STREAM_CODEC,
-                (payload, context) -> CLIENT_SNAPSHOT_RECEIVER.apply(payload)
+                CombatClientProxy::handleSnapshot
         );
     }
 
@@ -843,7 +2940,16 @@ public record CombatSnapshotPayload(
         }
 
         LockSnapshot lock = snap.lock();
-        ByteBufCodecs.VAR_INT.encode(buf, lock.actionKind().ordinal());
+        ActionKind kind = lock.actionKind() != null ? lock.actionKind() : ActionKind.NONE;
+        ByteBufCodecs.VAR_INT.encode(buf, kind.ordinal());
+
+        if (lock.skillId() != null) {
+            ByteBufCodecs.BOOL.encode(buf, true);
+            ByteBufCodecs.VAR_INT.encode(buf, lock.skillId().value());
+        } else {
+            ByteBufCodecs.BOOL.encode(buf, false);
+        }
+
         ByteBufCodecs.VAR_LONG.encode(buf, lock.actionEndsAt().ticks());
         ByteBufCodecs.VAR_LONG.encode(buf, lock.itemSwapLockedUntil().ticks());
 
@@ -910,9 +3016,16 @@ public record CombatSnapshotPayload(
                 new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
 
         ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+
+        SkillId skillId = null;
+        boolean hasSkill = ByteBufCodecs.BOOL.decode(buf);
+        if (hasSkill) {
+            skillId = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+        }
+
         CombatTime endsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
         CombatTime swapLock = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        LockSnapshot lock = new LockSnapshot(kind, endsAt, swapLock);
+        LockSnapshot lock = new LockSnapshot(kind, skillId, endsAt, swapLock);
 
         CatalystId catalyst = null;
         if (ByteBufCodecs.BOOL.decode(buf)) {
@@ -1266,11 +3379,7 @@ public final class AbilityEngine {
         this.castedRule = castedRule;
     }
 
-    public ServerCombatState apply(
-            ServerCombatState state,
-            AbilityIntent intent,
-            CombatTime now
-    ) {
+    public ServerCombatState apply(ServerCombatState state, AbilityIntent intent, CombatTime now) {
         if (state == null || intent == null || now == null) {
             return state;
         }
@@ -1295,10 +3404,7 @@ public final class AbilityEngine {
         return state.withAbilities(next);
     }
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, CombatTime now) {
         if (state == null || now == null) {
             return state;
         }
@@ -1330,6 +3436,7 @@ public final class AbilityEngine {
             ActionLockState lock =
                     actionLockRule.lock(
                             ActionKind.CAST_FINISH,
+                            skillId,
                             config.actionLockDuration(skillId),
                             now
                     );
@@ -1345,19 +3452,23 @@ public final class AbilityEngine {
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
 import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
 
 public final class ActionLockRule {
 
-    public ActionLockState lock(
-            ActionKind kind,
-            Duration duration,
-            CombatTime now
-    ) {
-        CombatTime endsAt = now.plus(duration);
-        return new ActionLockState(kind, endsAt, endsAt);
+    public ActionLockState lock(ActionKind kind, SkillId skillId, Duration duration, CombatTime now) {
+        ActionKind safeKind = kind != null ? kind : ActionKind.NONE;
+        CombatTime endsAt = now.plus(duration != null ? duration : Duration.ofTicks(0L));
+
+        CombatTime swapLockUntil = CombatTime.ofTicks(0L);
+        if (safeKind == ActionKind.CAST_FINISH) {
+            swapLockUntil = endsAt;
+        }
+
+        return new ActionLockState(safeKind, skillId, endsAt, swapLockUntil);
     }
 }
 
@@ -1365,6 +3476,7 @@ public final class ActionLockRule {
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
@@ -1409,11 +3521,7 @@ public final class CombatEngine {
         this.infusedRule = infusedRule;
     }
 
-    public ServerCombatState applyAttack(
-            ServerCombatState state,
-            AttackIntent intent,
-            CombatTime now
-    ) {
+    public ServerCombatState applyAttack(ServerCombatState state, AttackIntent intent, CombatTime now) {
         if (state == null || intent == null || now == null) {
             return state;
         }
@@ -1423,10 +3531,10 @@ public final class CombatEngine {
         }
 
         if (!lockGate.allowAttack(state.lock(), now)) {
-            if (intent == AttackIntent.HOLD_START) {
-                ComboRuntimeState latched = comboRule.apply(state.combo(), intent, now);
-                if (latched != state.combo()) {
-                    return state.withCombo(latched);
+            if (intent == AttackIntent.HOLD_START || intent == AttackIntent.HOLD_STOP) {
+                ComboRuntimeState next = comboRule.apply(state.combo(), intent, now);
+                if (!next.equals(state.combo())) {
+                    return state.withCombo(next);
                 }
             }
             return state;
@@ -1456,23 +3564,21 @@ public final class CombatEngine {
         }
 
         ServerCombatState out = state;
-        if (next != state.combo()) {
+        if (!next.equals(state.combo())) {
             out = out.withCombo(next);
         }
 
         if (infused != null && infused.consumedSkillId() != null) {
+            SkillId used = infused.consumedSkillId();
             AbilityRuntimeState abilities =
-                    infusedRule.startCooldownOnUse(
-                            infused.state(),
-                            infused.consumedSkillId(),
-                            now
-                    );
+                    infusedRule.startCooldownOnUse(infused.state(), used, now);
 
             out = out.withAbilities(abilities);
             out = out.withCombo(ComboRuntimeState.idle());
             out = out.withLock(
                     actionLockRule.lock(
                             ActionKind.INFUSED_EXECUTE,
+                            used,
                             comboConfig.actionLockDuration(),
                             now
                     )
@@ -1484,6 +3590,7 @@ public final class CombatEngine {
             out = out.withLock(
                     actionLockRule.lock(
                             ActionKind.COMBO_STEP,
+                            null,
                             comboConfig.actionLockDuration(),
                             now
                     )
@@ -1493,16 +3600,13 @@ public final class CombatEngine {
         return out;
     }
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, CombatTime now) {
         if (state == null || now == null) {
             return state;
         }
 
         ComboRuntimeState next = holdLatchRule.advanceIfLatched(state.combo(), now);
-        if (next == state.combo()) {
+        if (next.equals(state.combo())) {
             return state;
         }
 
@@ -1513,6 +3617,7 @@ public final class CombatEngine {
         out = out.withLock(
                 actionLockRule.lock(
                         ActionKind.COMBO_STEP,
+                        null,
                         comboConfig.actionLockDuration(),
                         now
                 )
@@ -1587,12 +3692,11 @@ public final class ComboRule {
         }
 
         if (intent == AttackIntent.HOLD_START) {
-            boolean latch = state.holdLatched() || now.isBefore(state.nextStepAt());
             return new ComboRuntimeState(
                     state.stepIndex(),
                     state.nextStepAt(),
                     true,
-                    latch
+                    true
             );
         }
 
@@ -1755,30 +3859,24 @@ import com.pgalaxyp.fragmento.combat.state.runtime.ActionLockState;
 
 public final class LockGateRule {
 
-    public boolean allowAttack(
-            ActionLockState lock,
-            CombatTime now
-    ) {
+    public boolean allowAttack(ActionLockState lock, CombatTime now) {
         if (lock == null || now == null) {
             return true;
         }
-        return !lock.active(now);
+        return !lock.isActive(now);
     }
 
-    public boolean allowAbility(
-            ActionLockState lock,
-            AbilityIntent intent,
-            CombatTime now
-    ) {
+    public boolean allowAbility(ActionLockState lock, AbilityIntent intent, CombatTime now) {
         if (lock == null || intent == null || now == null) {
             return true;
         }
 
-        if (!lock.active(now)) {
+        if (!lock.isActive(now)) {
             return true;
         }
 
-        return intent.kind() == AbilityIntentKind.CANCEL;
+        AbilityIntentKind k = intent.kind();
+        return k == AbilityIntentKind.CANCEL || k == AbilityIntentKind.TOGGLE;
     }
 }
 
@@ -1813,126 +3911,6 @@ public interface ComboConfig {
     int maxSteps();
     Duration stepDuration();
     Duration actionLockDuration();
-}
-
-===== CombatSimulation.java =====
-package com.pgalaxyp.fragmento.combat.simulation;
-
-import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
-import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
-import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
-import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
-import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
-import com.pgalaxyp.fragmento.combat.domain.timing.Duration;
-import com.pgalaxyp.fragmento.combat.engine.runtime.CombatRuntime;
-import com.pgalaxyp.fragmento.combat.rule.ability.CastedRule;
-import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.AbilityEngine;
-import com.pgalaxyp.fragmento.combat.rule.combat.ActionLockRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.CombatEngine;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboResetRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.ComboTimingRule;
-import com.pgalaxyp.fragmento.combat.rule.combat.HoldLatchRule;
-import com.pgalaxyp.fragmento.combat.rule.cooldown.CooldownRule;
-import com.pgalaxyp.fragmento.combat.rule.gate.EquipGateRule;
-import com.pgalaxyp.fragmento.combat.rule.gate.LockGateRule;
-import com.pgalaxyp.fragmento.combat.rule.port.AbilityConfig;
-import com.pgalaxyp.fragmento.combat.rule.port.ComboConfig;
-import com.pgalaxyp.fragmento.combat.rule.port.CombatClock;
-import com.pgalaxyp.fragmento.combat.state.runtime.EquippedSkillsRuntimeState;
-import com.pgalaxyp.fragmento.combat.state.runtime.ServerCombatState;
-import java.util.Map;
-
-public final class CombatSimulation {
-
-    public static CombatRuntime simpleSimulation() {
-        CombatClock clock = () -> CombatTime.ofTicks(0L);
-
-        ComboConfig comboConfig = new ComboConfig() {
-            @Override
-            public int maxSteps() {
-                return 3;
-            }
-
-            @Override
-            public Duration stepDuration() {
-                return Duration.ofTicks(10L);
-            }
-
-            @Override
-            public Duration actionLockDuration() {
-                return Duration.ofTicks(10L);
-            }
-        };
-
-        AbilityConfig abilityConfig = new AbilityConfig() {
-            @Override
-            public Duration castDuration(SkillId skillId) {
-                return Duration.ofTicks(20L);
-            }
-
-            @Override
-            public Duration cooldownDuration(SkillId skillId) {
-                return Duration.ofTicks(40L);
-            }
-
-            @Override
-            public Duration actionLockDuration(SkillId skillId) {
-                return Duration.ofTicks(10L);
-            }
-        };
-
-        CooldownRule cooldownRule = new CooldownRule();
-        ActionLockRule actionLockRule = new ActionLockRule();
-
-        InfusedRule infusedRule = new InfusedRule(cooldownRule, abilityConfig);
-        CastedRule castedRule = new CastedRule(cooldownRule, abilityConfig);
-
-        CombatEngine combatEngine =
-                new CombatEngine(
-                        new EquipGateRule(),
-                        new LockGateRule(),
-                        comboConfig,
-                        actionLockRule,
-                        new ComboRule(),
-                        new ComboTimingRule(),
-                        new ComboResetRule(),
-                        new HoldLatchRule(),
-                        infusedRule
-                );
-
-        AbilityEngine abilityEngine =
-                new AbilityEngine(
-                        new EquipGateRule(),
-                        new LockGateRule(),
-                        abilityConfig,
-                        actionLockRule,
-                        infusedRule,
-                        castedRule
-                );
-
-        ServerCombatState initial = ServerCombatState.initial()
-                .withEquippedSkills(new EquippedSkillsRuntimeState(
-                        Map.of(new SkillSlotId(1), new SkillId(1))
-                ));
-
-        return new CombatRuntime(
-                clock,
-                combatEngine,
-                abilityEngine,
-                initial
-        );
-    }
-
-    public static void main(String[] args) {
-        CombatRuntime runtime = simpleSimulation();
-        runtime.onAttackIntent(AttackIntent.CLICK);
-        runtime.onAttackIntent(AttackIntent.HOLD_START);
-        runtime.onAbilityIntent(new AbilityIntent(new SkillSlotId(1), AbilityIntentKind.TOGGLE));
-        runtime.onAttackIntent(AttackIntent.CLICK);
-    }
 }
 
 ===== AbilityRuntimeState.java =====
@@ -1995,21 +3973,31 @@ public record AbilityRuntimeState(
 package com.pgalaxyp.fragmento.combat.state.runtime;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
 public record ActionLockState(
         ActionKind actionKind,
+        SkillId skillId,
         CombatTime endsAt,
         CombatTime itemSwapLockedUntil
 ) {
 
     public static ActionLockState idle() {
         CombatTime zero = CombatTime.ofTicks(0L);
-        return new ActionLockState(null, zero, zero);
+        return new ActionLockState(ActionKind.NONE, null, zero, zero);
     }
 
-    public boolean active(CombatTime now) {
+    public boolean isActive(CombatTime now) {
         return now != null && now.isBefore(endsAt);
+    }
+
+    public boolean itemSwapLocked(CombatTime now) {
+        return now != null && now.isBefore(itemSwapLockedUntil);
+    }
+
+    public boolean blocksVanillaInteraction(CombatTime now) {
+        return isActive(now) && actionKind == ActionKind.COMBO_STEP;
     }
 }
 
@@ -2108,22 +4096,37 @@ public record ServerCombatState(
     }
 
     public ServerCombatState withLoadout(LoadoutRuntimeState next) {
+        if (next != null && next.equals(loadout)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
     }
 
     public ServerCombatState withEquippedSkills(EquippedSkillsRuntimeState next) {
+        if (next != null && next.equals(equippedSkills)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
     }
 
     public ServerCombatState withCombo(ComboRuntimeState next) {
+        if (next != null && next.equals(combo)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
     }
 
     public ServerCombatState withAbilities(AbilityRuntimeState next) {
+        if (next != null && next.equals(abilities)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
     }
 
     public ServerCombatState withLock(ActionLockState next) {
+        if (next != null && next.equals(lock)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
     }
 
@@ -2139,6 +4142,7 @@ public record ServerCombatState(
                 abilities.snapshot(),
                 new LockSnapshot(
                         lock.actionKind(),
+                        lock.skillId(),
                         lock.endsAt(),
                         lock.itemSwapLockedUntil()
                 ),
@@ -2242,10 +4246,12 @@ public record LoadoutSnapshot(
 package com.pgalaxyp.fragmento.combat.state.snapshot;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 
 public record LockSnapshot(
         ActionKind actionKind,
+        SkillId skillId,
         CombatTime actionEndsAt,
         CombatTime itemSwapLockedUntil
 ) {}

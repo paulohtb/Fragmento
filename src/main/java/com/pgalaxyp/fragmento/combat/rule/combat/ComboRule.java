@@ -25,12 +25,11 @@ public final class ComboRule {
         }
 
         if (intent == AttackIntent.HOLD_START) {
-            boolean latch = state.holdLatched() || now.isBefore(state.nextStepAt());
             return new ComboRuntimeState(
                     state.stepIndex(),
                     state.nextStepAt(),
                     true,
-                    latch
+                    true
             );
         }
 

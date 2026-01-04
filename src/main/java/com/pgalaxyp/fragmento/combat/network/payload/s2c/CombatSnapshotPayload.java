@@ -69,7 +69,16 @@ public record CombatSnapshotPayload(
         }
 
         LockSnapshot lock = snap.lock();
-        ByteBufCodecs.VAR_INT.encode(buf, lock.actionKind().ordinal());
+        ActionKind kind = lock.actionKind() != null ? lock.actionKind() : ActionKind.NONE;
+        ByteBufCodecs.VAR_INT.encode(buf, kind.ordinal());
+
+        if (lock.skillId() != null) {
+            ByteBufCodecs.BOOL.encode(buf, true);
+            ByteBufCodecs.VAR_INT.encode(buf, lock.skillId().value());
+        } else {
+            ByteBufCodecs.BOOL.encode(buf, false);
+        }
+
         ByteBufCodecs.VAR_LONG.encode(buf, lock.actionEndsAt().ticks());
         ByteBufCodecs.VAR_LONG.encode(buf, lock.itemSwapLockedUntil().ticks());
 
@@ -136,9 +145,16 @@ public record CombatSnapshotPayload(
                 new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
 
         ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+
+        SkillId skillId = null;
+        boolean hasSkill = ByteBufCodecs.BOOL.decode(buf);
+        if (hasSkill) {
+            skillId = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+        }
+
         CombatTime endsAt = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
         CombatTime swapLock = CombatTime.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        LockSnapshot lock = new LockSnapshot(kind, endsAt, swapLock);
+        LockSnapshot lock = new LockSnapshot(kind, skillId, endsAt, swapLock);
 
         CatalystId catalyst = null;
         if (ByteBufCodecs.BOOL.decode(buf)) {

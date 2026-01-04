@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.rule.combat;
 
 import com.pgalaxyp.fragmento.combat.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.combat.domain.id.SkillId;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.timing.CombatTime;
 import com.pgalaxyp.fragmento.combat.rule.ability.InfusedRule;
@@ -45,11 +46,7 @@ public final class CombatEngine {
         this.infusedRule = infusedRule;
     }
 
-    public ServerCombatState applyAttack(
-            ServerCombatState state,
-            AttackIntent intent,
-            CombatTime now
-    ) {
+    public ServerCombatState applyAttack(ServerCombatState state, AttackIntent intent, CombatTime now) {
         if (state == null || intent == null || now == null) {
             return state;
         }
@@ -59,10 +56,10 @@ public final class CombatEngine {
         }
 
         if (!lockGate.allowAttack(state.lock(), now)) {
-            if (intent == AttackIntent.HOLD_START) {
-                ComboRuntimeState latched = comboRule.apply(state.combo(), intent, now);
-                if (latched != state.combo()) {
-                    return state.withCombo(latched);
+            if (intent == AttackIntent.HOLD_START || intent == AttackIntent.HOLD_STOP) {
+                ComboRuntimeState next = comboRule.apply(state.combo(), intent, now);
+                if (!next.equals(state.combo())) {
+                    return state.withCombo(next);
                 }
             }
             return state;
@@ -92,23 +89,21 @@ public final class CombatEngine {
         }
 
         ServerCombatState out = state;
-        if (next != state.combo()) {
+        if (!next.equals(state.combo())) {
             out = out.withCombo(next);
         }
 
         if (infused != null && infused.consumedSkillId() != null) {
+            SkillId used = infused.consumedSkillId();
             AbilityRuntimeState abilities =
-                    infusedRule.startCooldownOnUse(
-                            infused.state(),
-                            infused.consumedSkillId(),
-                            now
-                    );
+                    infusedRule.startCooldownOnUse(infused.state(), used, now);
 
             out = out.withAbilities(abilities);
             out = out.withCombo(ComboRuntimeState.idle());
             out = out.withLock(
                     actionLockRule.lock(
                             ActionKind.INFUSED_EXECUTE,
+                            used,
                             comboConfig.actionLockDuration(),
                             now
                     )
@@ -120,6 +115,7 @@ public final class CombatEngine {
             out = out.withLock(
                     actionLockRule.lock(
                             ActionKind.COMBO_STEP,
+                            null,
                             comboConfig.actionLockDuration(),
                             now
                     )
@@ -129,16 +125,13 @@ public final class CombatEngine {
         return out;
     }
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, CombatTime now) {
         if (state == null || now == null) {
             return state;
         }
 
         ComboRuntimeState next = holdLatchRule.advanceIfLatched(state.combo(), now);
-        if (next == state.combo()) {
+        if (next.equals(state.combo())) {
             return state;
         }
 
@@ -149,6 +142,7 @@ public final class CombatEngine {
         out = out.withLock(
                 actionLockRule.lock(
                         ActionKind.COMBO_STEP,
+                        null,
                         comboConfig.actionLockDuration(),
                         now
                 )

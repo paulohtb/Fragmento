@@ -38,11 +38,7 @@ public final class AbilityEngine {
         this.castedRule = castedRule;
     }
 
-    public ServerCombatState apply(
-            ServerCombatState state,
-            AbilityIntent intent,
-            CombatTime now
-    ) {
+    public ServerCombatState apply(ServerCombatState state, AbilityIntent intent, CombatTime now) {
         if (state == null || intent == null || now == null) {
             return state;
         }
@@ -67,10 +63,7 @@ public final class AbilityEngine {
         return state.withAbilities(next);
     }
 
-    public ServerCombatState tick(
-            ServerCombatState state,
-            CombatTime now
-    ) {
+    public ServerCombatState tick(ServerCombatState state, CombatTime now) {
         if (state == null || now == null) {
             return state;
         }
@@ -102,6 +95,7 @@ public final class AbilityEngine {
             ActionLockState lock =
                     actionLockRule.lock(
                             ActionKind.CAST_FINISH,
+                            skillId,
                             config.actionLockDuration(skillId),
                             now
                     );

@@ -1,24 +1,21 @@
 package com.pgalaxyp.fragmento.combat.network;
 
-import com.pgalaxyp.fragmento.combat.client.network.CombatSnapshotReceiver;
-import com.pgalaxyp.fragmento.combat.client.state.ClientCombatViewState;
+import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
 import com.pgalaxyp.fragmento.combat.engine.network.ServerCombatPayloadHandler;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AbilityIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.c2s.AttackIntentPayload;
 import com.pgalaxyp.fragmento.combat.network.payload.s2c.CombatSnapshotPayload;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
-@EventBusSubscriber(modid = "fragmento", bus = EventBusSubscriber.Bus.MOD)
 public final class FragmentoNetwork {
 
-    private static final ClientCombatViewState CLIENT_STATE = new ClientCombatViewState();
-    private static final CombatSnapshotReceiver CLIENT_SNAPSHOT_RECEIVER = new CombatSnapshotReceiver(CLIENT_STATE);
+    public static void register(IEventBus modBus) {
+        modBus.addListener(FragmentoNetwork::onRegister);
+    }
 
-    @SubscribeEvent
-    public static void register(RegisterPayloadHandlersEvent event) {
+    private static void onRegister(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
 
         registrar.playToServer(
@@ -36,7 +33,7 @@ public final class FragmentoNetwork {
         registrar.playToClient(
                 CombatSnapshotPayload.TYPE,
                 CombatSnapshotPayload.STREAM_CODEC,
-                (payload, context) -> CLIENT_SNAPSHOT_RECEIVER.apply(payload)
+                CombatClientProxy::handleSnapshot
         );
     }
 

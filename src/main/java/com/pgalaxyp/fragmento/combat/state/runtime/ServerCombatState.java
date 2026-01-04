@@ -27,22 +27,37 @@ public record ServerCombatState(
     }
 
     public ServerCombatState withLoadout(LoadoutRuntimeState next) {
+        if (next != null && next.equals(loadout)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
     }
 
     public ServerCombatState withEquippedSkills(EquippedSkillsRuntimeState next) {
+        if (next != null && next.equals(equippedSkills)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
     }
 
     public ServerCombatState withCombo(ComboRuntimeState next) {
+        if (next != null && next.equals(combo)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
     }
 
     public ServerCombatState withAbilities(AbilityRuntimeState next) {
+        if (next != null && next.equals(abilities)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
     }
 
     public ServerCombatState withLock(ActionLockState next) {
+        if (next != null && next.equals(lock)) {
+            return this;
+        }
         return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
     }
 
@@ -58,6 +73,7 @@ public record ServerCombatState(
                 abilities.snapshot(),
                 new LockSnapshot(
                         lock.actionKind(),
+                        lock.skillId(),
                         lock.endsAt(),
                         lock.itemSwapLockedUntil()
                 ),

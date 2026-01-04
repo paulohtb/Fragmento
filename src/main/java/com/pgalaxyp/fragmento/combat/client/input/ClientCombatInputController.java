@@ -1,0 +1,95 @@
+package com.pgalaxyp.fragmento.combat.client.input;
+
+import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
+import com.pgalaxyp.fragmento.combat.client.network.CombatIntentSender;
+import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+
+public final class ClientCombatInputController {
+
+    private static final SkillSlotId NORMAL_SLOT = new SkillSlotId(1);
+    private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
+
+    private final CombatIntentSender sender;
+
+    private boolean wasAttackDown;
+
+    public ClientCombatInputController(CombatIntentSender sender) {
+        this.sender = sender;
+    }
+
+    private boolean catalystActive() {
+        var snap = CombatClientProxy.state().current();
+        if (snap == null) return false;
+        var loadout = snap.loadout();
+        if (loadout == null) return false;
+        return loadout.equippedCatalyst() != null
+                && loadout.family() != null
+                && loadout.offhandEmpty();
+    }
+
+    public void clientTick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.options == null || mc.screen != null) {
+            wasAttackDown = false;
+            return;
+        }
+
+        boolean active = catalystActive();
+
+        KeyMapping attack = mc.options.keyAttack;
+        if (attack != null) {
+            boolean down = attack.isDown();
+
+            if (active) {
+                if (down && !wasAttackDown) {
+                    sender.sendAttack(AttackIntent.HOLD_START);
+                }
+
+                if (!down && wasAttackDown) {
+                    sender.sendAttack(AttackIntent.HOLD_STOP);
+                }
+            }
+
+            wasAttackDown = down;
+        } else {
+            wasAttackDown = false;
+        }
+
+        KeyMapping normal = FragmentoClientKeys.NORMAL_SKILL;
+        if (normal != null) {
+            while (normal.consumeClick()) {
+                if (active) {
+                    sender.sendAbility(new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE));
+                }
+            }
+        }
+    }
+
+    public void onAttackClick() {
+        if (!catalystActive()) {
+            return;
+        }
+        try {
+            sender.sendAttack(AttackIntent.CLICK);
+        } catch (Throwable t) {
+            FragmentoLog.intentEx(t, "client onAttackClick crashed");
+        }
+    }
+
+    public void onUseItemClick() {
+        if (!catalystActive()) {
+            return;
+        }
+        try {
+            sender.sendAbility(new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS));
+        } catch (Throwable t) {
+            FragmentoLog.intentEx(t, "client onUseItemClick crashed");
+        }
+    }
+}
