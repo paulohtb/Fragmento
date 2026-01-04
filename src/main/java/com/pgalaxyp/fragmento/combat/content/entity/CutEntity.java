@@ -3,33 +3,23 @@ package com.pgalaxyp.fragmento.combat.content.entity;
 import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.List;
 import java.util.UUID;
 
 public final class CutEntity extends Entity {
 
-    private static final double HIT_RADIUS = 0.35;
-
     private UUID ownerId;
     private UUID targetId;
 
+    private Vec3 targetPoint;
+
     private int age;
     private int lifeTicks;
-
-    private double aimX;
-    private double aimY;
-    private double aimZ;
-
-    private boolean guided;
     private float damage;
 
     public CutEntity(EntityType<? extends CutEntity> type, Level level) {
@@ -40,294 +30,92 @@ public final class CutEntity extends Entity {
     public static void spawn(
             ServerLevel level,
             EntityType<CutEntity> type,
-            LivingEntity owner,
-            LivingEntity target,
-            Vec3 spawnPos,
-            Vec3 aimPoint,
+            UUID ownerId,
+            UUID targetId,
+            Vec3 targetPoint,
+            Vec3 spawn,
             int lifeTicks,
-            float damage,
-            boolean verticalOnly
+            float damage
     ) {
-        if (level == null || type == null || owner == null || spawnPos == null || aimPoint == null) {
-            FragmentoLog.combat(
-                    "cut spawn ignore, levelNull={} typeNull={} ownerNull={} spawnNull={} aimNull={}",
-                    level == null,
-                    type == null,
-                    owner == null,
-                    spawnPos == null,
-                    aimPoint == null
-            );
-            return;
-        }
-
         CutEntity e = new CutEntity(type, level);
-        e.ownerId = owner.getUUID();
-        e.targetId = target != null ? target.getUUID() : null;
-
-        e.age = 0;
-        e.lifeTicks = Math.max(1, lifeTicks);
-        e.damage = Math.max(0.0f, damage);
-
-        e.aimX = aimPoint.x;
-        e.aimY = aimPoint.y;
-        e.aimZ = aimPoint.z;
-
-        e.guided = !verticalOnly;
-
-        e.setPos(spawnPos);
-        e.faceTowards(new Vec3(e.aimX, e.aimY, e.aimZ), verticalOnly);
-
+        e.ownerId = ownerId;
+        e.targetId = targetId;
+        e.targetPoint = targetPoint;
+        e.lifeTicks = lifeTicks;
+        e.damage = damage;
+        e.setPos(spawn);
         level.addFreshEntity(e);
-
-        FragmentoLog.combat(
-                "cut spawned, eid={} owner.uuid={} target.uuid={} guided={} verticalOnly={} lifeTicks={} dmg={} spawn={} aim={}",
-                e.getId(),
-                e.ownerId,
-                e.targetId,
-                e.guided,
-                verticalOnly,
-                e.lifeTicks,
-                e.damage,
-                vec(spawnPos),
-                vec(aimPoint)
-        );
-    }
-
-    @Override
-    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {}
-
-    @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-        age = tag.getInt("age");
-        lifeTicks = tag.getInt("life");
-        damage = tag.getFloat("dmg");
-        guided = tag.getBoolean("g");
-
-        if (tag.contains("owner")) ownerId = tag.getUUID("owner");
-        if (tag.contains("target")) targetId = tag.getUUID("target");
-
-        aimX = tag.getDouble("ax");
-        aimY = tag.getDouble("ay");
-        aimZ = tag.getDouble("az");
-
-        FragmentoLog.combat(
-                "cut read nbt, eid={} age={} life={} dmg={} guided={} owner.uuid={} target.uuid={} aim={}",
-                getId(),
-                age,
-                lifeTicks,
-                damage,
-                guided,
-                ownerId,
-                targetId,
-                vec(new Vec3(aimX, aimY, aimZ))
-        );
-    }
-
-    @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
-        tag.putInt("age", age);
-        tag.putInt("life", lifeTicks);
-        tag.putFloat("dmg", damage);
-        tag.putBoolean("g", guided);
-
-        if (ownerId != null) tag.putUUID("owner", ownerId);
-        if (targetId != null) tag.putUUID("target", targetId);
-
-        tag.putDouble("ax", aimX);
-        tag.putDouble("ay", aimY);
-        tag.putDouble("az", aimZ);
     }
 
     @Override
     public void tick() {
         super.tick();
 
-        if (level().isClientSide) {
+        if (!(level() instanceof ServerLevel sl)) {
             return;
         }
 
         age++;
         if (age > lifeTicks) {
-            FragmentoLog.combat(
-                    "cut discard expired, eid={} age={} lifeTicks={} owner.uuid={} target.uuid={}",
-                    getId(),
-                    age,
-                    lifeTicks,
-                    ownerId,
-                    targetId
-            );
             discard();
             return;
         }
 
-        Vec3 aim = resolveAim();
+        Vec3 aim = resolveAim(sl);
         Vec3 pos = position();
 
+        double remaining = Math.max(1, lifeTicks - age);
         Vec3 to = aim.subtract(pos);
         double dist = to.length();
 
-        if (dist <= HIT_RADIUS) {
-            FragmentoLog.combat(
-                    "cut hit radius reached, eid={} age={} dist={} owner.uuid={} target.uuid={} pos={} aim={}",
-                    getId(),
-                    age,
-                    dist,
-                    ownerId,
-                    targetId,
-                    vec(pos),
-                    vec(aim)
-            );
-            tryApplyHit();
+        if (dist < 0.01) {
+            tryHit(sl);
             discard();
             return;
         }
 
-        int remaining = Math.max(1, lifeTicks - age + 1);
-        Vec3 dir = to.scale(1.0 / Math.max(0.0001, dist));
-        Vec3 move = dir.scale(dist / remaining);
-
+        Vec3 move = to.scale(1.0 / remaining);
         setPos(pos.add(move));
-        faceTowards(aim, false);
-
-        if ((age % 10) == 0) {
-            FragmentoLog.combat(
-                    "cut tick, eid={} age={} lifeTicks={} remaining={} guided={} dist={} pos={} aim={}",
-                    getId(),
-                    age,
-                    lifeTicks,
-                    remaining,
-                    guided,
-                    dist,
-                    vec(position()),
-                    vec(aim)
-            );
-        }
     }
 
-    private Vec3 resolveAim() {
-        if (!(level() instanceof ServerLevel sl)) {
-            return new Vec3(aimX, aimY, aimZ);
-        }
-
-        if (guided && targetId != null) {
+    private Vec3 resolveAim(ServerLevel sl) {
+        if (targetId != null) {
             Entity e = sl.getEntity(targetId);
             if (e instanceof LivingEntity le && le.isAlive()) {
-                Vec3 c = le.getBoundingBox().getCenter();
-                double dx = Math.abs(c.x - aimX);
-                double dy = Math.abs(c.y - aimY);
-                double dz = Math.abs(c.z - aimZ);
-
-                aimX = c.x;
-                aimY = c.y;
-                aimZ = c.z;
-
-                if ((age % 10) == 0 || dx > 0.5 || dy > 0.5 || dz > 0.5) {
-                    FragmentoLog.combat(
-                            "cut resolveAim guided update, eid={} age={} target.uuid={} target.eid={} aimNow={} delta=(%.3f,%.3f,%.3f)",
-                            getId(),
-                            age,
-                            targetId,
-                            le.getId(),
-                            vec(c),
-                            dx,
-                            dy,
-                            dz
-                    );
-                }
-
-                return c;
-            } else {
-                if ((age % 10) == 0) {
-                    FragmentoLog.combat(
-                            "cut resolveAim guided lost target, eid={} age={} target.uuid={} found={} alive={}",
-                            getId(),
-                            age,
-                            targetId,
-                            e != null,
-                            e instanceof LivingEntity le2 && le2.isAlive()
-                    );
-                }
+                targetPoint = le.getBoundingBox().getCenter();
             }
         }
-
-        return new Vec3(aimX, aimY, aimZ);
+        return targetPoint;
     }
 
-    private void faceTowards(Vec3 aim, boolean verticalOnly) {
-        Vec3 d = aim.subtract(position());
-
-        if (verticalOnly) {
-            setXRot(-90.0f);
-            xRotO = -90.0f;
+    private void tryHit(ServerLevel sl) {
+        if (targetId == null || damage <= 0) {
             return;
         }
 
-        float yaw = (float) (Mth.atan2(d.z, d.x) * (180.0 / Math.PI)) - 90.0f;
-        setYRot(yaw);
-        yRotO = yaw;
-    }
-
-    private void tryApplyHit() {
-        if (!(level() instanceof ServerLevel sl)) {
-            FragmentoLog.combat("cut tryApplyHit ignore, notServerLevel=true eid={}", getId());
-            return;
-        }
-        if (targetId == null || damage <= 0.0f) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit ignore, targetNullOrNoDamage eid={} target.uuid={} dmg={}",
-                    getId(),
-                    targetId,
-                    damage
-            );
+        Entity e = sl.getEntity(targetId);
+        if (!(e instanceof LivingEntity le) || !le.isAlive()) {
             return;
         }
 
-        Entity t = sl.getEntity(targetId);
-        if (!(t instanceof LivingEntity target) || !target.isAlive()) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit ignore, targetMissingOrDead eid={} target.uuid={} found={} alive={}",
-                    getId(),
-                    targetId,
-                    t != null,
-                    t instanceof LivingEntity le && le.isAlive()
-            );
-            return;
-        }
-
-        AABB box = getBoundingBox().inflate(HIT_RADIUS);
-        List<LivingEntity> hits = sl.getEntitiesOfClass(LivingEntity.class, box, e ->
-                e.isAlive() && e.getUUID().equals(targetId)
-        );
-
-        if (hits.isEmpty()) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit miss, eid={} target.uuid={} box={}",
-                    getId(),
-                    targetId,
-                    box.toString()
-            );
+        if (!le.getBoundingBox().contains(position())) {
             return;
         }
 
         DamageSource src = sl.damageSources().generic();
         if (ownerId != null) {
             Entity o = sl.getEntity(ownerId);
-            if (o instanceof LivingEntity le) {
-                src = sl.damageSources().mobAttack(le);
+            if (o instanceof LivingEntity lo) {
+                src = sl.damageSources().mobAttack(lo);
             }
         }
 
-        boolean ok = target.hurt(src, damage);
+        le.hurt(src, damage);
 
         FragmentoLog.combat(
-                "cut tryApplyHit applied, eid={} owner.uuid={} target.uuid={} target.eid={} dmg={} ok={} target.hpAfter={}",
-                getId(),
-                ownerId,
+                "cut hit applied, target.uuid={} dmg={}",
                 targetId,
-                target.getId(),
-                damage,
-                ok,
-                target.getHealth()
+                damage
         );
     }
 
@@ -339,10 +127,38 @@ public final class CutEntity extends Entity {
         return lifeTicks;
     }
 
-    private static String vec(Vec3 v) {
-        if (v == null) {
-            return "null";
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {}
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        age = tag.getInt("age");
+        lifeTicks = tag.getInt("life");
+        damage = tag.getFloat("dmg");
+
+        if (tag.hasUUID("owner")) ownerId = tag.getUUID("owner");
+        if (tag.hasUUID("target")) targetId = tag.getUUID("target");
+
+        targetPoint = new Vec3(
+                tag.getDouble("tx"),
+                tag.getDouble("ty"),
+                tag.getDouble("tz")
+        );
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("age", age);
+        tag.putInt("life", lifeTicks);
+        tag.putFloat("dmg", damage);
+
+        if (ownerId != null) tag.putUUID("owner", ownerId);
+        if (targetId != null) tag.putUUID("target", targetId);
+
+        if (targetPoint != null) {
+            tag.putDouble("tx", targetPoint.x);
+            tag.putDouble("ty", targetPoint.y);
+            tag.putDouble("tz", targetPoint.z);
         }
-        return String.format("(%.3f,%.3f,%.3f)", v.x, v.y, v.z);
     }
 }

@@ -14,6 +14,7 @@ public final class FragmentoMod {
     public static final String MODID = "fragmento";
 
     public FragmentoMod(IEventBus modBus) {
+        FragmentoLog.initFileLogging();
         FragmentoLog.runtime("bootstrap start modid={}", MODID);
 
         FragmentoContent.register(modBus);
@@ -30,127 +31,103 @@ public final class FragmentoMod {
 ===== FragmentoLog.java =====
 package com.pgalaxyp.fragmento.bootstrap.logging;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 public final class FragmentoLog {
 
     private static final int MAX_QUEUE = 1024;
+    private static final BlockingQueue<String> QUEUE = new ArrayBlockingQueue<>(MAX_QUEUE);
+    private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private static final BlockingQueue<String> QUEUE =
-            new ArrayBlockingQueue<>(MAX_QUEUE);
+    private static volatile BufferedWriter writer;
+    private static final ExecutorService FILE_WRITER = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "FragmentoLogWriter");
+        t.setDaemon(true);
+        return t;
+    });
 
-    private static final DateTimeFormatter FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public static void initFileLogging() {
+        try {
+            File logDir = new File("logs/fragmento");
+            if (!logDir.exists()) Files.createDirectories(logDir.toPath());
 
-    public static void runtime(String message, Object... args) {
-        log("RUNTIME", format(message, args));
-    }
+            String fileName = "fragmento-" + LocalDate.now() + ".log";
+            File logFile = new File(logDir, fileName);
 
-    public static void combat(String message, Object... args) {
-        log("COMBAT", format(message, args));
-    }
-
-    public static void intent(String message, Object... args) {
-        log("INTENT", format(message, args));
-    }
-
-    public static void network(String message, Object... args) {
-        log("NET", format(message, args));
-    }
-
-    public static void snapshot(String message, Object... args) {
-        log("SNAPSHOT", format(message, args));
-    }
-
-    public static void inventory(String message, Object... args) {
-        log("INV", format(message, args));
-    }
-
-    public static void runtimeEx(Throwable t, String message, Object... args) {
-        logEx("RUNTIME", t, message, args);
-    }
-
-    public static void combatEx(Throwable t, String message, Object... args) {
-        logEx("COMBAT", t, message, args);
-    }
-
-    public static void intentEx(Throwable t, String message, Object... args) {
-        logEx("INTENT", t, message, args);
-    }
-
-    public static void networkEx(Throwable t, String message, Object... args) {
-        logEx("NET", t, message, args);
-    }
-
-    public static void snapshotEx(Throwable t, String message, Object... args) {
-        logEx("SNAPSHOT", t, message, args);
-    }
-
-    public static void inventoryEx(Throwable t, String message, Object... args) {
-        logEx("INV", t, message, args);
+            writer = new BufferedWriter(new FileWriter(logFile, true));
+            runtime("file logging started, file={}", logFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("[FragmentoLog] Falha ao iniciar log em arquivo: " + e.getMessage());
+        }
     }
 
     private static void log(String tag, String message) {
-        if (tag == null || message == null) {
-            return;
-        }
+        if (tag == null || message == null) return;
 
-        String line =
-                "[" + FORMAT.format(LocalDateTime.now()) + "] "
-                        + "[" + tag + "] "
-                        + message;
-
+        String line = "[" + FORMAT.format(LocalDateTime.now()) + "] [" + tag + "] " + message;
         QUEUE.offer(line);
+
+        if (writer != null) {
+            FILE_WRITER.submit(() -> {
+                try {
+                    writer.write(line);
+                    writer.newLine();
+                    writer.flush();
+                } catch (IOException ignored) {}
+            });
+        }
     }
 
     private static void logEx(String tag, Throwable t, String message, Object... args) {
         log(tag, format(message, args));
-
-        if (t == null) {
-            return;
-        }
+        if (t == null) return;
 
         log(tag, "exception.class=" + t.getClass().getName());
-
-        if (t.getMessage() != null) {
-            log(tag, "exception.message=" + t.getMessage());
-        }
+        if (t.getMessage() != null) log(tag, "exception.message=" + t.getMessage());
 
         StackTraceElement[] st = t.getStackTrace();
-        if (st == null) {
-            return;
-        }
-
-        int max = Math.min(6, st.length);
-        for (int i = 0; i < max; i++) {
-            log(tag, "at " + st[i]);
+        if (st != null) {
+            int max = Math.min(6, st.length);
+            for (int i = 0; i < max; i++) {
+                log(tag, "at " + st[i]);
+            }
         }
     }
 
     public static void flushTo(Consumer<String> sink) {
-        if (sink == null) {
-            return;
-        }
-
+        if (sink == null) return;
         String line;
-        while ((line = QUEUE.poll()) != null) {
-            sink.accept(line);
-        }
+        while ((line = QUEUE.poll()) != null) sink.accept(line);
     }
 
     private static String format(String msg, Object... args) {
-        if (msg == null) {
-            return "";
-        }
-        if (args == null || args.length == 0) {
-            return msg;
-        }
+        if (msg == null) return "";
+        if (args == null || args.length == 0) return msg;
         return String.format(msg.replace("{}", "%s"), args);
     }
+
+    public static void runtime(String msg, Object... args) { log("RUNTIME", format(msg, args)); }
+    public static void combat(String msg, Object... args) { log("COMBAT", format(msg, args)); }
+    public static void intent(String msg, Object... args) { log("INTENT", format(msg, args)); }
+    public static void network(String msg, Object... args) { log("NET", format(msg, args)); }
+    public static void snapshot(String msg, Object... args) { log("SNAPSHOT", format(msg, args)); }
+    public static void inventory(String msg, Object... args) { log("INV", format(msg, args)); }
+
+    public static void runtimeEx(Throwable t, String msg, Object... args) { logEx("RUNTIME", t, msg, args); }
+    public static void combatEx(Throwable t, String msg, Object... args) { logEx("COMBAT", t, msg, args); }
+    public static void intentEx(Throwable t, String msg, Object... args) { logEx("INTENT", t, msg, args); }
+    public static void networkEx(Throwable t, String msg, Object... args) { logEx("NET", t, msg, args); }
+    public static void snapshotEx(Throwable t, String msg, Object... args) { logEx("SNAPSHOT", t, msg, args); }
+    public static void inventoryEx(Throwable t, String msg, Object... args) { logEx("INV", t, msg, args); }
 
     private FragmentoLog() {}
 }
@@ -158,11 +135,14 @@ public final class FragmentoLog {
 ===== FragmentoClientEvents.java =====
 package com.pgalaxyp.fragmento.combat.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.combat.client.input.ClientCombatInputController;
 import com.pgalaxyp.fragmento.combat.client.network.CombatIntentSender;
-import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
+import com.pgalaxyp.fragmento.combat.content.catalyst.FluteItem;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -170,7 +150,11 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import org.lwjgl.glfw.GLFW;
 
-@EventBusSubscriber(modid = FragmentoMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(
+        modid = FragmentoMod.MODID,
+        value = Dist.CLIENT,
+        bus = EventBusSubscriber.Bus.GAME
+)
 public final class FragmentoClientEvents {
 
     private static final ClientCombatInputController INPUT =
@@ -182,34 +166,58 @@ public final class FragmentoClientEvents {
     }
 
     @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre event) {
+    public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null) {
-            return;
-        }
+        if (!inGame(mc)) return;
+        if (!catalystActiveLocal(mc)) return;
 
-        if (!catalystActive()) {
-            return;
-        }
+        KeyMapping mapping = event.getKeyMapping();
+        if (mapping == null) return;
 
-        if (event.getButton() != 0) {
-            return;
-        }
-
-        if (event.getAction() == GLFW.GLFW_PRESS) {
+        if (mapping == mc.options.keyAttack || mapping == mc.options.keyUse) {
+            event.setSwingHand(false);
             event.setCanceled(true);
-            INPUT.onAttackClick();
         }
     }
 
-    private static boolean catalystActive() {
-        var snap = CombatClientProxy.state().current();
-        if (snap == null) return false;
-        var loadout = snap.loadout();
-        if (loadout == null) return false;
-        return loadout.equippedCatalyst() != null
-                && loadout.family() != null
-                && loadout.offhandEmpty();
+    @SubscribeEvent
+    public static void onMouse(InputEvent.MouseButton.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!inGame(mc)) return;
+        if (!catalystActiveLocal(mc)) return;
+        if (event.getAction() != GLFW.GLFW_PRESS) return;
+
+        int button = event.getButton();
+
+        if (matchesMouseKey(mc.options.keyAttack, button)) {
+            event.setCanceled(true);
+            INPUT.onAttackClick();
+            return;
+        }
+
+        if (matchesMouseKey(mc.options.keyUse, button)) {
+            event.setCanceled(true);
+            INPUT.onUseItemClick();
+        }
+    }
+
+    private static boolean inGame(Minecraft mc) {
+        return mc != null && mc.player != null && mc.options != null && mc.screen == null;
+    }
+
+    private static boolean catalystActiveLocal(Minecraft mc) {
+        ItemStack main = mc.player.getMainHandItem();
+        ItemStack off = mc.player.getOffhandItem();
+
+        return FluteItem.isFlute(main) && off.isEmpty();
+    }
+
+    private static boolean matchesMouseKey(KeyMapping mapping, int mouseButton) {
+        if (mapping == null) return false;
+        InputConstants.Key key = mapping.getKey();
+        return key != null
+                && key.getType() == InputConstants.Type.MOUSE
+                && key.getValue() == mouseButton;
     }
 
     private FragmentoClientEvents() {}
@@ -266,13 +274,14 @@ package com.pgalaxyp.fragmento.combat.client.input;
 
 import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import com.pgalaxyp.fragmento.combat.client.network.CombatIntentSender;
-import com.pgalaxyp.fragmento.combat.client.proxy.CombatClientProxy;
+import com.pgalaxyp.fragmento.combat.content.catalyst.FluteItem;
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.combat.domain.input.AbilityIntentKind;
 import com.pgalaxyp.fragmento.combat.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.combat.domain.input.SkillSlotId;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.world.item.ItemStack;
 
 public final class ClientCombatInputController {
 
@@ -280,31 +289,26 @@ public final class ClientCombatInputController {
     private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
 
     private final CombatIntentSender sender;
-
     private boolean wasAttackDown;
 
     public ClientCombatInputController(CombatIntentSender sender) {
         this.sender = sender;
     }
 
-    private boolean catalystActive() {
-        var snap = CombatClientProxy.state().current();
-        if (snap == null) return false;
-        var loadout = snap.loadout();
-        if (loadout == null) return false;
-        return loadout.equippedCatalyst() != null
-                && loadout.family() != null
-                && loadout.offhandEmpty();
+    private boolean catalystActiveLocal(Minecraft mc) {
+        ItemStack main = mc.player.getMainHandItem();
+        ItemStack off = mc.player.getOffhandItem();
+        return FluteItem.isFlute(main) && off.isEmpty();
     }
 
     public void clientTick() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null || mc.options == null) {
+        if (mc == null || mc.player == null || mc.options == null || mc.screen != null) {
             wasAttackDown = false;
             return;
         }
 
-        boolean active = catalystActive();
+        boolean active = catalystActiveLocal(mc);
 
         KeyMapping attack = mc.options.keyAttack;
         if (attack != null) {
@@ -314,7 +318,6 @@ public final class ClientCombatInputController {
                 if (down && !wasAttackDown) {
                     sender.sendAttack(AttackIntent.HOLD_START);
                 }
-
                 if (!down && wasAttackDown) {
                     sender.sendAttack(AttackIntent.HOLD_STOP);
                 }
@@ -329,16 +332,15 @@ public final class ClientCombatInputController {
         if (normal != null) {
             while (normal.consumeClick()) {
                 if (active) {
-                    sender.sendAbility(new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE));
+                    sender.sendAbility(
+                            new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE)
+                    );
                 }
             }
         }
     }
 
     public void onAttackClick() {
-        if (!catalystActive()) {
-            return;
-        }
         try {
             sender.sendAttack(AttackIntent.CLICK);
         } catch (Throwable t) {
@@ -347,11 +349,10 @@ public final class ClientCombatInputController {
     }
 
     public void onUseItemClick() {
-        if (!catalystActive()) {
-            return;
-        }
         try {
-            sender.sendAbility(new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS));
+            sender.sendAbility(
+                    new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS)
+            );
         } catch (Throwable t) {
             FragmentoLog.intentEx(t, "client onUseItemClick crashed");
         }
@@ -659,6 +660,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.Vec3;
 
@@ -689,38 +691,58 @@ public final class FragmentoCatalystDefinitions {
             private final AimResolver aim = new AimResolver();
 
             @Override
-            public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
-                if (skillId == null || skillId.value() != FragmentoSkills.BARDO_NORMAL_INFUSED.value()) {
-                    return List.of();
+            public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+                AimResolver.Aim a = aim.resolve(player, 20.0, 5.0);
+
+                LivingEntity target = a.target();
+                Vec3 targetPoint = target != null ? target.getBoundingBox().getCenter() : a.point();
+
+                Vec3 forward = player.getLookAngle().normalize();
+                Vec3 right = forward.cross(new Vec3(0.0, 1.0, 0.0)).normalize();
+
+                Vec3 spawn;
+
+                if (stepIndex == 1) {
+                    double d = target != null ? target.getBbWidth() * 0.5 + 4.0 : 4.0;
+                    spawn = targetPoint.add(right.scale(d));
+                } else if (stepIndex == 2) {
+                    double d = target != null ? target.getBbWidth() * 0.5 + 4.0 : 4.0;
+                    spawn = targetPoint.subtract(right.scale(d));
+                } else {
+                    double y = target != null ? target.getBoundingBox().maxY + 4.0 : targetPoint.y + 4.0;
+                    spawn = new Vec3(targetPoint.x, y, targetPoint.z);
                 }
-
-                AimResolver.Aim a = aim.resolve(player, 6.0, 4.0);
-
-                Vec3 eye = player.getEyePosition();
-                Vec3 spawn = eye.add(player.getLookAngle().scale(0.8));
 
                 SpawnCutEffect cut = new SpawnCutEffect(
                         player.getUUID(),
-                        a.target() != null ? a.target().getUUID() : null,
-                        spawn.x, spawn.y, spawn.z,
-                        a.aimPoint().x, a.aimPoint().y, a.aimPoint().z,
-                        8,
-                        4.0f,
+                        target != null ? target.getUUID() : null,
+                        spawn.x,
+                        spawn.y,
+                        spawn.z,
+                        targetPoint.x,
+                        targetPoint.y,
+                        targetPoint.z,
+                        15,
+                        switch (stepIndex) {
+                            case 1 -> 3.0f;
+                            case 2 -> 4.0f;
+                            default -> 5.0f;
+                        },
                         false
                 );
 
                 FragmentoLog.combat(
-                        "bardo infused execute, player.uuid={} target={} aimKind={}",
+                        "bardo combo cut spawn, player.uuid={} step={} target={}",
                         player.getUUID(),
-                        a.target() != null ? a.target().getUUID() : null,
-                        a.kind()
+                        stepIndex,
+                        target != null ? target.getUUID() : null
                 );
 
                 return List.of(cut);
             }
 
             @Override
-            public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+            public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
                 return List.of();
             }
 
@@ -730,25 +752,25 @@ public final class FragmentoCatalystDefinitions {
             }
         };
 
-        CatalystDefinition def = new CatalystDefinition(
-                new CatalystFamilyId("bardo"),
-                FluteItem::isFlute,
-                skills,
-                profile
+        FragmentoCombatRegistries.catalysts().register(
+                new CatalystDefinition(
+                        new CatalystFamilyId("bardo"),
+                        FluteItem::isFlute,
+                        skills,
+                        profile
+                )
         );
-
-        FragmentoCombatRegistries.catalysts().register(def);
     }
 
     private static void registerDefaultTag() {
-        CatalystDefinition def = new CatalystDefinition(
-                new CatalystFamilyId("default"),
-                stack -> stack != null && !stack.isEmpty() && stack.is(CATALYSTS_TAG),
-                Map.of(),
-                CombatProfile.NOOP
+        FragmentoCombatRegistries.catalysts().register(
+                new CatalystDefinition(
+                        new CatalystFamilyId("default"),
+                        stack -> stack != null && !stack.isEmpty() && stack.is(CATALYSTS_TAG),
+                        Map.of(),
+                        CombatProfile.NOOP
+                )
         );
-
-        FragmentoCombatRegistries.catalysts().register(def);
     }
 
     private FragmentoCatalystDefinitions() {}
@@ -789,33 +811,23 @@ package com.pgalaxyp.fragmento.combat.content.entity;
 import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.List;
 import java.util.UUID;
 
 public final class CutEntity extends Entity {
 
-    private static final double HIT_RADIUS = 0.35;
-
     private UUID ownerId;
     private UUID targetId;
 
+    private Vec3 targetPoint;
+
     private int age;
     private int lifeTicks;
-
-    private double aimX;
-    private double aimY;
-    private double aimZ;
-
-    private boolean guided;
     private float damage;
 
     public CutEntity(EntityType<? extends CutEntity> type, Level level) {
@@ -826,294 +838,92 @@ public final class CutEntity extends Entity {
     public static void spawn(
             ServerLevel level,
             EntityType<CutEntity> type,
-            LivingEntity owner,
-            LivingEntity target,
-            Vec3 spawnPos,
-            Vec3 aimPoint,
+            UUID ownerId,
+            UUID targetId,
+            Vec3 targetPoint,
+            Vec3 spawn,
             int lifeTicks,
-            float damage,
-            boolean verticalOnly
+            float damage
     ) {
-        if (level == null || type == null || owner == null || spawnPos == null || aimPoint == null) {
-            FragmentoLog.combat(
-                    "cut spawn ignore, levelNull={} typeNull={} ownerNull={} spawnNull={} aimNull={}",
-                    level == null,
-                    type == null,
-                    owner == null,
-                    spawnPos == null,
-                    aimPoint == null
-            );
-            return;
-        }
-
         CutEntity e = new CutEntity(type, level);
-        e.ownerId = owner.getUUID();
-        e.targetId = target != null ? target.getUUID() : null;
-
-        e.age = 0;
-        e.lifeTicks = Math.max(1, lifeTicks);
-        e.damage = Math.max(0.0f, damage);
-
-        e.aimX = aimPoint.x;
-        e.aimY = aimPoint.y;
-        e.aimZ = aimPoint.z;
-
-        e.guided = !verticalOnly;
-
-        e.setPos(spawnPos);
-        e.faceTowards(new Vec3(e.aimX, e.aimY, e.aimZ), verticalOnly);
-
+        e.ownerId = ownerId;
+        e.targetId = targetId;
+        e.targetPoint = targetPoint;
+        e.lifeTicks = lifeTicks;
+        e.damage = damage;
+        e.setPos(spawn);
         level.addFreshEntity(e);
-
-        FragmentoLog.combat(
-                "cut spawned, eid={} owner.uuid={} target.uuid={} guided={} verticalOnly={} lifeTicks={} dmg={} spawn={} aim={}",
-                e.getId(),
-                e.ownerId,
-                e.targetId,
-                e.guided,
-                verticalOnly,
-                e.lifeTicks,
-                e.damage,
-                vec(spawnPos),
-                vec(aimPoint)
-        );
-    }
-
-    @Override
-    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {}
-
-    @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-        age = tag.getInt("age");
-        lifeTicks = tag.getInt("life");
-        damage = tag.getFloat("dmg");
-        guided = tag.getBoolean("g");
-
-        if (tag.contains("owner")) ownerId = tag.getUUID("owner");
-        if (tag.contains("target")) targetId = tag.getUUID("target");
-
-        aimX = tag.getDouble("ax");
-        aimY = tag.getDouble("ay");
-        aimZ = tag.getDouble("az");
-
-        FragmentoLog.combat(
-                "cut read nbt, eid={} age={} life={} dmg={} guided={} owner.uuid={} target.uuid={} aim={}",
-                getId(),
-                age,
-                lifeTicks,
-                damage,
-                guided,
-                ownerId,
-                targetId,
-                vec(new Vec3(aimX, aimY, aimZ))
-        );
-    }
-
-    @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
-        tag.putInt("age", age);
-        tag.putInt("life", lifeTicks);
-        tag.putFloat("dmg", damage);
-        tag.putBoolean("g", guided);
-
-        if (ownerId != null) tag.putUUID("owner", ownerId);
-        if (targetId != null) tag.putUUID("target", targetId);
-
-        tag.putDouble("ax", aimX);
-        tag.putDouble("ay", aimY);
-        tag.putDouble("az", aimZ);
     }
 
     @Override
     public void tick() {
         super.tick();
 
-        if (level().isClientSide) {
+        if (!(level() instanceof ServerLevel sl)) {
             return;
         }
 
         age++;
         if (age > lifeTicks) {
-            FragmentoLog.combat(
-                    "cut discard expired, eid={} age={} lifeTicks={} owner.uuid={} target.uuid={}",
-                    getId(),
-                    age,
-                    lifeTicks,
-                    ownerId,
-                    targetId
-            );
             discard();
             return;
         }
 
-        Vec3 aim = resolveAim();
+        Vec3 aim = resolveAim(sl);
         Vec3 pos = position();
 
+        double remaining = Math.max(1, lifeTicks - age);
         Vec3 to = aim.subtract(pos);
         double dist = to.length();
 
-        if (dist <= HIT_RADIUS) {
-            FragmentoLog.combat(
-                    "cut hit radius reached, eid={} age={} dist={} owner.uuid={} target.uuid={} pos={} aim={}",
-                    getId(),
-                    age,
-                    dist,
-                    ownerId,
-                    targetId,
-                    vec(pos),
-                    vec(aim)
-            );
-            tryApplyHit();
+        if (dist < 0.01) {
+            tryHit(sl);
             discard();
             return;
         }
 
-        int remaining = Math.max(1, lifeTicks - age + 1);
-        Vec3 dir = to.scale(1.0 / Math.max(0.0001, dist));
-        Vec3 move = dir.scale(dist / remaining);
-
+        Vec3 move = to.scale(1.0 / remaining);
         setPos(pos.add(move));
-        faceTowards(aim, false);
-
-        if ((age % 10) == 0) {
-            FragmentoLog.combat(
-                    "cut tick, eid={} age={} lifeTicks={} remaining={} guided={} dist={} pos={} aim={}",
-                    getId(),
-                    age,
-                    lifeTicks,
-                    remaining,
-                    guided,
-                    dist,
-                    vec(position()),
-                    vec(aim)
-            );
-        }
     }
 
-    private Vec3 resolveAim() {
-        if (!(level() instanceof ServerLevel sl)) {
-            return new Vec3(aimX, aimY, aimZ);
-        }
-
-        if (guided && targetId != null) {
+    private Vec3 resolveAim(ServerLevel sl) {
+        if (targetId != null) {
             Entity e = sl.getEntity(targetId);
             if (e instanceof LivingEntity le && le.isAlive()) {
-                Vec3 c = le.getBoundingBox().getCenter();
-                double dx = Math.abs(c.x - aimX);
-                double dy = Math.abs(c.y - aimY);
-                double dz = Math.abs(c.z - aimZ);
-
-                aimX = c.x;
-                aimY = c.y;
-                aimZ = c.z;
-
-                if ((age % 10) == 0 || dx > 0.5 || dy > 0.5 || dz > 0.5) {
-                    FragmentoLog.combat(
-                            "cut resolveAim guided update, eid={} age={} target.uuid={} target.eid={} aimNow={} delta=(%.3f,%.3f,%.3f)",
-                            getId(),
-                            age,
-                            targetId,
-                            le.getId(),
-                            vec(c),
-                            dx,
-                            dy,
-                            dz
-                    );
-                }
-
-                return c;
-            } else {
-                if ((age % 10) == 0) {
-                    FragmentoLog.combat(
-                            "cut resolveAim guided lost target, eid={} age={} target.uuid={} found={} alive={}",
-                            getId(),
-                            age,
-                            targetId,
-                            e != null,
-                            e instanceof LivingEntity le2 && le2.isAlive()
-                    );
-                }
+                targetPoint = le.getBoundingBox().getCenter();
             }
         }
-
-        return new Vec3(aimX, aimY, aimZ);
+        return targetPoint;
     }
 
-    private void faceTowards(Vec3 aim, boolean verticalOnly) {
-        Vec3 d = aim.subtract(position());
-
-        if (verticalOnly) {
-            setXRot(-90.0f);
-            xRotO = -90.0f;
+    private void tryHit(ServerLevel sl) {
+        if (targetId == null || damage <= 0) {
             return;
         }
 
-        float yaw = (float) (Mth.atan2(d.z, d.x) * (180.0 / Math.PI)) - 90.0f;
-        setYRot(yaw);
-        yRotO = yaw;
-    }
-
-    private void tryApplyHit() {
-        if (!(level() instanceof ServerLevel sl)) {
-            FragmentoLog.combat("cut tryApplyHit ignore, notServerLevel=true eid={}", getId());
-            return;
-        }
-        if (targetId == null || damage <= 0.0f) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit ignore, targetNullOrNoDamage eid={} target.uuid={} dmg={}",
-                    getId(),
-                    targetId,
-                    damage
-            );
+        Entity e = sl.getEntity(targetId);
+        if (!(e instanceof LivingEntity le) || !le.isAlive()) {
             return;
         }
 
-        Entity t = sl.getEntity(targetId);
-        if (!(t instanceof LivingEntity target) || !target.isAlive()) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit ignore, targetMissingOrDead eid={} target.uuid={} found={} alive={}",
-                    getId(),
-                    targetId,
-                    t != null,
-                    t instanceof LivingEntity le && le.isAlive()
-            );
-            return;
-        }
-
-        AABB box = getBoundingBox().inflate(HIT_RADIUS);
-        List<LivingEntity> hits = sl.getEntitiesOfClass(LivingEntity.class, box, e ->
-                e.isAlive() && e.getUUID().equals(targetId)
-        );
-
-        if (hits.isEmpty()) {
-            FragmentoLog.combat(
-                    "cut tryApplyHit miss, eid={} target.uuid={} box={}",
-                    getId(),
-                    targetId,
-                    box.toString()
-            );
+        if (!le.getBoundingBox().contains(position())) {
             return;
         }
 
         DamageSource src = sl.damageSources().generic();
         if (ownerId != null) {
             Entity o = sl.getEntity(ownerId);
-            if (o instanceof LivingEntity le) {
-                src = sl.damageSources().mobAttack(le);
+            if (o instanceof LivingEntity lo) {
+                src = sl.damageSources().mobAttack(lo);
             }
         }
 
-        boolean ok = target.hurt(src, damage);
+        le.hurt(src, damage);
 
         FragmentoLog.combat(
-                "cut tryApplyHit applied, eid={} owner.uuid={} target.uuid={} target.eid={} dmg={} ok={} target.hpAfter={}",
-                getId(),
-                ownerId,
+                "cut hit applied, target.uuid={} dmg={}",
                 targetId,
-                target.getId(),
-                damage,
-                ok,
-                target.getHealth()
+                damage
         );
     }
 
@@ -1125,11 +935,39 @@ public final class CutEntity extends Entity {
         return lifeTicks;
     }
 
-    private static String vec(Vec3 v) {
-        if (v == null) {
-            return "null";
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {}
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        age = tag.getInt("age");
+        lifeTicks = tag.getInt("life");
+        damage = tag.getFloat("dmg");
+
+        if (tag.hasUUID("owner")) ownerId = tag.getUUID("owner");
+        if (tag.hasUUID("target")) targetId = tag.getUUID("target");
+
+        targetPoint = new Vec3(
+                tag.getDouble("tx"),
+                tag.getDouble("ty"),
+                tag.getDouble("tz")
+        );
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("age", age);
+        tag.putInt("life", lifeTicks);
+        tag.putFloat("dmg", damage);
+
+        if (ownerId != null) tag.putUUID("owner", ownerId);
+        if (targetId != null) tag.putUUID("target", targetId);
+
+        if (targetPoint != null) {
+            tag.putDouble("tx", targetPoint.x);
+            tag.putDouble("ty", targetPoint.y);
+            tag.putDouble("tz", targetPoint.z);
         }
-        return String.format("(%.3f,%.3f,%.3f)", v.x, v.y, v.z);
     }
 }
 
@@ -2462,8 +2300,6 @@ import com.pgalaxyp.fragmento.combat.content.entity.CutEntity;
 import com.pgalaxyp.fragmento.combat.content.entity.FragmentoEntities;
 import com.pgalaxyp.fragmento.combat.engine.profile.SpawnCutEffect;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
@@ -2480,33 +2316,27 @@ public final class FragmentoEffectApplier {
             return;
         }
 
-        Entity ownerEntity = level.getEntity(ownerId);
-        if (!(ownerEntity instanceof LivingEntity owner)) {
-            return;
-        }
+        Vec3 spawn = new Vec3(
+                e.spawnX(),
+                e.spawnY(),
+                e.spawnZ()
+        );
 
-        LivingEntity target = null;
-        UUID targetId = e.targetId();
-        if (targetId != null) {
-            Entity targetEntity = level.getEntity(targetId);
-            if (targetEntity instanceof LivingEntity le && le.isAlive()) {
-                target = le;
-            }
-        }
-
-        Vec3 spawn = new Vec3(e.spawnX(), e.spawnY(), e.spawnZ());
-        Vec3 aim = new Vec3(e.aimX(), e.aimY(), e.aimZ());
+        Vec3 targetPoint = new Vec3(
+                e.aimX(),
+                e.aimY(),
+                e.aimZ()
+        );
 
         CutEntity.spawn(
                 level,
                 FragmentoEntities.CUT.get(),
-                owner,
-                target,
+                ownerId,
+                e.targetId(),
+                targetPoint,
                 spawn,
-                aim,
                 e.lifeTicks(),
-                e.damage(),
-                e.verticalOnly()
+                e.damage()
         );
     }
 
@@ -2626,77 +2456,37 @@ package com.pgalaxyp.fragmento.combat.engine.targeting;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.*;
-
-import java.util.List;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 
 public final class AimResolver {
 
-    private static final double DOT_MIN = 0.85;
-
     public record Aim(
             LivingEntity target,
-            Vec3 point,
-            Kind kind
-    ) {
-        public enum Kind {
-            TARGET,
-            BLOCK,
-            EMPTY
-        }
+            Vec3 point
+    ) {}
 
-        public Vec3 aimPoint() {
-            if (target != null && target.isAlive()) {
-                return target.getBoundingBox().getCenter();
-            }
-            return point;
-        }
-    }
-
-    public Aim resolve(ServerPlayer player, double maxRange, double emptyRange) {
-        if (player == null) {
-            return new Aim(null, Vec3.ZERO, Aim.Kind.EMPTY);
-        }
-
+    public Aim resolve(ServerPlayer player, double maxRange, double fallbackDistance) {
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle().normalize();
+        Vec3 end = eye.add(look.scale(maxRange));
 
-        AABB box = player.getBoundingBox()
-                .expandTowards(look.scale(maxRange))
-                .inflate(1.5);
+        Level level = player.level();
 
-        List<LivingEntity> entities =
-                player.level().getEntitiesOfClass(
-                        LivingEntity.class,
-                        box,
-                        e -> e.isAlive() && e != player
-                );
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(
+                level,
+                player,
+                eye,
+                end,
+                player.getBoundingBox().expandTowards(look.scale(maxRange)),
+                e -> e instanceof LivingEntity le && le.isAlive() && e != player
+        );
 
-        LivingEntity best = null;
-        double bestDist = maxRange * maxRange;
-
-        for (LivingEntity e : entities) {
-            Vec3 center = e.getBoundingBox().getCenter();
-            Vec3 dir = center.subtract(eye);
-            double dist = dir.lengthSqr();
-            if (dist > bestDist) continue;
-
-            double dot = look.dot(dir.normalize());
-            if (dot < DOT_MIN) continue;
-
-            best = e;
-            bestDist = dist;
+        if (hit != null && hit.getEntity() instanceof LivingEntity le) {
+            return new Aim(le, hit.getLocation());
         }
 
-        if (best != null) {
-            return new Aim(best, best.getBoundingBox().getCenter(), Aim.Kind.TARGET);
-        }
-
-        HitResult hit = player.pick(maxRange, 0.0F, false);
-        if (hit instanceof BlockHitResult bhr) {
-            return new Aim(null, Vec3.atCenterOf(bhr.getBlockPos()), Aim.Kind.BLOCK);
-        }
-
-        return new Aim(null, eye.add(look.scale(emptyRange)), Aim.Kind.EMPTY);
+        return new Aim(null, eye.add(look.scale(fallbackDistance)));
     }
 }
 

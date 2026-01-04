@@ -16,6 +16,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.Vec3;
 
@@ -46,38 +47,58 @@ public final class FragmentoCatalystDefinitions {
             private final AimResolver aim = new AimResolver();
 
             @Override
-            public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
-                if (skillId == null || skillId.value() != FragmentoSkills.BARDO_NORMAL_INFUSED.value()) {
-                    return List.of();
+            public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+                AimResolver.Aim a = aim.resolve(player, 20.0, 5.0);
+
+                LivingEntity target = a.target();
+                Vec3 targetPoint = target != null ? target.getBoundingBox().getCenter() : a.point();
+
+                Vec3 forward = player.getLookAngle().normalize();
+                Vec3 right = forward.cross(new Vec3(0.0, 1.0, 0.0)).normalize();
+
+                Vec3 spawn;
+
+                if (stepIndex == 1) {
+                    double d = target != null ? target.getBbWidth() * 0.5 + 4.0 : 4.0;
+                    spawn = targetPoint.add(right.scale(d));
+                } else if (stepIndex == 2) {
+                    double d = target != null ? target.getBbWidth() * 0.5 + 4.0 : 4.0;
+                    spawn = targetPoint.subtract(right.scale(d));
+                } else {
+                    double y = target != null ? target.getBoundingBox().maxY + 4.0 : targetPoint.y + 4.0;
+                    spawn = new Vec3(targetPoint.x, y, targetPoint.z);
                 }
-
-                AimResolver.Aim a = aim.resolve(player, 6.0, 4.0);
-
-                Vec3 eye = player.getEyePosition();
-                Vec3 spawn = eye.add(player.getLookAngle().scale(0.8));
 
                 SpawnCutEffect cut = new SpawnCutEffect(
                         player.getUUID(),
-                        a.target() != null ? a.target().getUUID() : null,
-                        spawn.x, spawn.y, spawn.z,
-                        a.aimPoint().x, a.aimPoint().y, a.aimPoint().z,
-                        8,
-                        4.0f,
+                        target != null ? target.getUUID() : null,
+                        spawn.x,
+                        spawn.y,
+                        spawn.z,
+                        targetPoint.x,
+                        targetPoint.y,
+                        targetPoint.z,
+                        15,
+                        switch (stepIndex) {
+                            case 1 -> 3.0f;
+                            case 2 -> 4.0f;
+                            default -> 5.0f;
+                        },
                         false
                 );
 
                 FragmentoLog.combat(
-                        "bardo infused execute, player.uuid={} target={} aimKind={}",
+                        "bardo combo cut spawn, player.uuid={} step={} target={}",
                         player.getUUID(),
-                        a.target() != null ? a.target().getUUID() : null,
-                        a.kind()
+                        stepIndex,
+                        target != null ? target.getUUID() : null
                 );
 
                 return List.of(cut);
             }
 
             @Override
-            public List<CombatEffect> onComboStep(ServerPlayer player, int stepIndex, CombatTime now) {
+            public List<CombatEffect> onInfusedExecute(ServerPlayer player, SkillId skillId, CombatTime now) {
                 return List.of();
             }
 
@@ -87,25 +108,25 @@ public final class FragmentoCatalystDefinitions {
             }
         };
 
-        CatalystDefinition def = new CatalystDefinition(
-                new CatalystFamilyId("bardo"),
-                FluteItem::isFlute,
-                skills,
-                profile
+        FragmentoCombatRegistries.catalysts().register(
+                new CatalystDefinition(
+                        new CatalystFamilyId("bardo"),
+                        FluteItem::isFlute,
+                        skills,
+                        profile
+                )
         );
-
-        FragmentoCombatRegistries.catalysts().register(def);
     }
 
     private static void registerDefaultTag() {
-        CatalystDefinition def = new CatalystDefinition(
-                new CatalystFamilyId("default"),
-                stack -> stack != null && !stack.isEmpty() && stack.is(CATALYSTS_TAG),
-                Map.of(),
-                CombatProfile.NOOP
+        FragmentoCombatRegistries.catalysts().register(
+                new CatalystDefinition(
+                        new CatalystFamilyId("default"),
+                        stack -> stack != null && !stack.isEmpty() && stack.is(CATALYSTS_TAG),
+                        Map.of(),
+                        CombatProfile.NOOP
+                )
         );
-
-        FragmentoCombatRegistries.catalysts().register(def);
     }
 
     private FragmentoCatalystDefinitions() {}

@@ -13,6 +13,7 @@ public final class FragmentoMod {
     public static final String MODID = "fragmento";
 
     public FragmentoMod(IEventBus modBus) {
+        FragmentoLog.initFileLogging();
         FragmentoLog.runtime("bootstrap start modid={}", MODID);
 
         FragmentoContent.register(modBus);
