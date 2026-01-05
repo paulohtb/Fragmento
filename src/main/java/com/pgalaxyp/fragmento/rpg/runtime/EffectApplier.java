@@ -3,8 +3,10 @@ package com.pgalaxyp.fragmento.rpg.runtime;
 import com.pgalaxyp.fragmento.rpg.content.entity.CutEffectEntity;
 import com.pgalaxyp.fragmento.rpg.content.entity.InfusedStrikeEntity;
 import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg.content.entity.SpeedZoneEntity;
 import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
 import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnInfusedStrikeEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnSpeedZoneEffect;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
@@ -41,6 +43,19 @@ public final class EffectApplier {
                 e.damage(),
                 new Vec3(e.startX(), e.startY(), e.startZ()),
                 new Vec3(e.impactX(), e.impactY(), e.impactZ())
+        );
+    }
+
+    public static UUID applySpawnSpeedZone(ServerPlayer player, SpawnSpeedZoneEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
+
+        return SpeedZoneEntity.spawn(
+                sl,
+                RpgEntityRegistry.SPEED_ZONE.get(),
+                e.ownerId(),
+                new Vec3(e.x(), e.y(), e.z()),
+                e.lifeTicks()
         );
     }
 

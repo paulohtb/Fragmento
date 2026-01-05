@@ -41,7 +41,7 @@ public final class RpgNetwork {
 
     private static void handleCombatSnapshot(CombatSnapshotPayload payload, IPayloadContext context) {
         if (payload == null || context == null) return;
-        context.enqueueWork(() -> ClientNetworkProxy.state().apply(payload.snapshot()));
+        context.enqueueWork(() -> ClientNetworkProxy.applySnapshot(payload.snapshot()));
     }
 
     private RpgNetwork() {}

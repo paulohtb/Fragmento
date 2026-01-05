@@ -11,7 +11,7 @@ public final class ExecutionLifecycleRule {
 
         ExecutionState cur = exec != null ? exec : ExecutionState.idle();
 
-        if (cur.active() && now.isAfterOrEqual(cur.expectedEndAt())) {
+        if (cur.active() && cur.endsAt() != null && now.isAfterOrEqual(cur.endsAt())) {
             return cur.stop();
         }
 

@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.rpg.skill.config;
 
-import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
 
 public interface AbilityConfig {
-    Duration castDuration(SkillId skillId);
-    Duration cooldownDuration(SkillId skillId);
-    Duration actionLockDuration(SkillId skillId);
-    Duration executionEntityLife(SkillId skillId);
+    Duration castDuration(com.pgalaxyp.fragmento.rpg.domain.id.SkillId skillId);
+    Duration cooldownDuration(com.pgalaxyp.fragmento.rpg.domain.id.SkillId skillId);
+    Duration cancelCooldownDuration(com.pgalaxyp.fragmento.rpg.domain.id.SkillId skillId);
+    Duration actionLockDuration(com.pgalaxyp.fragmento.rpg.domain.id.SkillId skillId);
+    Duration executionEntityLife(com.pgalaxyp.fragmento.rpg.domain.id.SkillId skillId);
 }

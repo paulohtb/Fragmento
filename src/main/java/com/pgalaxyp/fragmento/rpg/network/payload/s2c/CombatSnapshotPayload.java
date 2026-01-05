@@ -1,16 +1,17 @@
 package com.pgalaxyp.fragmento.rpg.network.payload.s2c;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.rpg.domain.id.CatalystId;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.AbilitySnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.EquippedSkillsSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ExecutionSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
@@ -41,11 +42,12 @@ public record CombatSnapshotPayload(
     private static void write(ByteBuf buf, CombatSnapshotPayload payload) {
         CombatSnapshot snap = payload.snapshot();
 
-        ByteBufCodecs.VAR_LONG.encode(buf, snap.version().value());
+        ByteBufCodecs.VAR_LONG.encode(buf, snap.version().raw());
+        ByteBufCodecs.VAR_LONG.encode(buf, snap.now() != null ? snap.now().ticks() : 0L);
 
         ComboSnapshot combo = snap.combo();
         ByteBufCodecs.VAR_INT.encode(buf, combo.stepIndex());
-        ByteBufCodecs.VAR_LONG.encode(buf, combo.nextStepAt().ticks());
+        ByteBufCodecs.VAR_LONG.encode(buf, combo.nextStepAt() != null ? combo.nextStepAt().ticks() : 0L);
         ByteBufCodecs.BOOL.encode(buf, combo.holding());
         ByteBufCodecs.BOOL.encode(buf, combo.holdLatched());
 
@@ -73,13 +75,10 @@ public record CombatSnapshotPayload(
         ExecutionSnapshot exec = snap.execution() != null ? snap.execution() : ExecutionSnapshot.idle();
         ByteBufCodecs.BOOL.encode(buf, exec.active());
         ByteBufCodecs.VAR_INT.encode(buf, exec.kind() != null ? exec.kind().ordinal() : ExecutionKind.NONE.ordinal());
-        ByteBufCodecs.VAR_LONG.encode(buf, exec.execId());
-        ByteBufCodecs.VAR_LONG.encode(buf, exec.startedAt() != null ? exec.startedAt().ticks() : 0L);
-        ByteBufCodecs.VAR_LONG.encode(buf, exec.expectedEndAt() != null ? exec.expectedEndAt().ticks() : 0L);
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.endsAt() != null ? exec.endsAt().ticks() : 0L);
 
         LockSnapshot lock = snap.lock();
-        ActionKind kind = lock.actionKind() != null ? lock.actionKind() : ActionKind.NONE;
-        ByteBufCodecs.VAR_INT.encode(buf, kind.ordinal());
+        ByteBufCodecs.VAR_INT.encode(buf, lock.actionKind() != null ? lock.actionKind().ordinal() : ActionKind.NONE.ordinal());
 
         if (lock.skillId() != null) {
             ByteBufCodecs.BOOL.encode(buf, true);
@@ -88,8 +87,8 @@ public record CombatSnapshotPayload(
             ByteBufCodecs.BOOL.encode(buf, false);
         }
 
-        ByteBufCodecs.VAR_LONG.encode(buf, lock.actionEndsAt().ticks());
-        ByteBufCodecs.VAR_LONG.encode(buf, lock.itemSwapLockedUntil().ticks());
+        ByteBufCodecs.VAR_LONG.encode(buf, lock.actionEndsAt() != null ? lock.actionEndsAt().ticks() : 0L);
+        ByteBufCodecs.VAR_LONG.encode(buf, lock.itemSwapLockedUntil() != null ? lock.itemSwapLockedUntil().ticks() : 0L);
 
         LoadoutSnapshot loadout = snap.loadout();
 
@@ -108,69 +107,73 @@ public record CombatSnapshotPayload(
         }
 
         ByteBufCodecs.BOOL.encode(buf, loadout.offhandEmpty());
+
+        EquippedSkillsSnapshot eq = snap.equippedSkills() != null ? snap.equippedSkills() : EquippedSkillsSnapshot.empty();
+        ByteBufCodecs.VAR_INT.encode(buf, eq.bySlot().size());
+        for (var e : eq.bySlot().entrySet()) {
+            ByteBufCodecs.VAR_INT.encode(buf, e.getKey().index());
+            ByteBufCodecs.VAR_INT.encode(buf, e.getValue().value());
+        }
     }
 
     private static CombatSnapshotPayload read(ByteBuf buf) {
         CombatSnapshotVersion version =
                 new CombatSnapshotVersion(ByteBufCodecs.VAR_LONG.decode(buf));
 
+        Time now = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+
         int stepIndex = ByteBufCodecs.VAR_INT.decode(buf);
         Time nextStepAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
         boolean holding = ByteBufCodecs.BOOL.decode(buf);
         boolean holdLatched = ByteBufCodecs.BOOL.decode(buf);
+
         ComboSnapshot combo = new ComboSnapshot(stepIndex, nextStepAt, holding, holdLatched);
 
         int cdCount = ByteBufCodecs.VAR_INT.decode(buf);
-        Map<SkillId, Time> cds = new HashMap<>();
+        Map<SkillId, Time> cooldownEndsAt = new HashMap<>();
         for (int i = 0; i < cdCount; i++) {
-            cds.put(
-                    new SkillId(ByteBufCodecs.VAR_INT.decode(buf)),
-                    Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf))
-            );
+            SkillId skill = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+            Time endsAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+            cooldownEndsAt.put(skill, endsAt);
         }
 
-        int infusedCount = ByteBufCodecs.VAR_INT.decode(buf);
-        Map<SkillSlotId, SkillId> infused = new HashMap<>();
-        for (int i = 0; i < infusedCount; i++) {
-            infused.put(
-                    new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf)),
-                    new SkillId(ByteBufCodecs.VAR_INT.decode(buf))
-            );
+        int armedCount = ByteBufCodecs.VAR_INT.decode(buf);
+        Map<SkillSlotId, SkillId> infusedArmed = new HashMap<>();
+        for (int i = 0; i < armedCount; i++) {
+            SkillSlotId slot = new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf));
+            SkillId skill = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+            infusedArmed.put(slot, skill);
         }
 
-        int castCount = ByteBufCodecs.VAR_INT.decode(buf);
+        int castingCount = ByteBufCodecs.VAR_INT.decode(buf);
         Map<SkillSlotId, AbilitySnapshot.CastState> casting = new HashMap<>();
-        for (int i = 0; i < castCount; i++) {
-            casting.put(
-                    new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf)),
-                    new AbilitySnapshot.CastState(
-                            Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf)),
-                            ByteBufCodecs.BOOL.decode(buf)
-                    )
-            );
+        for (int i = 0; i < castingCount; i++) {
+            SkillSlotId slot = new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf));
+            Time endsAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+            boolean ready = ByteBufCodecs.BOOL.decode(buf);
+            casting.put(slot, new AbilitySnapshot.CastState(endsAt, ready));
         }
 
-        AbilitySnapshot abilities =
-                new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
+        AbilitySnapshot abilities = new AbilitySnapshot(cooldownEndsAt, infusedArmed, casting);
 
         boolean execActive = ByteBufCodecs.BOOL.decode(buf);
-        ExecutionKind execKind = ExecutionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
-        long execId = ByteBufCodecs.VAR_LONG.decode(buf);
-        Time execStartedAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        Time execExpectedEndAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        ExecutionSnapshot exec = new ExecutionSnapshot(execActive, execKind, execId, execStartedAt, execExpectedEndAt);
+        int execKindOrdinal = ByteBufCodecs.VAR_INT.decode(buf);
+        ExecutionKind kind = ExecutionKind.values()[Math.max(0, Math.min(execKindOrdinal, ExecutionKind.values().length - 1))];
+        Time execEndsAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        ExecutionSnapshot exec = new ExecutionSnapshot(execActive, kind, execEndsAt);
 
-        ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+        int actionKindOrdinal = ByteBufCodecs.VAR_INT.decode(buf);
+        ActionKind actionKind = ActionKind.values()[Math.max(0, Math.min(actionKindOrdinal, ActionKind.values().length - 1))];
 
-        SkillId skillId = null;
-        boolean hasSkill = ByteBufCodecs.BOOL.decode(buf);
-        if (hasSkill) {
-            skillId = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+        SkillId lockedSkill = null;
+        if (ByteBufCodecs.BOOL.decode(buf)) {
+            lockedSkill = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
         }
 
-        Time endsAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        Time swapLock = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
-        LockSnapshot lock = new LockSnapshot(kind, skillId, endsAt, swapLock);
+        Time actionEndsAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        Time itemSwapLockedUntil = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+
+        LockSnapshot lock = new LockSnapshot(actionKind, lockedSkill, actionEndsAt, itemSwapLockedUntil);
 
         CatalystId catalyst = null;
         if (ByteBufCodecs.BOOL.decode(buf)) {
@@ -185,8 +188,17 @@ public record CombatSnapshotPayload(
         boolean offhandEmpty = ByteBufCodecs.BOOL.decode(buf);
         LoadoutSnapshot loadout = new LoadoutSnapshot(catalyst, family, offhandEmpty);
 
+        int eqCount = ByteBufCodecs.VAR_INT.decode(buf);
+        Map<SkillSlotId, SkillId> bySlot = new HashMap<>();
+        for (int i = 0; i < eqCount; i++) {
+            SkillSlotId slot = new SkillSlotId(ByteBufCodecs.VAR_INT.decode(buf));
+            SkillId skill = new SkillId(ByteBufCodecs.VAR_INT.decode(buf));
+            bySlot.put(slot, skill);
+        }
+        EquippedSkillsSnapshot equippedSkills = new EquippedSkillsSnapshot(bySlot);
+
         return new CombatSnapshotPayload(
-                new CombatSnapshot(version, combo, abilities, exec, lock, loadout)
+                new CombatSnapshot(version, now, combo, abilities, exec, lock, loadout, equippedSkills)
         );
     }
 }

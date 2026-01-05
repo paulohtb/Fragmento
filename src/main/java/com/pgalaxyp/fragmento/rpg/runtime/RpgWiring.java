@@ -26,17 +26,16 @@ public final class RpgWiring {
     private static final ComboConfig COMBO_CONFIG = new DefaultComboConfig();
     private static final AbilityConfig ABILITY_CONFIG = new RegistryAbilityConfig();
 
-    public static RpgSessionManager createSessionManager() {
+    public static CombatEngine createCombatEngine() {
         EquipGateRule equipGate = new EquipGateRule();
         LockGateRule lockGate = new LockGateRule();
-        CooldownRule cooldownRule = new CooldownRule();
-        ActionLockRule actionLockRule = new ActionLockRule();
         ExecutionGateRule executionGate = new ExecutionGateRule();
+        ActionLockRule actionLockRule = new ActionLockRule();
 
+        CooldownRule cooldownRule = new CooldownRule();
         InfusedRule infusedRule = new InfusedRule(cooldownRule, ABILITY_CONFIG);
-        CastedRule castedRule = new CastedRule(cooldownRule, ABILITY_CONFIG);
 
-        CombatEngine combatEngine = new CombatEngine(
+        return new CombatEngine(
                 equipGate,
                 lockGate,
                 executionGate,
@@ -49,8 +48,19 @@ public final class RpgWiring {
                 infusedRule,
                 ABILITY_CONFIG
         );
+    }
 
-        AbilityEngine abilityEngine = new AbilityEngine(
+    public static AbilityEngine createAbilityEngine() {
+        EquipGateRule equipGate = new EquipGateRule();
+        LockGateRule lockGate = new LockGateRule();
+        ExecutionGateRule executionGate = new ExecutionGateRule();
+        ActionLockRule actionLockRule = new ActionLockRule();
+
+        CooldownRule cooldownRule = new CooldownRule();
+        InfusedRule infusedRule = new InfusedRule(cooldownRule, ABILITY_CONFIG);
+        CastedRule castedRule = new CastedRule(cooldownRule, ABILITY_CONFIG);
+
+        return new AbilityEngine(
                 equipGate,
                 lockGate,
                 executionGate,
@@ -59,11 +69,19 @@ public final class RpgWiring {
                 infusedRule,
                 castedRule
         );
-
-        return new RpgSessionManager(combatEngine, abilityEngine);
     }
 
+    public static RpgSessionManager createSessionManager() {
+        return new RpgSessionManager(
+                createCombatEngine(),
+                createAbilityEngine()
+        );
+    }
+
+    private RpgWiring() {}
+
     private static final class DefaultComboConfig implements ComboConfig {
+
         @Override
         public int maxSteps() {
             return 3;
@@ -81,7 +99,7 @@ public final class RpgWiring {
 
         @Override
         public Duration executionEntityLife() {
-            return Duration.ofTicks(15);
+            return Duration.ofTicks(20);
         }
     }
 
@@ -95,27 +113,41 @@ public final class RpgWiring {
         @Override
         public Duration castDuration(SkillId skillId) {
             SkillTuning t = tuning(skillId);
-            return t != null && t.castDuration() != null ? t.castDuration() : Duration.ofTicks(0);
+            return t != null && t.castDuration() != null
+                    ? t.castDuration()
+                    : Duration.ofTicks(0);
         }
 
         @Override
         public Duration cooldownDuration(SkillId skillId) {
             SkillTuning t = tuning(skillId);
-            return t != null && t.cooldownDuration() != null ? t.cooldownDuration() : Duration.ofTicks(0);
+            return t != null && t.cooldownDuration() != null
+                    ? t.cooldownDuration()
+                    : Duration.ofTicks(0);
+        }
+
+        @Override
+        public Duration cancelCooldownDuration(SkillId skillId) {
+            SkillTuning t = tuning(skillId);
+            return t != null && t.cancelCooldownDuration() != null
+                    ? t.cancelCooldownDuration()
+                    : Duration.ofTicks(0);
         }
 
         @Override
         public Duration actionLockDuration(SkillId skillId) {
             SkillTuning t = tuning(skillId);
-            return t != null && t.actionLockDuration() != null ? t.actionLockDuration() : Duration.ofTicks(0);
+            return t != null && t.actionLockDuration() != null
+                    ? t.actionLockDuration()
+                    : Duration.ofTicks(0);
         }
 
         @Override
         public Duration executionEntityLife(SkillId skillId) {
             SkillTuning t = tuning(skillId);
-            return t != null && t.executionEntityLife() != null ? t.executionEntityLife() : Duration.ofTicks(0);
+            return t != null && t.executionEntityLife() != null
+                    ? t.executionEntityLife()
+                    : Duration.ofTicks(0);
         }
     }
-
-    private RpgWiring() {}
 }

@@ -77,9 +77,7 @@ public final class CombatEngine {
             AbilityState abilities = infusedRule.startCooldownOnUse(infused.state(), used, now);
 
             ExecutionState nextExec = startExecution(
-                    state.execution(),
                     ExecutionKind.INFUSED_CUT,
-                    now,
                     now.plus(abilityConfig.executionEntityLife(used))
             );
 
@@ -119,9 +117,7 @@ public final class CombatEngine {
 
         if (stepExecuted) {
             ExecutionState nextExec = startExecution(
-                    state.execution(),
                     ExecutionKind.COMBO_CUT,
-                    now,
                     now.plus(comboConfig.executionEntityLife())
             );
 
@@ -151,9 +147,7 @@ public final class CombatEngine {
         next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
 
         ExecutionState nextExec = startExecution(
-                state.execution(),
                 ExecutionKind.COMBO_CUT,
-                now,
                 now.plus(comboConfig.executionEntityLife())
         );
 
@@ -170,20 +164,10 @@ public final class CombatEngine {
                 );
     }
 
-    private static ExecutionState startExecution(
-            ExecutionState current,
-            ExecutionKind kind,
-            Time startedAt,
-            Time expectedEndAt
-    ) {
-        ExecutionState cur = current != null ? current : ExecutionState.idle();
-        long nextId = cur.execId() + 1L;
-
+    private static ExecutionState startExecution(ExecutionKind kind, Time expectedEndAt) {
         return new ExecutionState(
                 true,
                 kind != null ? kind : ExecutionKind.NONE,
-                nextId,
-                startedAt != null ? startedAt : Time.ofTicks(0L),
                 expectedEndAt != null ? expectedEndAt : Time.ofTicks(0L)
         );
     }

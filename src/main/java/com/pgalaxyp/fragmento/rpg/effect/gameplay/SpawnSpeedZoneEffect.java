@@ -1,21 +1,18 @@
 package com.pgalaxyp.fragmento.rpg.effect.gameplay;
 
-import com.pgalaxyp.fragmento.rpg.content.entity.InfusedStrikeEntity;
 import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg.content.entity.SpeedZoneEntity;
 import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
-public record SpawnInfusedStrikeEffect(
+public record SpawnSpeedZoneEffect(
         UUID ownerId,
-        float damage,
-        double startX,
-        double startY,
-        double startZ,
-        double impactX,
-        double impactY,
-        double impactZ
+        double x,
+        double y,
+        double z,
+        int lifeTicks
 ) implements RpgEffect {
 
     public UUID spawn(ServerPlayer player) {
@@ -23,13 +20,12 @@ public record SpawnInfusedStrikeEffect(
 
         var level = player.serverLevel();
 
-        return InfusedStrikeEntity.spawn(
+        return SpeedZoneEntity.spawn(
                 level,
-                RpgEntityRegistry.INFUSED_STRIKE.get(),
+                RpgEntityRegistry.SPEED_ZONE.get(),
                 ownerId,
-                damage,
-                new Vec3(startX, startY, startZ),
-                new Vec3(impactX, impactY, impactZ)
+                new Vec3(x, y, z),
+                lifeTicks
         );
     }
 }

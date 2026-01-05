@@ -35,7 +35,7 @@ public final class CastedRule {
         SkillSlotId slot = intent.slot();
 
         if (intent.kind() == AbilityIntentKind.CANCEL) {
-            return cancel(state, slot);
+            return cancel(state, slot, now);
         }
 
         if (intent.kind() != AbilityIntentKind.PRESS) {
@@ -86,6 +86,7 @@ public final class CastedRule {
 
         for (var entry : state.casting().entrySet()) {
             AbilityState.CastRuntime cast = entry.getValue();
+
             if (!cast.ready() && now.isAfterOrEqual(cast.castEndsAt())) {
                 casting.put(
                         entry.getKey(),
@@ -97,6 +98,7 @@ public final class CastedRule {
                 );
                 changed = true;
             }
+
             if (cast.ready() && now.isAfterOrEqual(cast.castEndsAt())) {
                 finished.put(entry.getKey(), cast.skillId());
             }
@@ -143,9 +145,11 @@ public final class CastedRule {
 
     private AbilityState cancel(
             AbilityState state,
-            SkillSlotId slot
+            SkillSlotId slot,
+            Time now
     ) {
-        if (!state.casting().containsKey(slot)) {
+        AbilityState.CastRuntime cast = state.casting().get(slot);
+        if (cast == null) {
             return state;
         }
 
@@ -153,11 +157,14 @@ public final class CastedRule {
                 new HashMap<>(state.casting());
         casting.remove(slot);
 
-        return new AbilityState(
+        AbilityState next = new AbilityState(
                 state.cooldownEndsAt(),
                 state.infusedArmed(),
                 casting
         );
+
+        SkillId skill = cast.skillId();
+        return cooldownRule.startCooldown(next, skill, config.cancelCooldownDuration(skill), now);
     }
 
     public record AdvanceResult(

@@ -6,11 +6,10 @@ import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
 public record ExecutionSnapshot(
         boolean active,
         ExecutionKind kind,
-        long execId,
-        Time startedAt,
-        Time expectedEndAt
+        Time endsAt
 ) {
+
     public static ExecutionSnapshot idle() {
-        return new ExecutionSnapshot(false, ExecutionKind.NONE, 0L, Time.ofTicks(0), Time.ofTicks(0));
+        return new ExecutionSnapshot(false, ExecutionKind.NONE, Time.ofTicks(0L));
     }
 }

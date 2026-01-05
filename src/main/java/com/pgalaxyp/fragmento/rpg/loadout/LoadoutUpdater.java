@@ -16,14 +16,14 @@ public final class LoadoutUpdater {
         }
 
         LoadoutState next = resolver.resolve(player);
-        if (next.equals(state.loadout())) {
+        if (next != null && next.equals(state.loadout())) {
             return state;
         }
 
         ServerCombatState out = state.withLoadout(next);
 
-        EquippedSkillsState eq = skills.forPlayer(player, next);
-        if (!eq.equals(out.equippedSkills())) {
+        EquippedSkillsState eq = skills.forPlayer(player, out.loadout());
+        if (eq != null && !eq.equals(out.equippedSkills())) {
             out = out.withEquippedSkills(eq);
         }
 

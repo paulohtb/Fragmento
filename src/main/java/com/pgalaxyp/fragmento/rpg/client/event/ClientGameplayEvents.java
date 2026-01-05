@@ -1,75 +1,53 @@
 package com.pgalaxyp.fragmento.rpg.client.event;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.client.ClientContext;
-import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
-import net.minecraft.client.KeyMapping;
+import com.pgalaxyp.fragmento.rpg.client.ClientNetworkProxy;
+import com.pgalaxyp.fragmento.rpg.client.input.ClientInputController;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
-import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(
         modid = FragmentoMod.MODID,
-        value = Dist.CLIENT,
-        bus = EventBusSubscriber.Bus.GAME
+        value = Dist.CLIENT
 )
 public final class ClientGameplayEvents {
 
-    private static final ClientInputController INPUT =
-            new ClientInputController(new ClientIntentSender());
+    private static final ClientInputController INPUT = new ClientInputController();
 
     @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
-        INPUT.clientTick();
+    public static void onClientTick(ClientTickEvent.Post e) {
+        INPUT.clientTick(Minecraft.getInstance());
     }
 
     @SubscribeEvent
-    public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
+    public static void onMouseScroll(InputEvent.MouseScrollingEvent e) {
         Minecraft mc = Minecraft.getInstance();
-        if (!ClientContext.inGame(mc)) return;
         if (!ClientContext.catalystActive(mc)) return;
 
-        KeyMapping mapping = event.getKeyMapping();
-        if (mapping == null) return;
-
-        if (mapping == mc.options.keyAttack || mapping == mc.options.keyUse) {
-            event.setSwingHand(false);
-            event.setCanceled(true);
+        if (shouldBlockHotbarSwap()) {
+            e.setCanceled(true);
         }
     }
 
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (!ClientContext.inGame(mc)) return;
-        if (!ClientContext.catalystActive(mc)) return;
-        if (event.getAction() != GLFW.GLFW_PRESS) return;
+    private static boolean shouldBlockHotbarSwap() {
+        CombatSnapshot snap = ClientNetworkProxy.snapshot();
+        if (snap == null) return false;
 
-        int button = event.getButton();
+        LockSnapshot lock = snap.lock();
+        if (lock == null || lock.itemSwapLockedUntil() == null) return false;
 
-        if (matchesMouseKey(mc.options.keyAttack, button)) {
-            event.setCanceled(true);
-            INPUT.onAttackClick();
-            return;
-        }
+        Time now = ClientNetworkProxy.now();
+        Time until = lock.itemSwapLockedUntil();
 
-        if (matchesMouseKey(mc.options.keyUse, button)) {
-            event.setCanceled(true);
-            INPUT.onUseItemClick();
-        }
-    }
-
-    private static boolean matchesMouseKey(KeyMapping mapping, int mouseButton) {
-        if (mapping == null) return false;
-        InputConstants.Key key = mapping.getKey();
-        return key != null
-                && key.getType() == InputConstants.Type.MOUSE
-                && key.getValue() == mouseButton;
+        return now != null && now.ticks() < until.ticks();
     }
 
     private ClientGameplayEvents() {}

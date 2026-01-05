@@ -2,15 +2,14 @@ package com.pgalaxyp.fragmento.rpg.content.profile;
 
 import com.pgalaxyp.fragmento.rpg.catalyst.registry.CatalystDefinition;
 import com.pgalaxyp.fragmento.rpg.content.catalyst.FluteItem;
-import com.pgalaxyp.fragmento.rpg.content.catalyst.bard.BardFluteEffects;
 import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
 import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
-import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.engine.catalyst.BardFluteEffects;
 import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
 import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
-
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
 import java.util.Map;
 
 public final class RpgProfiles {
@@ -41,13 +40,15 @@ public final class RpgProfiles {
                 new SkillTuning(
                         Duration.ofTicks(0),
                         Duration.ofTicks(100),
+                        Duration.ofTicks(0),
                         Duration.ofTicks(10),
                         Duration.ofTicks(26)
                 ),
                 BardSkills.BARDO_SPECIAL_CASTED,
                 new SkillTuning(
                         Duration.ofTicks(40),
-                        Duration.ofTicks(400),
+                        Duration.ofTicks(200),
+                        Duration.ofTicks(10),
                         Duration.ofTicks(10),
                         Duration.ofTicks(0)
                 )

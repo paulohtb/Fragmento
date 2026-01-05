@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.client.event;
 
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
-import com.pgalaxyp.fragmento.rpg.client.ui.InfusedHudOverlay;
+import com.pgalaxyp.fragmento.rpg.client.ui.AbilityHudOverlay;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,7 +16,7 @@ public final class ClientHudEvents {
 
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
-        InfusedHudOverlay.render(event.getGuiGraphics());
+        AbilityHudOverlay.render(event.getGuiGraphics());
     }
 
     private ClientHudEvents() {}

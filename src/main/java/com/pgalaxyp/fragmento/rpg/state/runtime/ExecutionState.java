@@ -5,28 +5,18 @@ import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 public record ExecutionState(
         boolean active,
         ExecutionKind kind,
-        long execId,
-        Time startedAt,
-        Time expectedEndAt
+        Time endsAt
 ) {
 
     public static ExecutionState idle() {
-        return new ExecutionState(
-                false,
-                ExecutionKind.NONE,
-                0L,
-                Time.ofTicks(0L),
-                Time.ofTicks(0L)
-        );
+        return new ExecutionState(false, ExecutionKind.NONE, Time.ofTicks(0L));
+    }
+
+    public Time expectedEndAt() {
+        return endsAt;
     }
 
     public ExecutionState stop() {
-        return new ExecutionState(
-                false,
-                ExecutionKind.NONE,
-                execId,
-                startedAt,
-                expectedEndAt
-        );
+        return new ExecutionState(false, ExecutionKind.NONE, Time.ofTicks(0L));
     }
 }

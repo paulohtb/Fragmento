@@ -21,7 +21,7 @@ public final class InfusedHudOverlay {
         if (!ClientContext.inGame(mc)) return;
         if (!ClientContext.catalystActive(mc)) return;
 
-        CombatSnapshot snap = ClientNetworkProxy.state().current();
+        CombatSnapshot snap = ClientNetworkProxy.snapshot();
         if (snap == null) return;
 
         AbilitySnapshot abilities = snap.abilities();
@@ -39,8 +39,8 @@ public final class InfusedHudOverlay {
             g.fill(x, y, x + 16, y + 16, 0x88000000);
         }
 
-        SkillId selected = abilities.selectedSkill();
-        Time now = snap.now();
+        SkillId selected = abilities.infusedArmed().values().stream().findFirst().orElse(null);
+        Time now = ClientNetworkProxy.now();
 
         if (selected != null && now != null) {
             Time cd = abilities.cooldownEndsAt().get(selected);

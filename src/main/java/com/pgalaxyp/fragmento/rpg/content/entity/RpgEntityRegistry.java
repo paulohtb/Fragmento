@@ -34,6 +34,16 @@ public final class RpgEntityRegistry {
                             .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "infused_strike").toString())
             );
 
+    public static final DeferredHolder<EntityType<?>, EntityType<SpeedZoneEntity>> SPEED_ZONE =
+            ENTITY_TYPES.register(
+                    "speed_zone",
+                    () -> EntityType.Builder.of(SpeedZoneEntity::new, MobCategory.MISC)
+                            .sized(0.1f, 0.1f)
+                            .clientTrackingRange(128)
+                            .updateInterval(1)
+                            .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "speed_zone").toString())
+            );
+
     public static void register(IEventBus modBus) {
         ENTITY_TYPES.register(modBus);
     }

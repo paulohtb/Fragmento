@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.rpg.client.event;
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.client.render.CutEffectRenderer;
 import com.pgalaxyp.fragmento.rpg.client.render.InfusedStrikeRenderer;
+import com.pgalaxyp.fragmento.rpg.client.render.SpeedZoneRenderer;
 import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -20,6 +21,7 @@ public final class ClientRenderEvents {
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(RpgEntityRegistry.CUT.get(), CutEffectRenderer::new);
         event.registerEntityRenderer(RpgEntityRegistry.INFUSED_STRIKE.get(), InfusedStrikeRenderer::new);
+        event.registerEntityRenderer(RpgEntityRegistry.SPEED_ZONE.get(), SpeedZoneRenderer::new);
     }
 
     private ClientRenderEvents() {}

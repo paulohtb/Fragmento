@@ -12,11 +12,6 @@ public record AbilitySnapshot(
         Map<SkillSlotId, CastState> casting
 ) {
 
-    public SkillId selectedSkill() {
-        if (infusedArmed.isEmpty()) return null;
-        return infusedArmed.values().iterator().next();
-    }
-
     public record CastState(
             Time castEndsAt,
             boolean ready
