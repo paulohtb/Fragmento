@@ -3,7 +3,6 @@ package com.pgalaxyp.fragmento.rpg.client.event;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.client.ClientContext;
-import com.pgalaxyp.fragmento.rpg.client.input.ClientInputController;
 import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;

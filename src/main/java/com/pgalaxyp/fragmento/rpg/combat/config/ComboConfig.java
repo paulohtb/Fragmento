@@ -6,4 +6,5 @@ public interface ComboConfig {
     int maxSteps();
     Duration stepDuration();
     Duration actionLockDuration();
+    Duration executionEntityLife();
 }

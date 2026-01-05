@@ -25,13 +25,6 @@ public final class CutEffectEntity extends Entity {
     private static final EntityDataAccessor<Byte> DATA_ORIENTATION =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.BYTE);
 
-    private static final EntityDataAccessor<Float> DATA_MOVE_X =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_MOVE_Y =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_MOVE_Z =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-
     private static final EntityDataAccessor<Float> DATA_AIM_X =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_AIM_Y =
@@ -46,9 +39,10 @@ public final class CutEffectEntity extends Entity {
     public CutEffectEntity(EntityType<? extends CutEffectEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
+        this.setNoGravity(true);
     }
 
-    public static void spawn(
+    public static UUID spawn(
             ServerLevel level,
             EntityType<CutEffectEntity> type,
             UUID ownerId,
@@ -59,37 +53,114 @@ public final class CutEffectEntity extends Entity {
             float damage,
             CutOrientation orientation
     ) {
+        if (level == null || type == null || spawn == null || target == null) return null;
+
         CutEffectEntity e = new CutEffectEntity(type, level);
+
         e.ownerId = ownerId;
         e.targetId = targetId;
-        e.damage = damage;
-
-        Vec3 moveDir = target.subtract(spawn).normalize();
-        Vec3 aimDir = target.subtract(spawn).normalize();
+        e.damage = Math.max(0f, damage);
 
         e.entityData.set(DATA_LIFE, Math.max(1, lifeTicks));
         e.entityData.set(DATA_AGE, 0);
-        e.entityData.set(DATA_ORIENTATION, (byte) orientation.ordinal());
+        e.entityData.set(DATA_ORIENTATION, (byte) (orientation != null ? orientation.ordinal() : 0));
 
-        e.entityData.set(DATA_MOVE_X, (float) moveDir.x);
-        e.entityData.set(DATA_MOVE_Y, (float) moveDir.y);
-        e.entityData.set(DATA_MOVE_Z, (float) moveDir.z);
+        e.entityData.set(DATA_AIM_X, (float) target.x);
+        e.entityData.set(DATA_AIM_Y, (float) target.y);
+        e.entityData.set(DATA_AIM_Z, (float) target.z);
 
-        e.entityData.set(DATA_AIM_X, (float) aimDir.x);
-        e.entityData.set(DATA_AIM_Y, (float) aimDir.y);
-        e.entityData.set(DATA_AIM_Z, (float) aimDir.z);
+        e.setPos(spawn);
+
+        boolean added = level.addFreshEntity(e);
+        return added ? e.getUUID() : null;
+    }
+
+    public static void spawnClient(
+            Level level,
+            EntityType<CutEffectEntity> type,
+            Vec3 spawn,
+            Vec3 target,
+            int lifeTicks,
+            CutOrientation orientation
+    ) {
+        if (level == null || type == null || spawn == null || target == null) return;
+
+        CutEffectEntity e = new CutEffectEntity(type, level);
+
+        e.ownerId = null;
+        e.targetId = null;
+        e.damage = 0f;
+
+        e.entityData.set(DATA_LIFE, Math.max(1, lifeTicks));
+        e.entityData.set(DATA_AGE, 0);
+        e.entityData.set(DATA_ORIENTATION, (byte) (orientation != null ? orientation.ordinal() : 0));
+
+        e.entityData.set(DATA_AIM_X, (float) target.x);
+        e.entityData.set(DATA_AIM_Y, (float) target.y);
+        e.entityData.set(DATA_AIM_Z, (float) target.z);
 
         e.setPos(spawn);
         level.addFreshEntity(e);
     }
 
     @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(DATA_LIFE, 10);
+        builder.define(DATA_AGE, 0);
+        builder.define(DATA_ORIENTATION, (byte) 0);
+        builder.define(DATA_AIM_X, 0f);
+        builder.define(DATA_AIM_Y, 0f);
+        builder.define(DATA_AIM_Z, 0f);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("Life", entityData.get(DATA_LIFE));
+        tag.putInt("Age", entityData.get(DATA_AGE));
+        tag.putByte("Ori", entityData.get(DATA_ORIENTATION));
+        tag.putFloat("Ax", entityData.get(DATA_AIM_X));
+        tag.putFloat("Ay", entityData.get(DATA_AIM_Y));
+        tag.putFloat("Az", entityData.get(DATA_AIM_Z));
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        entityData.set(DATA_LIFE, tag.getInt("Life"));
+        entityData.set(DATA_AGE, tag.getInt("Age"));
+        entityData.set(DATA_ORIENTATION, tag.getByte("Ori"));
+        entityData.set(DATA_AIM_X, tag.getFloat("Ax"));
+        entityData.set(DATA_AIM_Y, tag.getFloat("Ay"));
+        entityData.set(DATA_AIM_Z, tag.getFloat("Az"));
+    }
+
+    public int life() {
+        return entityData.get(DATA_LIFE);
+    }
+
+    public int age() {
+        return entityData.get(DATA_AGE);
+    }
+
+    public CutOrientation orientation() {
+        int o = entityData.get(DATA_ORIENTATION);
+        if (o < 0 || o >= CutOrientation.values().length) {
+            return CutOrientation.HORIZONTAL;
+        }
+        return CutOrientation.values()[o];
+    }
+
+    public Vec3 aimDir() {
+        Vec3 aim = new Vec3(
+                entityData.get(DATA_AIM_X),
+                entityData.get(DATA_AIM_Y),
+                entityData.get(DATA_AIM_Z)
+        );
+        return aim.subtract(position()).normalize();
+    }
+
+    @Override
     public void tick() {
         super.tick();
-
-        if (level().isClientSide) {
-            return;
-        }
 
         int age = entityData.get(DATA_AGE) + 1;
         entityData.set(DATA_AGE, age);
@@ -99,11 +170,27 @@ public final class CutEffectEntity extends Entity {
             return;
         }
 
+        if (level().isClientSide) {
+            return;
+        }
+
         move(MoverType.SELF, moveDir().scale(0.6));
 
-        if (level() instanceof ServerLevel sl) {
-            tryHit(sl);
+        if (!(level() instanceof ServerLevel sl)) {
+            discard();
+            return;
         }
+
+        tryHit(sl);
+    }
+
+    private Vec3 moveDir() {
+        Vec3 n = aimDir();
+        CutOrientation o = orientation();
+        if (o == CutOrientation.VERTICAL) {
+            return new Vec3(n.x, Math.abs(n.y) < 0.2 ? 0.55 : n.y, n.z).normalize();
+        }
+        return new Vec3(n.x, 0.0, n.z).normalize();
     }
 
     private void tryHit(ServerLevel sl) {
@@ -121,84 +208,36 @@ public final class CutEffectEntity extends Entity {
         if (!hit.intersects(le.getBoundingBox())) return;
 
         DamageSource src = sl.damageSources().generic();
-        if (ownerId != null) {
-            Entity o = sl.getEntity(ownerId);
-            if (o instanceof LivingEntity lo) {
-                src = sl.damageSources().mobAttack(lo);
-            }
+
+        Entity owner = ownerId != null ? sl.getEntity(ownerId) : null;
+        if (owner instanceof LivingEntity ol) {
+            src = sl.damageSources().mobAttack(ol);
         }
 
         le.hurt(src, damage);
-        damage = 0;
+        discard();
     }
 
-    private static AABB orientedBox(Vec3 c, Vec3 u, Vec3 v, Vec3 n, double eu, double ev, double en) {
-        Vec3 uu = u.scale(eu);
-        Vec3 vv = v.scale(ev);
-        Vec3 nn = n.scale(en);
+    private static AABB orientedBox(
+            Vec3 center,
+            Vec3 u,
+            Vec3 v,
+            Vec3 n,
+            double hu,
+            double hv,
+            double hn
+    ) {
+        Vec3 a = center.add(u.scale(hu)).add(v.scale(hv)).add(n.scale(hn));
+        Vec3 b = center.add(u.scale(-hu)).add(v.scale(-hv)).add(n.scale(-hn));
 
-        Vec3[] p = new Vec3[]{
-                c.add(uu).add(vv).add(nn),
-                c.add(uu).add(vv).subtract(nn),
-                c.add(uu).subtract(vv).add(nn),
-                c.add(uu).subtract(vv).subtract(nn),
-                c.subtract(uu).add(vv).add(nn),
-                c.subtract(uu).add(vv).subtract(nn),
-                c.subtract(uu).subtract(vv).add(nn),
-                c.subtract(uu).subtract(vv).subtract(nn)
-        };
+        double minX = Math.min(a.x, b.x);
+        double minY = Math.min(a.y, b.y);
+        double minZ = Math.min(a.z, b.z);
 
-        double minX = p[0].x, minY = p[0].y, minZ = p[0].z;
-        double maxX = minX, maxY = minY, maxZ = minZ;
-
-        for (Vec3 vtx : p) {
-            minX = Math.min(minX, vtx.x);
-            minY = Math.min(minY, vtx.y);
-            minZ = Math.min(minZ, vtx.z);
-            maxX = Math.max(maxX, vtx.x);
-            maxY = Math.max(maxY, vtx.y);
-            maxZ = Math.max(maxZ, vtx.z);
-        }
+        double maxX = Math.max(a.x, b.x);
+        double maxY = Math.max(a.y, b.y);
+        double maxZ = Math.max(a.z, b.z);
 
         return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
     }
-
-    public Vec3 moveDir() {
-        return new Vec3(
-                entityData.get(DATA_MOVE_X),
-                entityData.get(DATA_MOVE_Y),
-                entityData.get(DATA_MOVE_Z)
-        );
-    }
-
-    public Vec3 aimDir() {
-        return new Vec3(
-                entityData.get(DATA_AIM_X),
-                entityData.get(DATA_AIM_Y),
-                entityData.get(DATA_AIM_Z)
-        );
-    }
-
-    public CutOrientation getOrientation() {
-        return CutOrientation.values()[entityData.get(DATA_ORIENTATION)];
-    }
-
-    @Override
-    protected void defineSynchedData(SynchedEntityData.Builder b) {
-        b.define(DATA_LIFE, 1);
-        b.define(DATA_AGE, 0);
-        b.define(DATA_ORIENTATION, (byte) 0);
-        b.define(DATA_MOVE_X, 0f);
-        b.define(DATA_MOVE_Y, 0f);
-        b.define(DATA_MOVE_Z, 1f);
-        b.define(DATA_AIM_X, 0f);
-        b.define(DATA_AIM_Y, 0f);
-        b.define(DATA_AIM_Z, 1f);
-    }
-
-    @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {}
-
-    @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {}
 }

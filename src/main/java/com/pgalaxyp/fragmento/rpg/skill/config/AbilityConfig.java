@@ -7,4 +7,5 @@ public interface AbilityConfig {
     Duration castDuration(SkillId skillId);
     Duration cooldownDuration(SkillId skillId);
     Duration actionLockDuration(SkillId skillId);
+    Duration executionEntityLife(SkillId skillId);
 }

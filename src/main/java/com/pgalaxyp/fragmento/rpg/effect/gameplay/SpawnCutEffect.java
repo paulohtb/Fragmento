@@ -11,9 +11,9 @@ public record SpawnCutEffect(
         double spawnX,
         double spawnY,
         double spawnZ,
-        double aimX,
-        double aimY,
-        double aimZ,
+        double targetX,
+        double targetY,
+        double targetZ,
         int lifeTicks,
         float damage,
         CutOrientation orientation

@@ -6,10 +6,12 @@ import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.rpg.domain.id.CatalystId;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.AbilitySnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.ExecutionSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
 import io.netty.buffer.ByteBuf;
@@ -67,6 +69,13 @@ public record CombatSnapshotPayload(
             ByteBufCodecs.VAR_LONG.encode(buf, e.getValue().castEndsAt().ticks());
             ByteBufCodecs.BOOL.encode(buf, e.getValue().ready());
         }
+
+        ExecutionSnapshot exec = snap.execution() != null ? snap.execution() : ExecutionSnapshot.idle();
+        ByteBufCodecs.BOOL.encode(buf, exec.active());
+        ByteBufCodecs.VAR_INT.encode(buf, exec.kind() != null ? exec.kind().ordinal() : ExecutionKind.NONE.ordinal());
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.execId());
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.startedAt() != null ? exec.startedAt().ticks() : 0L);
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.expectedEndAt() != null ? exec.expectedEndAt().ticks() : 0L);
 
         LockSnapshot lock = snap.lock();
         ActionKind kind = lock.actionKind() != null ? lock.actionKind() : ActionKind.NONE;
@@ -144,6 +153,13 @@ public record CombatSnapshotPayload(
         AbilitySnapshot abilities =
                 new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
 
+        boolean execActive = ByteBufCodecs.BOOL.decode(buf);
+        ExecutionKind execKind = ExecutionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+        long execId = ByteBufCodecs.VAR_LONG.decode(buf);
+        Time execStartedAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        Time execExpectedEndAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        ExecutionSnapshot exec = new ExecutionSnapshot(execActive, execKind, execId, execStartedAt, execExpectedEndAt);
+
         ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
 
         SkillId skillId = null;
@@ -170,7 +186,7 @@ public record CombatSnapshotPayload(
         LoadoutSnapshot loadout = new LoadoutSnapshot(catalyst, family, offhandEmpty);
 
         return new CombatSnapshotPayload(
-                new CombatSnapshot(version, combo, abilities, lock, loadout)
+                new CombatSnapshot(version, combo, abilities, exec, lock, loadout)
         );
     }
 }

@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.rpg.state.runtime;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.ExecutionSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
 
@@ -12,6 +13,7 @@ public record ServerCombatState(
         EquippedSkillsState equippedSkills,
         ComboState combo,
         AbilityState abilities,
+        ExecutionState execution,
         ActionLockState lock
 ) {
 
@@ -22,46 +24,18 @@ public record ServerCombatState(
                 EquippedSkillsState.empty(),
                 ComboState.idle(),
                 AbilityState.initial(),
+                ExecutionState.idle(),
                 ActionLockState.idle()
         );
     }
 
-    public ServerCombatState withLoadout(LoadoutState next) {
-        if (next != null && next.equals(loadout)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
+    public ActionLockState actionLock() {
+        return lock;
     }
 
-    public ServerCombatState withEquippedSkills(EquippedSkillsState next) {
-        if (next != null && next.equals(equippedSkills)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
-    }
+    public CombatSnapshot toSnapshot() {
+        ExecutionState ex = execution != null ? execution : ExecutionState.idle();
 
-    public ServerCombatState withCombo(ComboState next) {
-        if (next != null && next.equals(combo)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
-    }
-
-    public ServerCombatState withAbilities(AbilityState next) {
-        if (next != null && next.equals(abilities)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
-    }
-
-    public ServerCombatState withLock(ActionLockState next) {
-        if (next != null && next.equals(lock)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
-    }
-
-    public CombatSnapshot snapshot() {
         return new CombatSnapshot(
                 version,
                 new ComboSnapshot(
@@ -71,6 +45,13 @@ public record ServerCombatState(
                         combo.holdLatched()
                 ),
                 abilities.snapshot(),
+                new ExecutionSnapshot(
+                        ex.active(),
+                        ex.kind(),
+                        ex.execId(),
+                        ex.startedAt(),
+                        ex.expectedEndAt()
+                ),
                 new LockSnapshot(
                         lock.actionKind(),
                         lock.skillId(),
@@ -83,5 +64,35 @@ public record ServerCombatState(
                         loadout.offhandEmpty()
                 )
         );
+    }
+
+    public ServerCombatState withLoadout(LoadoutState next) {
+        if (next != null && next.equals(loadout)) return this;
+        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, execution, lock);
+    }
+
+    public ServerCombatState withEquippedSkills(EquippedSkillsState next) {
+        if (next != null && next.equals(equippedSkills)) return this;
+        return new ServerCombatState(version.next(), loadout, next, combo, abilities, execution, lock);
+    }
+
+    public ServerCombatState withCombo(ComboState next) {
+        if (next != null && next.equals(combo)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, execution, lock);
+    }
+
+    public ServerCombatState withAbilities(AbilityState next) {
+        if (next != null && next.equals(abilities)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, execution, lock);
+    }
+
+    public ServerCombatState withExecution(ExecutionState next) {
+        if (next != null && next.equals(execution)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next, lock);
+    }
+
+    public ServerCombatState withLock(ActionLockState next) {
+        if (next != null && next.equals(lock)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, execution, next);
     }
 }

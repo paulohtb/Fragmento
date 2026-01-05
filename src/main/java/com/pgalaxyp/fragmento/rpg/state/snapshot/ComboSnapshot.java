@@ -7,8 +7,4 @@ public record ComboSnapshot(
         Time nextStepAt,
         boolean holding,
         boolean holdLatched
-) {
-    public static ComboSnapshot idle() {
-        return new ComboSnapshot(0, Time.ofTicks(0), false, false);
-    }
-}
+) {}

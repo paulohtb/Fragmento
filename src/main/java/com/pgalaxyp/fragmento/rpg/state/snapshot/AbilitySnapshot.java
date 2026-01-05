@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.state.snapshot;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 import java.util.Map;
 
@@ -11,6 +11,12 @@ public record AbilitySnapshot(
         Map<SkillSlotId, SkillId> infusedArmed,
         Map<SkillSlotId, CastState> casting
 ) {
+
+    public SkillId selectedSkill() {
+        if (infusedArmed.isEmpty()) return null;
+        return infusedArmed.values().iterator().next();
+    }
+
     public record CastState(
             Time castEndsAt,
             boolean ready

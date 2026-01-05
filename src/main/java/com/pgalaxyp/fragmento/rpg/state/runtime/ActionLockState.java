@@ -1,10 +1,11 @@
 package com.pgalaxyp.fragmento.rpg.state.runtime;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 public record ActionLockState(
+        boolean active,
         ActionKind actionKind,
         SkillId skillId,
         Time endsAt,
@@ -12,19 +13,13 @@ public record ActionLockState(
 ) {
 
     public static ActionLockState idle() {
-        Time zero = Time.ofTicks(0L);
-        return new ActionLockState(ActionKind.NONE, null, zero, zero);
+        return new ActionLockState(false, ActionKind.NONE, null, Time.ZERO, Time.ZERO);
     }
 
     public boolean isActive(Time now) {
-        return now != null && now.isBefore(endsAt);
-    }
-
-    public boolean itemSwapLocked(Time now) {
-        return now != null && now.isBefore(itemSwapLockedUntil);
-    }
-
-    public boolean blocksVanillaInteraction(Time now) {
-        return isActive(now) && actionKind == ActionKind.COMBO_STEP;
+        if (!active) return false;
+        if (now == null) return false;
+        if (endsAt == null) return true;
+        return now.ticks() < endsAt.ticks();
     }
 }

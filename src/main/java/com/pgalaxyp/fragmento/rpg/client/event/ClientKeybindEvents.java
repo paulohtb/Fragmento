@@ -14,6 +14,7 @@ public final class ClientKeybindEvents {
     @SubscribeEvent
     public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
         event.register(ClientKeyBindings.NORMAL_SKILL);
+        event.register(ClientKeyBindings.SPECIAL_SKILL);
     }
 
     private ClientKeybindEvents() {}

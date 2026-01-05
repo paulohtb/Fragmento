@@ -1,15 +1,12 @@
 package com.pgalaxyp.fragmento.rpg.lock;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class InventoryLock {
@@ -23,7 +20,7 @@ public final class InventoryLock {
     }
 
     private final Map<UUID, Snapshot> remembered = new HashMap<>();
-    private final Map<UUID, Boolean> reentryGuard = new HashMap<>();
+    private final Set<UUID> reentryGuard = new HashSet<>();
 
     public void sync(ServerPlayer player, boolean shouldLock) {
         if (player == null) return;
@@ -33,13 +30,11 @@ public final class InventoryLock {
 
         if (shouldLock && !locked) {
             remember(player);
-            FragmentoLog.log(LogChannel.INV, "invLock enter, player.uuid={}", id);
             return;
         }
 
         if (!shouldLock && locked) {
             clear(player);
-            FragmentoLog.log(LogChannel.INV, "invLock exit, player.uuid={}", id);
         }
     }
 
@@ -50,7 +45,7 @@ public final class InventoryLock {
         Snapshot snap = remembered.get(id);
         if (snap == null) return;
 
-        if (Boolean.TRUE.equals(reentryGuard.get(id))) return;
+        if (reentryGuard.contains(id)) return;
 
         int selected = player.getInventory().selected;
         ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
@@ -74,13 +69,11 @@ public final class InventoryLock {
         }
 
         if (changed) {
-            reentryGuard.put(id, Boolean.TRUE);
+            reentryGuard.add(id);
             try {
                 player.inventoryMenu.broadcastChanges();
-            } catch (Throwable t) {
-                FragmentoLog.logEx(LogChannel.INV, t, "invLock broadcastChanges failed, player.uuid={}", id);
             } finally {
-                reentryGuard.put(id, Boolean.FALSE);
+                reentryGuard.remove(id);
             }
         }
     }
@@ -94,16 +87,7 @@ public final class InventoryLock {
         ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
 
         remembered.put(id, new Snapshot(selected, main, off));
-        reentryGuard.put(id, Boolean.FALSE);
-
-        FragmentoLog.log(
-                LogChannel.INV,
-                "invLock remember, player.uuid={} selected={} main={} off={}",
-                id,
-                selected,
-                stackKey(main),
-                stackKey(off)
-        );
+        reentryGuard.remove(id);
     }
 
     public void clear(ServerPlayer player) {
@@ -112,11 +96,5 @@ public final class InventoryLock {
         UUID id = player.getUUID();
         remembered.remove(id);
         reentryGuard.remove(id);
-    }
-
-    private static String stackKey(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return "empty";
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        return key != null ? key + " x" + stack.getCount() : stack.getItem().toString() + " x" + stack.getCount();
     }
 }

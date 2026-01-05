@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.skill.runtime;
 
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionGateRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
 import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
@@ -18,6 +19,7 @@ public final class AbilityEngine {
 
     private final EquipGateRule equipGate;
     private final LockGateRule lockGate;
+    private final ExecutionGateRule executionGate;
     private final AbilityConfig config;
     private final ActionLockRule actionLockRule;
     private final InfusedRule infusedRule;
@@ -26,6 +28,7 @@ public final class AbilityEngine {
     public AbilityEngine(
             EquipGateRule equipGate,
             LockGateRule lockGate,
+            ExecutionGateRule executionGate,
             AbilityConfig config,
             ActionLockRule actionLockRule,
             InfusedRule infusedRule,
@@ -33,6 +36,7 @@ public final class AbilityEngine {
     ) {
         this.equipGate = equipGate;
         this.lockGate = lockGate;
+        this.executionGate = executionGate;
         this.config = config;
         this.actionLockRule = actionLockRule;
         this.infusedRule = infusedRule;
@@ -45,6 +49,10 @@ public final class AbilityEngine {
         }
 
         if (!equipGate.allowAbility(state.loadout(), intent)) {
+            return state;
+        }
+
+        if (!executionGate.allowAction(state.execution())) {
             return state;
         }
 

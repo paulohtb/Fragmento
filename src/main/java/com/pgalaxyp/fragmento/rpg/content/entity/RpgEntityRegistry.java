@@ -24,6 +24,16 @@ public final class RpgEntityRegistry {
                             .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "cut").toString())
             );
 
+    public static final DeferredHolder<EntityType<?>, EntityType<InfusedStrikeEntity>> INFUSED_STRIKE =
+            ENTITY_TYPES.register(
+                    "infused_strike",
+                    () -> EntityType.Builder.of(InfusedStrikeEntity::new, MobCategory.MISC)
+                            .sized(0.9f, 1.6f)
+                            .clientTrackingRange(96)
+                            .updateInterval(1)
+                            .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "infused_strike").toString())
+            );
+
     public static void register(IEventBus modBus) {
         ENTITY_TYPES.register(modBus);
     }

@@ -12,5 +12,12 @@ public final class ClientKeyBindings {
                     "key.categories.fragmento"
             );
 
+    public static final KeyMapping SPECIAL_SKILL =
+            new KeyMapping(
+                    "key.fragmento.special_skill",
+                    GLFW.GLFW_KEY_G,
+                    "key.categories.fragmento"
+            );
+
     private ClientKeyBindings() {}
 }

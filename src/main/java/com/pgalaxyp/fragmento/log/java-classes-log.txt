@@ -1,9 +1,7 @@
 ===== FragmentoMod.java =====
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
-import com.pgalaxyp.fragmento.rpg.network.RpgNetwork;
+import com.pgalaxyp.fragmento.rpg.content.RpgContent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -13,148 +11,15 @@ public final class FragmentoMod {
     public static final String MODID = "fragmento";
 
     public FragmentoMod(IEventBus modBus) {
-        FragmentoLog.initFileLogging();
-        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap start modid={}", MODID);
-
-        RpgBootstrap bootstrap = new RpgBootstrap();
-
-        bootstrap.registerContent(modBus);
-        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap content registered");
-
+        RpgContent.register(modBus);
         RpgNetwork.register(modBus);
-        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap network registered");
-
-        bootstrap.initRuntime();
-        FragmentoLog.log(LogChannel.RUNTIME, "bootstrap combat runtime ready");
+        RpgBootstrap.init();
     }
-}
-
-===== FragmentoLog.java =====
-package com.pgalaxyp.fragmento.bootstrap.logging;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
-
-public final class FragmentoLog {
-
-    private static final int MAX_QUEUE = 4096;
-    private static final BlockingQueue<String> QUEUE = new ArrayBlockingQueue<>(MAX_QUEUE);
-    private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-    private static volatile BufferedWriter writer;
-
-    private static final ExecutorService FILE_WRITER = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "FragmentoLogWriter");
-        t.setDaemon(true);
-        return t;
-    });
-
-    public static void initFileLogging() {
-        try {
-            File logDir = new File("logs/fragmento");
-            if (!logDir.exists()) Files.createDirectories(logDir.toPath());
-
-            String fileName = "fragmento-" + LocalDate.now() + ".log";
-            File logFile = new File(logDir, fileName);
-
-            writer = new BufferedWriter(new FileWriter(logFile, true));
-            log(LogChannel.RUNTIME, "file logging started, file={}", logFile.getAbsolutePath());
-        } catch (IOException e) {
-            System.err.println("[FragmentoLog] Falha ao iniciar log em arquivo: " + e.getMessage());
-        }
-    }
-
-    public static void log(LogChannel channel, String message, Object... args) {
-        if (channel == null || message == null) return;
-
-        String line = "[" + FORMAT.format(LocalDateTime.now()) + "] [" + channel.name() + "] " + format(message, args);
-        QUEUE.offer(line);
-
-        BufferedWriter w = writer;
-        if (w != null) {
-            FILE_WRITER.submit(() -> {
-                try {
-                    w.write(line);
-                    w.newLine();
-                    w.flush();
-                } catch (IOException ignored) {
-                }
-            });
-        }
-    }
-
-    public static void logEx(LogChannel channel, Throwable t, String message, Object... args) {
-        log(channel, message, args);
-        if (channel == null || t == null) return;
-
-        log(channel, "exception.class={}", t.getClass().getName());
-        if (t.getMessage() != null) log(channel, "exception.message={}", t.getMessage());
-
-        StackTraceElement[] st = t.getStackTrace();
-        if (st == null) return;
-
-        int max = Math.min(8, st.length);
-        for (int i = 0; i < max; i++) {
-            log(channel, "at {}", st[i]);
-        }
-    }
-
-    public static void flushTo(Consumer<String> sink) {
-        if (sink == null) return;
-        String line;
-        while ((line = QUEUE.poll()) != null) {
-            sink.accept(line);
-        }
-    }
-
-    private static String format(String msg, Object... args) {
-        if (msg == null) return "";
-        if (args == null || args.length == 0) return msg;
-        String fmt = msg.replace("{}", "%s");
-        Object[] safeArgs = new Object[args.length];
-        for (int i = 0; i < args.length; i++) {
-            safeArgs[i] = Objects.toString(args[i]);
-        }
-        return String.format(fmt, safeArgs);
-    }
-
-    private FragmentoLog() {}
-}
-
-===== LogChannel.java =====
-package com.pgalaxyp.fragmento.bootstrap.logging;
-
-public enum LogChannel {
-    RUNTIME,
-    COMBAT,
-    INTENT,
-    NET,
-    SNAPSHOT,
-    INV
 }
 
 ===== RpgBootstrap.java =====
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
-import com.pgalaxyp.fragmento.rpg.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
-import com.pgalaxyp.fragmento.rpg.engine.catalyst.BardFluteEffects;
-import com.pgalaxyp.fragmento.rpg.engine.catalyst.CatalystEffectRegistry;
-import com.pgalaxyp.fragmento.rpg.lock.InteractionBlocker;
 import com.pgalaxyp.fragmento.rpg.network.RpgPayloadHandler;
 import com.pgalaxyp.fragmento.rpg.runtime.RpgEventRouter;
 import com.pgalaxyp.fragmento.rpg.runtime.RpgRuntime;
@@ -163,32 +28,63 @@ import net.neoforged.neoforge.common.NeoForge;
 
 public final class RpgBootstrap {
 
-    private RpgRuntime runtime;
-
-    public void registerContent(IEventBus modBus) {
-        RpgContent.register(modBus);
+    public static void init() {
+        RpgRuntime runtime = new RpgRuntime();
+        RpgPayloadHandler.bindRuntime(runtime);
+        NeoForge.EVENT_BUS.register(new RpgEventRouter(runtime));
     }
 
-    public void initRuntime() {
-        if (runtime != null) return;
+    private RpgBootstrap() {}
+}
 
-        runtime = new RpgRuntime();
-        RpgPayloadHandler.bindRuntime(runtime);
+===== RpgNetwork.java =====
+package com.pgalaxyp.fragmento.bootstrap;
 
-        CatalystEffectRegistry.register(
-                new CatalystFamilyId("bardo"),
-                new BardFluteEffects()
+import com.pgalaxyp.fragmento.rpg.network.RpgPayloadHandler;
+import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AbilityIntentPayload;
+import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AttackIntentPayload;
+import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.rpg.client.ClientNetworkProxy;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+public final class RpgNetwork {
+
+    private static final String NETWORK_VERSION = "1";
+
+    public static void register(IEventBus modBus) {
+        modBus.addListener(RpgNetwork::onRegisterPayloads);
+    }
+
+    private static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
+        var registrar = event.registrar(NETWORK_VERSION);
+
+        registrar.playToServer(
+                AttackIntentPayload.TYPE,
+                AttackIntentPayload.STREAM_CODEC,
+                RpgPayloadHandler::handleAttackIntent
         );
 
-        NeoForge.EVENT_BUS.register(new RpgEventRouter(runtime));
-        NeoForge.EVENT_BUS.register(new InteractionBlocker(runtime.sessions()));
+        registrar.playToServer(
+                AbilityIntentPayload.TYPE,
+                AbilityIntentPayload.STREAM_CODEC,
+                RpgPayloadHandler::handleAbilityIntent
+        );
 
-        FragmentoLog.log(LogChannel.RUNTIME, "combat runtime init ok");
+        registrar.playToClient(
+                CombatSnapshotPayload.TYPE,
+                CombatSnapshotPayload.STREAM_CODEC,
+                RpgNetwork::handleCombatSnapshot
+        );
     }
 
-    public RpgRuntime runtime() {
-        return runtime;
+    private static void handleCombatSnapshot(CombatSnapshotPayload payload, IPayloadContext context) {
+        if (payload == null || context == null) return;
+        context.enqueueWork(() -> ClientNetworkProxy.state().apply(payload.snapshot()));
     }
+
+    private RpgNetwork() {}
 }
 
 ===== CatalystDefinition.java =====
@@ -266,7 +162,9 @@ public final class CatalystRegistry {
 ===== ClientContext.java =====
 package com.pgalaxyp.fragmento.rpg.client;
 
-import com.pgalaxyp.fragmento.rpg.content.catalyst.FluteItem;
+import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
 
@@ -279,12 +177,38 @@ public final class ClientContext {
     public static boolean catalystActive(Minecraft mc) {
         if (mc == null || mc.player == null) return false;
 
+        CombatSnapshot snap = ClientNetworkProxy.state().current();
+        if (snap != null && snap.loadout() != null) {
+            LoadoutSnapshot l = snap.loadout();
+            if (l.equippedCatalyst() != null && l.family() != null && l.offhandEmpty()) {
+                return true;
+            }
+        }
+
         ItemStack main = mc.player.getMainHandItem();
         ItemStack off = mc.player.getOffhandItem();
-        return FluteItem.isFlute(main) && off.isEmpty();
+
+        if (off == null || !off.isEmpty()) return false;
+        return RpgRegistry.catalysts().resolve(main) != null;
     }
 
     private ClientContext() {}
+}
+
+===== ClientNetworkProxy.java =====
+package com.pgalaxyp.fragmento.rpg.client;
+
+import com.pgalaxyp.fragmento.rpg.client.state.ClientViewState;
+
+public final class ClientNetworkProxy {
+
+    private static final ClientViewState STATE = new ClientViewState();
+
+    public static ClientViewState state() {
+        return STATE;
+    }
+
+    private ClientNetworkProxy() {}
 }
 
 ===== ClientGameplayEvents.java =====
@@ -293,7 +217,6 @@ package com.pgalaxyp.fragmento.rpg.client.event;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.client.ClientContext;
-import com.pgalaxyp.fragmento.rpg.client.input.ClientInputController;
 import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -366,6 +289,124 @@ public final class ClientGameplayEvents {
     private ClientGameplayEvents() {}
 }
 
+===== ClientHudEvents.java =====
+package com.pgalaxyp.fragmento.rpg.client.event;
+
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
+import com.pgalaxyp.fragmento.rpg.client.ui.InfusedHudOverlay;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.RenderGuiEvent;
+
+@EventBusSubscriber(
+        modid = FragmentoMod.MODID,
+        value = Dist.CLIENT,
+        bus = EventBusSubscriber.Bus.GAME
+)
+public final class ClientHudEvents {
+
+    @SubscribeEvent
+    public static void onRenderGui(RenderGuiEvent.Post event) {
+        InfusedHudOverlay.render(event.getGuiGraphics());
+    }
+
+    private ClientHudEvents() {}
+}
+
+===== ClientInputController.java =====
+package com.pgalaxyp.fragmento.rpg.client.event;
+
+import com.pgalaxyp.fragmento.rpg.client.input.ClientKeyBindings;
+import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
+import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntentKind;
+import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import net.minecraft.client.Minecraft;
+
+public final class ClientInputController {
+
+    private static final SkillSlotId NORMAL_SLOT = new SkillSlotId(1);
+    private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
+
+    private final ClientIntentSender sender;
+    private boolean using;
+
+    public ClientInputController(ClientIntentSender sender) {
+        this.sender = sender;
+    }
+
+    public void clientTick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.options == null) return;
+
+        while (ClientKeyBindings.NORMAL_SKILL.consumeClick()) {
+            sender.sendAbility(new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE));
+        }
+
+        while (ClientKeyBindings.SPECIAL_SKILL.consumeClick()) {
+            sender.sendAbility(new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS));
+        }
+
+        if (using && !mc.options.keyUse.isDown()) {
+            using = false;
+            sender.sendAttack(AttackIntent.HOLD_STOP);
+        }
+    }
+
+    public void onAttackClick() {
+        sender.sendAttack(AttackIntent.CLICK);
+    }
+
+    public void onUseItemClick() {
+        if (using) return;
+        using = true;
+        sender.sendAttack(AttackIntent.HOLD_START);
+    }
+}
+
+===== ClientInputTickEvent.java =====
+package com.pgalaxyp.fragmento.rpg.client.event;
+
+import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+
+import static com.pgalaxyp.fragmento.bootstrap.FragmentoMod.MODID;
+
+@EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
+public final class ClientInputTickEvent {
+
+    private static ClientInputController controller;
+
+    public static void bind(ClientInputController inputController) {
+        controller = inputController;
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        if (controller == null) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.options == null) return;
+
+        controller.clientTick();
+
+        while (mc.options.keyAttack.consumeClick()) {
+            controller.onAttackClick();
+        }
+
+        while (mc.options.keyUse.consumeClick()) {
+            controller.onUseItemClick();
+        }
+    }
+
+    private ClientInputTickEvent() {}
+}
+
 ===== ClientKeybindEvents.java =====
 package com.pgalaxyp.fragmento.rpg.client.event;
 
@@ -383,6 +424,7 @@ public final class ClientKeybindEvents {
     @SubscribeEvent
     public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
         event.register(ClientKeyBindings.NORMAL_SKILL);
+        event.register(ClientKeyBindings.SPECIAL_SKILL);
     }
 
     private ClientKeybindEvents() {}
@@ -391,100 +433,29 @@ public final class ClientKeybindEvents {
 ===== ClientRenderEvents.java =====
 package com.pgalaxyp.fragmento.rpg.client.event;
 
-import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.client.render.CutEffectRenderer;
+import com.pgalaxyp.fragmento.rpg.client.render.InfusedStrikeRenderer;
+import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
-import static com.pgalaxyp.fragmento.bootstrap.FragmentoMod.MODID;
-
-@EventBusSubscriber(modid = MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(
+        modid = FragmentoMod.MODID,
+        value = Dist.CLIENT,
+        bus = EventBusSubscriber.Bus.MOD
+)
 public final class ClientRenderEvents {
 
     @SubscribeEvent
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(RpgEntityRegistry.CUT.get(), CutEffectRenderer::new);
+        event.registerEntityRenderer(RpgEntityRegistry.INFUSED_STRIKE.get(), InfusedStrikeRenderer::new);
     }
 
     private ClientRenderEvents() {}
-}
-
-===== ClientInputController.java =====
-package com.pgalaxyp.fragmento.rpg.client.input;
-
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
-import com.pgalaxyp.fragmento.rpg.client.ClientContext;
-import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
-import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
-import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntentKind;
-import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.KeyMapping;
-
-public final class ClientInputController {
-
-    private static final SkillSlotId NORMAL_SLOT = new SkillSlotId(1);
-    private static final SkillSlotId SPECIAL_SLOT = new SkillSlotId(2);
-
-    private final ClientIntentSender sender;
-    private boolean wasAttackDown;
-
-    public ClientInputController(ClientIntentSender sender) {
-        this.sender = sender;
-    }
-
-    public void clientTick() {
-        Minecraft mc = Minecraft.getInstance();
-        if (!ClientContext.inGame(mc)) {
-            wasAttackDown = false;
-            return;
-        }
-
-        boolean active = ClientContext.catalystActive(mc);
-
-        KeyMapping attack = mc.options.keyAttack;
-        if (attack != null) {
-            boolean down = attack.isDown();
-
-            if (active) {
-                if (down && !wasAttackDown) sender.sendAttack(AttackIntent.HOLD_START);
-                if (!down && wasAttackDown) sender.sendAttack(AttackIntent.HOLD_STOP);
-            }
-
-            wasAttackDown = down;
-        } else {
-            wasAttackDown = false;
-        }
-
-        KeyMapping normal = ClientKeyBindings.NORMAL_SKILL;
-        if (normal != null) {
-            while (normal.consumeClick()) {
-                if (active) {
-                    sender.sendAbility(new AbilityIntent(NORMAL_SLOT, AbilityIntentKind.TOGGLE));
-                }
-            }
-        }
-    }
-
-    public void onAttackClick() {
-        try {
-            sender.sendAttack(AttackIntent.CLICK);
-        } catch (Throwable t) {
-            FragmentoLog.logEx(LogChannel.INTENT, t, "client onAttackClick crashed");
-        }
-    }
-
-    public void onUseItemClick() {
-        try {
-            sender.sendAbility(new AbilityIntent(SPECIAL_SLOT, AbilityIntentKind.PRESS));
-        } catch (Throwable t) {
-            FragmentoLog.logEx(LogChannel.INTENT, t, "client onUseItemClick crashed");
-        }
-    }
 }
 
 ===== ClientKeyBindings.java =====
@@ -502,14 +473,19 @@ public final class ClientKeyBindings {
                     "key.categories.fragmento"
             );
 
+    public static final KeyMapping SPECIAL_SKILL =
+            new KeyMapping(
+                    "key.fragmento.special_skill",
+                    GLFW.GLFW_KEY_G,
+                    "key.categories.fragmento"
+            );
+
     private ClientKeyBindings() {}
 }
 
 ===== ClientIntentSender.java =====
 package com.pgalaxyp.fragmento.rpg.client.network;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
 import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
 import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AbilityIntentPayload;
@@ -520,45 +496,13 @@ public final class ClientIntentSender {
 
     public void sendAttack(AttackIntent intent) {
         if (intent == null) return;
-        FragmentoLog.log(LogChannel.INTENT, "C2S attack intent={}", intent);
         PacketDistributor.sendToServer(new AttackIntentPayload(intent));
     }
 
     public void sendAbility(AbilityIntent intent) {
         if (intent == null) return;
-
-        FragmentoLog.log(
-                LogChannel.INTENT,
-                "C2S ability kind={} slot={}",
-                intent.kind(),
-                intent.slot().index()
-        );
         PacketDistributor.sendToServer(new AbilityIntentPayload(intent));
     }
-}
-
-===== ClientNetworkProxy.java =====
-package com.pgalaxyp.fragmento.rpg.client.network;
-
-import com.pgalaxyp.fragmento.rpg.client.state.ClientViewState;
-import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatSnapshotPayload;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-
-public final class ClientNetworkProxy {
-
-    private static final ClientViewState STATE = new ClientViewState();
-
-    public static void handleSnapshot(CombatSnapshotPayload payload, IPayloadContext context) {
-        if (payload == null || payload.snapshot() == null) return;
-
-        context.enqueueWork(() -> STATE.apply(payload.snapshot()));
-    }
-
-    public static ClientViewState state() {
-        return STATE;
-    }
-
-    private ClientNetworkProxy() {}
 }
 
 ===== CutEffectRenderer.java =====
@@ -642,11 +586,220 @@ public final class CutEffectRenderer extends EntityRenderer<CutEffectEntity> {
     }
 }
 
+===== InfusedStrikeRenderer.java =====
+package com.pgalaxyp.fragmento.rpg.client.render;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import com.pgalaxyp.fragmento.rpg.content.entity.InfusedStrikeEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+public final class InfusedStrikeRenderer extends EntityRenderer<InfusedStrikeEntity> {
+
+    private static final ResourceLocation TEX =
+            ResourceLocation.fromNamespaceAndPath("fragmento", "textures/entity/cut.png");
+
+    public InfusedStrikeRenderer(EntityRendererProvider.Context ctx) {
+        super(ctx);
+    }
+
+    @Override
+    public void render(
+            InfusedStrikeEntity e,
+            float yaw,
+            float partial,
+            PoseStack ps,
+            MultiBufferSource buf,
+            int light
+    ) {
+        ps.pushPose();
+
+        if (e.isImpactFlash()) {
+            renderImpact(e, partial, ps, buf);
+        }
+
+        if (e.isVortexActive()) {
+            renderVortex(e, partial, ps, buf);
+        } else {
+            renderDescend(e, partial, ps, buf);
+        }
+
+        ps.popPose();
+    }
+
+    private void renderDescend(InfusedStrikeEntity e, float partial, PoseStack ps, MultiBufferSource buf) {
+        var cam = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Quaternionf q = cam.rotation();
+
+        ps.translate(0.0, 0.6, 0.0);
+        ps.mulPose(q);
+
+        float t = (e.ageTicks() + partial) * 0.22f;
+        ps.mulPose(Axis.ZP.rotation(t));
+
+        VertexConsumer vc = buf.getBuffer(RenderType.entityTranslucent(TEX));
+
+        float s = 0.85f;
+        float w = 0.22f;
+        float h = 2.15f;
+
+        Matrix4f m = ps.last().pose();
+
+        quad(vc, m, -w, -h, 0f, w, h, 0f, 0f, 1f, 1f, 0f, 0.65f);
+        quad(vc, m, -s, -0.18f, -0.02f, s, 0.18f, -0.02f, 0f, 1f, 1f, 0f, 0.25f);
+    }
+
+    private void renderImpact(InfusedStrikeEntity e, float partial, PoseStack ps, MultiBufferSource buf) {
+        float t = (e.phaseTicks() + partial) / 3.0f;
+        t = Math.min(1f, Math.max(0f, t));
+
+        VertexConsumer vc = buf.getBuffer(RenderType.entityTranslucent(TEX));
+
+        ps.pushPose();
+        ps.translate(0.0, 0.02, 0.0);
+        ps.mulPose(Axis.XP.rotation(1.5707964f));
+
+        float r0 = 0.25f + 1.15f * t;
+        float w = 0.12f * (1f - 0.75f * t);
+
+        Matrix4f m = ps.last().pose();
+
+        for (int i = 0; i < 6; i++) {
+            ps.pushPose();
+            ps.mulPose(Axis.ZP.rotation((float) (i * (Math.PI / 6.0))));
+            Matrix4f mi = ps.last().pose();
+            quad(vc, mi, -r0, -w, 0f, r0, w, 0f, 0f, 1f, 1f, 0f, 0.55f * (1f - t));
+            ps.popPose();
+        }
+
+        ps.popPose();
+    }
+
+    private void renderVortex(InfusedStrikeEntity e, float partial, PoseStack ps, MultiBufferSource buf) {
+        float time = (e.ageTicks() + partial) * 0.18f;
+        float pull = Math.min(1f, (e.phaseTicks() + partial) / 14.0f);
+
+        VertexConsumer vc = buf.getBuffer(RenderType.entityTranslucent(TEX));
+
+        ps.pushPose();
+        ps.translate(0.0, 0.05, 0.0);
+
+        for (int i = 0; i < 10; i++) {
+            ps.pushPose();
+
+            float layer = i / 9.0f;
+            float y = 0.12f + layer * 0.85f;
+            float spin = time * (1.1f + 0.7f * layer) * (i % 2 == 0 ? 1f : -1f);
+
+            ps.translate(0.0, y, 0.0);
+            ps.mulPose(Axis.YP.rotation(spin));
+            ps.mulPose(Axis.XP.rotation(1.15f + 0.25f * layer));
+
+            float r = 1.05f + 1.55f * pull - layer * 0.35f;
+            float w = 0.10f + 0.10f * (1f - layer);
+
+            Matrix4f m = ps.last().pose();
+
+            float a = 0.10f + 0.28f * (1f - layer);
+            quad(vc, m, -r, -w, 0f, r, w, 0f, 0f, 1f, 1f, 0f, a);
+
+            ps.popPose();
+        }
+
+        var cam = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Quaternionf q = cam.rotation();
+        Vector3f camRight = new Vector3f(1f, 0f, 0f).rotate(q);
+        Vector3f camUp = new Vector3f(0f, 1f, 0f).rotate(q);
+
+        ps.pushPose();
+        ps.translate(0.0, 0.55, 0.0);
+        ps.mulPose(q);
+
+        float wobble = (float) Math.sin(time * 1.7f) * 0.35f * pull;
+        ps.mulPose(Axis.ZP.rotation(wobble));
+
+        Matrix4f m2 = ps.last().pose();
+        float s = 1.35f + 0.55f * pull;
+        quad(vc, m2, -s, -s, 0f, s, s, 0f, 0f, 1f, 1f, 0f, 0.16f);
+
+        ps.popPose();
+        ps.popPose();
+    }
+
+    private static void quad(
+            VertexConsumer vc,
+            Matrix4f m,
+            float x0,
+            float y0,
+            float z0,
+            float x1,
+            float y1,
+            float z1,
+            float u0,
+            float v0,
+            float u1,
+            float v1,
+            float a
+    ) {
+        vc.addVertex(m, x0, y0, z0).setColor(1f, 1f, 1f, a).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(0xF000F0).setNormal(0f, 1f, 0f);
+        vc.addVertex(m, x1, y0, z1).setColor(1f, 1f, 1f, a).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(0xF000F0).setNormal(0f, 1f, 0f);
+        vc.addVertex(m, x1, y1, z1).setColor(1f, 1f, 1f, a).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(0xF000F0).setNormal(0f, 1f, 0f);
+        vc.addVertex(m, x0, y1, z0).setColor(1f, 1f, 1f, a).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(0xF000F0).setNormal(0f, 1f, 0f);
+    }
+
+    @Override
+    public ResourceLocation getTextureLocation(InfusedStrikeEntity e) {
+        return TEX;
+    }
+}
+
+===== RpgClientBootstrap.java =====
+package com.pgalaxyp.fragmento.rpg.client;
+
+import com.pgalaxyp.fragmento.rpg.client.event.ClientInputController;
+import com.pgalaxyp.fragmento.rpg.client.event.ClientInputTickEvent;
+import com.pgalaxyp.fragmento.rpg.client.network.ClientIntentSender;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+
+import static com.pgalaxyp.fragmento.bootstrap.FragmentoMod.MODID;
+
+@EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
+public final class RpgClientBootstrap {
+
+    private static ClientInputController controller;
+
+    @SubscribeEvent
+    public static void onClientJoin(ClientPlayerNetworkEvent.LoggingIn event) {
+        ClientIntentSender sender = new ClientIntentSender();
+        controller = new ClientInputController(sender);
+        ClientInputTickEvent.bind(controller);
+    }
+
+    @SubscribeEvent
+    public static void onClientLeave(ClientPlayerNetworkEvent.LoggingOut event) {
+        ClientInputTickEvent.bind(null);
+        controller = null;
+    }
+
+    private RpgClientBootstrap() {}
+}
+
 ===== ClientViewState.java =====
 package com.pgalaxyp.fragmento.rpg.client.state;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 
 public final class ClientViewState {
@@ -654,51 +807,145 @@ public final class ClientViewState {
     private CombatSnapshot last;
 
     public void apply(CombatSnapshot snapshot) {
-        if (snapshot == null || snapshot.version() == null) {
-            FragmentoLog.log(
-                    LogChannel.SNAPSHOT,
-                    "client viewState apply ignore, snapshotNull={} versionNull={}",
-                    snapshot == null,
-                    snapshot != null && snapshot.version() == null
-            );
-            return;
-        }
+        if (snapshot == null || snapshot.version() == null) return;
 
-        if (last == null) {
+        if (last == null || snapshot.version().isAfter(last.version())) {
             last = snapshot;
-            FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState apply accepted first, version={}", snapshot.version().value());
-            return;
         }
-
-        long inV = snapshot.version().value();
-        long curV = last.version() != null ? last.version().value() : -1L;
-
-        if (snapshot.version().isAfter(last.version())) {
-            last = snapshot;
-            FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState apply accepted newer, from={} to={}", curV, inV);
-            return;
-        }
-
-        if (inV == curV) {
-            FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState apply ignored equal, version={}", inV);
-            return;
-        }
-
-        FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState apply ignored older, current={} incoming={}", curV, inV);
     }
 
     public CombatSnapshot current() {
         return last;
     }
+}
 
-    public void clear() {
-        if (last != null && last.version() != null) {
-            FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState cleared, lastVersion={}", last.version().value());
-        } else {
-            FragmentoLog.log(LogChannel.SNAPSHOT, "client viewState cleared, lastWasNull={}", last == null);
+===== InfusedHudOverlay.java =====
+package com.pgalaxyp.fragmento.rpg.client.ui;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.pgalaxyp.fragmento.rpg.client.ClientContext;
+import com.pgalaxyp.fragmento.rpg.client.ClientNetworkProxy;
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.AbilitySnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
+
+public final class InfusedHudOverlay {
+
+    private static final ResourceLocation ICON =
+            ResourceLocation.fromNamespaceAndPath("fragmento", "textures/gui/infused.png");
+
+    public static void render(GuiGraphics g) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!ClientContext.inGame(mc)) return;
+        if (!ClientContext.catalystActive(mc)) return;
+
+        CombatSnapshot snap = ClientNetworkProxy.state().current();
+        if (snap == null) return;
+
+        AbilitySnapshot abilities = snap.abilities();
+        if (abilities == null) return;
+
+        boolean armed = !abilities.infusedArmed().isEmpty();
+
+        int x = mc.getWindow().getGuiScaledWidth() / 2 + 92;
+        int y = mc.getWindow().getGuiScaledHeight() - 22;
+
+        RenderSystem.enableBlend();
+        g.blit(ICON, x, y, 0, 0, 16, 16, 16, 16);
+
+        if (!armed) {
+            g.fill(x, y, x + 16, y + 16, 0x88000000);
         }
-        last = null;
+
+        SkillId selected = abilities.selectedSkill();
+        Time now = snap.now();
+
+        if (selected != null && now != null) {
+            Time cd = abilities.cooldownEndsAt().get(selected);
+            if (cd != null && cd.isAfter(now)) {
+                long left = Math.max(0L, cd.ticks() - now.ticks());
+                int h = (int) Math.min(16L, (left * 16L) / Math.max(1L, 100L));
+                if (h > 0) {
+                    g.fill(x, y + (16 - h), x + 16, y + 16, 0x88000000);
+                }
+            }
+        }
+
+        RenderSystem.disableBlend();
     }
+
+    private InfusedHudOverlay() {}
+}
+
+===== CutFxSpawner.java =====
+package com.pgalaxyp.fragmento.rpg.client.vfx;
+
+import com.pgalaxyp.fragmento.rpg.content.entity.CutEffectEntity;
+import com.pgalaxyp.fragmento.rpg.content.entity.CutOrientation;
+import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CutFxPayload;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.Vec3;
+
+public final class CutFxSpawner {
+
+    private static long lastPredictedClientTick = Long.MIN_VALUE;
+
+    public static void predictFromAttackClick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.level == null) return;
+
+        lastPredictedClientTick = mc.level.getGameTime();
+
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 look = mc.player.getLookAngle();
+        Vec3 end = eye.add(look.scale(4.5));
+
+        Vec3 spawn = mc.player.position().add(0.0, 1.0, 0.0);
+
+        CutEffectEntity.spawnClient(
+                mc.level,
+                RpgEntityRegistry.CUT.get(),
+                spawn,
+                end,
+                15,
+                CutOrientation.HORIZONTAL
+        );
+    }
+
+    public static void spawnFromServer(CutFxPayload p) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.level == null) return;
+
+        long tick = mc.level.getGameTime();
+        if (tick == lastPredictedClientTick) {
+            return;
+        }
+
+        Vec3 spawn = new Vec3(p.spawnX(), p.spawnY(), p.spawnZ());
+        Vec3 aim = new Vec3(p.aimX(), p.aimY(), p.aimZ());
+
+        CutOrientation o = CutOrientation.HORIZONTAL;
+        int ord = p.orientationOrdinal();
+        if (ord >= 0 && ord < CutOrientation.values().length) {
+            o = CutOrientation.values()[ord];
+        }
+
+        CutEffectEntity.spawnClient(
+                mc.level,
+                RpgEntityRegistry.CUT.get(),
+                spawn,
+                aim,
+                p.lifeTicks(),
+                o
+        );
+    }
+
+    private CutFxSpawner() {}
 }
 
 ===== ComboConfig.java =====
@@ -710,32 +957,38 @@ public interface ComboConfig {
     int maxSteps();
     Duration stepDuration();
     Duration actionLockDuration();
+    Duration executionEntityLife();
 }
 
 ===== CombatEngine.java =====
 package com.pgalaxyp.fragmento.rpg.combat.engine;
 
+import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboResetRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboTimingRule;
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionGateRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.HoldLatchRule;
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
-import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.EquipGateRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.LockGateRule;
-import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
+import com.pgalaxyp.fragmento.rpg.skill.config.AbilityConfig;
+import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
 import com.pgalaxyp.fragmento.rpg.state.runtime.AbilityState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ComboState;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
 
 public final class CombatEngine {
 
     private final EquipGateRule equipGate;
     private final LockGateRule lockGate;
+    private final ExecutionGateRule executionGate;
     private final ComboConfig comboConfig;
     private final ActionLockRule actionLockRule;
     private final ComboRule comboRule;
@@ -743,20 +996,24 @@ public final class CombatEngine {
     private final ComboResetRule resetRule;
     private final HoldLatchRule holdLatchRule;
     private final InfusedRule infusedRule;
+    private final AbilityConfig abilityConfig;
 
     public CombatEngine(
             EquipGateRule equipGate,
             LockGateRule lockGate,
+            ExecutionGateRule executionGate,
             ComboConfig comboConfig,
             ActionLockRule actionLockRule,
             ComboRule comboRule,
             ComboTimingRule timingRule,
             ComboResetRule resetRule,
             HoldLatchRule holdLatchRule,
-            InfusedRule infusedRule
+            InfusedRule infusedRule,
+            AbilityConfig abilityConfig
     ) {
         this.equipGate = equipGate;
         this.lockGate = lockGate;
+        this.executionGate = executionGate;
         this.comboConfig = comboConfig;
         this.actionLockRule = actionLockRule;
         this.comboRule = comboRule;
@@ -764,36 +1021,48 @@ public final class CombatEngine {
         this.resetRule = resetRule;
         this.holdLatchRule = holdLatchRule;
         this.infusedRule = infusedRule;
+        this.abilityConfig = abilityConfig;
     }
 
     public ServerCombatState applyAttack(ServerCombatState state, AttackIntent intent, Time now) {
-        if (state == null || intent == null || now == null) {
-            return state;
-        }
-
-        if (!equipGate.allowAttack(state.loadout(), intent)) {
-            return state;
-        }
-
-        if (!lockGate.allowAttack(state.lock(), now)) {
-            if (intent == AttackIntent.HOLD_START || intent == AttackIntent.HOLD_STOP) {
-                ComboState next = comboRule.apply(state.combo(), intent, now);
-                if (!next.equals(state.combo())) {
-                    return state.withCombo(next);
-                }
-            }
-            return state;
-        }
-
-        ComboState combo = state.combo();
-        combo = resetRule.resetIfFinished(combo, comboConfig.maxSteps(), now);
+        if (state == null || intent == null || now == null) return state;
+        if (!equipGate.allowAttack(state.loadout(), intent)) return state;
+        if (!executionGate.allowAction(state.execution())) return state;
+        if (!lockGate.allowAttack(state.lock(), now)) return state;
 
         InfusedRule.ConsumeResult infused = null;
         if (intent == AttackIntent.CLICK || intent == AttackIntent.HOLD_START) {
             infused = infusedRule.consumeFirstArmed(state.abilities(), now);
         }
 
+        if (infused != null && infused.consumedSkillId() != null) {
+            SkillId used = infused.consumedSkillId();
+            AbilityState abilities = infusedRule.startCooldownOnUse(infused.state(), used, now);
+
+            ExecutionState nextExec = startExecution(
+                    state.execution(),
+                    ExecutionKind.INFUSED_CUT,
+                    now,
+                    now.plus(abilityConfig.executionEntityLife(used))
+            );
+
+            return state
+                    .withAbilities(abilities)
+                    .withCombo(ComboState.idle())
+                    .withExecution(nextExec)
+                    .withLock(
+                            actionLockRule.lock(
+                                    ActionKind.INFUSED_EXECUTE,
+                                    used,
+                                    comboConfig.actionLockDuration(),
+                                    now
+                            )
+                    );
+        }
+
+        ComboState combo = resetRule.resetIfFinished(state.combo(), comboConfig.maxSteps(), now);
         ComboState next = comboRule.apply(combo, intent, now);
+
         boolean stepExecuted = next.stepIndex() != combo.stepIndex();
 
         if (stepExecuted) {
@@ -809,65 +1078,77 @@ public final class CombatEngine {
         }
 
         ServerCombatState out = state;
-        if (!next.equals(state.combo())) {
-            out = out.withCombo(next);
-        }
-
-        if (infused != null && infused.consumedSkillId() != null) {
-            SkillId used = infused.consumedSkillId();
-            AbilityState abilities =
-                    infusedRule.startCooldownOnUse(infused.state(), used, now);
-
-            out = out.withAbilities(abilities);
-            out = out.withCombo(ComboState.idle());
-            out = out.withLock(
-                    actionLockRule.lock(
-                            ActionKind.INFUSED_EXECUTE,
-                            used,
-                            comboConfig.actionLockDuration(),
-                            now
-                    )
-            );
-            return out;
-        }
+        if (!next.equals(state.combo())) out = out.withCombo(next);
 
         if (stepExecuted) {
-            out = out.withLock(
-                    actionLockRule.lock(
-                            ActionKind.COMBO_STEP,
-                            null,
-                            comboConfig.actionLockDuration(),
-                            now
-                    )
+            ExecutionState nextExec = startExecution(
+                    state.execution(),
+                    ExecutionKind.COMBO_CUT,
+                    now,
+                    now.plus(comboConfig.executionEntityLife())
             );
+
+            out = out
+                    .withExecution(nextExec)
+                    .withLock(
+                            actionLockRule.lock(
+                                    ActionKind.COMBO_STEP,
+                                    null,
+                                    comboConfig.actionLockDuration(),
+                                    now
+                            )
+                    );
         }
 
         return out;
     }
 
     public ServerCombatState tick(ServerCombatState state, Time now) {
-        if (state == null || now == null) {
-            return state;
-        }
+        if (state == null || now == null) return state;
+        if (!executionGate.allowAction(state.execution())) return state;
 
         ComboState next = holdLatchRule.advanceIfLatched(state.combo(), now);
-        if (next.equals(state.combo())) {
-            return state;
-        }
+        if (next.equals(state.combo())) return state;
 
         next = timingRule.scheduleNext(next, comboConfig.stepDuration(), now);
         next = resetRule.resetIfFinished(next, comboConfig.maxSteps(), now);
 
-        ServerCombatState out = state.withCombo(next);
-        out = out.withLock(
-                actionLockRule.lock(
-                        ActionKind.COMBO_STEP,
-                        null,
-                        comboConfig.actionLockDuration(),
-                        now
-                )
+        ExecutionState nextExec = startExecution(
+                state.execution(),
+                ExecutionKind.COMBO_CUT,
+                now,
+                now.plus(comboConfig.executionEntityLife())
         );
-        return out;
+
+        return state
+                .withCombo(next)
+                .withExecution(nextExec)
+                .withLock(
+                        actionLockRule.lock(
+                                ActionKind.COMBO_STEP,
+                                null,
+                                comboConfig.actionLockDuration(),
+                                now
+                        )
+                );
+    }
+
+    private static ExecutionState startExecution(
+            ExecutionState current,
+            ExecutionKind kind,
+            Time startedAt,
+            Time expectedEndAt
+    ) {
+        ExecutionState cur = current != null ? current : ExecutionState.idle();
+        long nextId = cur.execId() + 1L;
+
+        return new ExecutionState(
+                true,
+                kind != null ? kind : ExecutionKind.NONE,
+                nextId,
+                startedAt != null ? startedAt : Time.ofTicks(0L),
+                expectedEndAt != null ? expectedEndAt : Time.ofTicks(0L)
+        );
     }
 }
 
@@ -985,6 +1266,63 @@ public final class ComboTimingRule {
     }
 }
 
+===== ExecutionGateRule.java =====
+package com.pgalaxyp.fragmento.rpg.combat.rule;
+
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionState;
+
+public final class ExecutionGateRule {
+
+    public boolean allowAction(ExecutionState exec) {
+        if (exec == null) return true;
+        return !exec.active();
+    }
+}
+
+===== ExecutionLifecycleRule.java =====
+package com.pgalaxyp.fragmento.rpg.combat.rule;
+
+import com.pgalaxyp.fragmento.rpg.domain.execution.ExecutionFacts;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionState;
+
+public final class ExecutionLifecycleRule {
+
+    private static final Duration FALLBACK_DURATION = Duration.ofTicks(20);
+
+    public ExecutionState refresh(ExecutionState exec, ExecutionFacts facts, Time now) {
+        if (now == null) return exec != null ? exec : ExecutionState.idle();
+
+        ExecutionState cur = exec != null ? exec : ExecutionState.idle();
+
+        if (facts == null) {
+            if (cur.active() && now.isAfterOrEqual(cur.expectedEndAt())) {
+                return cur.stop();
+            }
+            return cur;
+        }
+
+        if (cur.active() && !facts.hasActiveCombatEntity()) {
+            return cur.stop();
+        }
+
+        if (!cur.active() && facts.hasActiveCombatEntity()) {
+            long nextId = cur.execId() + 1L;
+            return new ExecutionState(
+                    true,
+                    ExecutionKind.UNKNOWN,
+                    nextId,
+                    now,
+                    now.plus(FALLBACK_DURATION)
+            );
+        }
+
+        return cur;
+    }
+}
+
 ===== HoldLatchRule.java =====
 package com.pgalaxyp.fragmento.rpg.combat.rule;
 
@@ -1015,39 +1353,124 @@ public final class HoldLatchRule {
     }
 }
 
-===== CatalystRegistration.java =====
-package com.pgalaxyp.fragmento.rpg.content.catalyst;
+===== BardFluteEffects.java =====
+package com.pgalaxyp.fragmento.rpg.content.catalyst.bard;
 
+import com.pgalaxyp.fragmento.rpg.content.entity.CutOrientation;
 import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
-import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
-import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
-import com.pgalaxyp.fragmento.rpg.catalyst.registry.CatalystDefinition;
-import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnInfusedStrikeEffect;
+import com.pgalaxyp.fragmento.rpg.engine.catalyst.CatalystEffectAdapter;
+import com.pgalaxyp.fragmento.rpg.targeting.AimResolver;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
-import java.util.Map;
+import java.util.List;
 
-public final class CatalystRegistration {
+public final class BardFluteEffects implements CatalystEffectAdapter {
 
-    private static final SkillSlotId NORMAL = new SkillSlotId(1);
-    private static final SkillSlotId SPECIAL = new SkillSlotId(2);
+    private static final int CUT_LIFE_TICKS = 15;
+    private static final float INFUSED_HIT_DAMAGE = 6.0f;
 
-    public static void registerAll() {
-        Map<SkillSlotId, SkillId> skills = Map.of(
-                NORMAL, BardSkills.BARDO_NORMAL_INFUSED,
-                SPECIAL, BardSkills.BARDO_SPECIAL_CASTED
-        );
+    private final AimResolver aim = new AimResolver();
 
-        RpgRegistry.catalysts().register(
-                new CatalystDefinition(
-                        new CatalystFamilyId("bardo"),
-                        FluteItem::isFlute,
-                        skills
+    @Override
+    public List<RpgEffect> onAction(
+            ServerPlayer player,
+            ActionKind action,
+            int comboStep,
+            SkillId skillId,
+            Time now
+    ) {
+        if (action == ActionKind.COMBO_STEP) {
+            return onComboStep(player, comboStep);
+        }
+
+        if (action == ActionKind.INFUSED_EXECUTE && skillId != null && skillId.value() == BardSkills.BARDO_NORMAL_INFUSED.value()) {
+            return onInfusedStrike(player);
+        }
+
+        return List.of();
+    }
+
+    private List<RpgEffect> onComboStep(ServerPlayer player, int comboStep) {
+        AimResolver.Aim a = aim.resolve(player, 20.0, 5.0);
+        LivingEntity target = a.target();
+        Vec3 targetPoint = target != null
+                ? target.getBoundingBox().getCenter()
+                : a.point();
+
+        Vec3 forward = player.getLookAngle().normalize();
+        Vec3 right = forward.cross(new Vec3(0, 1, 0));
+        if (right.lengthSqr() < 1.0E-6) right = new Vec3(1, 0, 0);
+        right = right.normalize();
+
+        Vec3 spawn;
+        CutOrientation orientation;
+
+        if (comboStep == 1) {
+            spawn = targetPoint.add(right.scale(4.0));
+            orientation = CutOrientation.HORIZONTAL;
+        } else if (comboStep == 2) {
+            spawn = targetPoint.subtract(right.scale(4.0));
+            orientation = CutOrientation.HORIZONTAL;
+        } else {
+            spawn = targetPoint.add(0, 4.0, 0);
+            orientation = CutOrientation.VERTICAL;
+        }
+
+        float dmg = comboStep == 1 ? 3.0f : comboStep == 2 ? 4.0f : 5.0f;
+
+        return List.of(
+                new SpawnCutEffect(
+                        player.getUUID(),
+                        target != null ? target.getUUID() : null,
+                        spawn.x,
+                        spawn.y,
+                        spawn.z,
+                        targetPoint.x,
+                        targetPoint.y,
+                        targetPoint.z,
+                        CUT_LIFE_TICKS,
+                        dmg,
+                        orientation
                 )
         );
     }
 
-    private CatalystRegistration() {}
+    private List<RpgEffect> onInfusedStrike(ServerPlayer player) {
+        AimResolver.Aim a = aim.resolve(player, 22.0, 7.0);
+        LivingEntity target = a.target();
+
+        Vec3 foot = target != null
+                ? new Vec3(target.getX(), target.getBoundingBox().minY, target.getZ())
+                : a.point();
+
+        Vec3 from = foot.add(0.0, 1.0, 0.0);
+        Vec3 to = foot.add(0.0, -12.0, 0.0);
+
+        BlockHitResult hit = player.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        Vec3 impact = hit != null && hit.getType() == HitResult.Type.BLOCK ? hit.getLocation() : foot.add(0.0, -1.0, 0.0);
+
+        Vec3 start = foot.add(0.0, 5.0, 0.0);
+
+        return List.of(
+                new SpawnInfusedStrikeEffect(
+                        player.getUUID(),
+                        INFUSED_HIT_DAMAGE,
+                        start.x, start.y, start.z,
+                        impact.x, impact.y, impact.z
+                )
+        );
+    }
 }
 
 ===== FluteItem.java =====
@@ -1125,13 +1548,6 @@ public final class CutEffectEntity extends Entity {
     private static final EntityDataAccessor<Byte> DATA_ORIENTATION =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.BYTE);
 
-    private static final EntityDataAccessor<Float> DATA_MOVE_X =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_MOVE_Y =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_MOVE_Z =
-            SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
-
     private static final EntityDataAccessor<Float> DATA_AIM_X =
             SynchedEntityData.defineId(CutEffectEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_AIM_Y =
@@ -1146,9 +1562,10 @@ public final class CutEffectEntity extends Entity {
     public CutEffectEntity(EntityType<? extends CutEffectEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
+        this.setNoGravity(true);
     }
 
-    public static void spawn(
+    public static UUID spawn(
             ServerLevel level,
             EntityType<CutEffectEntity> type,
             UUID ownerId,
@@ -1159,37 +1576,114 @@ public final class CutEffectEntity extends Entity {
             float damage,
             CutOrientation orientation
     ) {
+        if (level == null || type == null || spawn == null || target == null) return null;
+
         CutEffectEntity e = new CutEffectEntity(type, level);
+
         e.ownerId = ownerId;
         e.targetId = targetId;
-        e.damage = damage;
-
-        Vec3 moveDir = target.subtract(spawn).normalize();
-        Vec3 aimDir = target.subtract(spawn).normalize();
+        e.damage = Math.max(0f, damage);
 
         e.entityData.set(DATA_LIFE, Math.max(1, lifeTicks));
         e.entityData.set(DATA_AGE, 0);
-        e.entityData.set(DATA_ORIENTATION, (byte) orientation.ordinal());
+        e.entityData.set(DATA_ORIENTATION, (byte) (orientation != null ? orientation.ordinal() : 0));
 
-        e.entityData.set(DATA_MOVE_X, (float) moveDir.x);
-        e.entityData.set(DATA_MOVE_Y, (float) moveDir.y);
-        e.entityData.set(DATA_MOVE_Z, (float) moveDir.z);
+        e.entityData.set(DATA_AIM_X, (float) target.x);
+        e.entityData.set(DATA_AIM_Y, (float) target.y);
+        e.entityData.set(DATA_AIM_Z, (float) target.z);
 
-        e.entityData.set(DATA_AIM_X, (float) aimDir.x);
-        e.entityData.set(DATA_AIM_Y, (float) aimDir.y);
-        e.entityData.set(DATA_AIM_Z, (float) aimDir.z);
+        e.setPos(spawn);
+
+        boolean added = level.addFreshEntity(e);
+        return added ? e.getUUID() : null;
+    }
+
+    public static void spawnClient(
+            Level level,
+            EntityType<CutEffectEntity> type,
+            Vec3 spawn,
+            Vec3 target,
+            int lifeTicks,
+            CutOrientation orientation
+    ) {
+        if (level == null || type == null || spawn == null || target == null) return;
+
+        CutEffectEntity e = new CutEffectEntity(type, level);
+
+        e.ownerId = null;
+        e.targetId = null;
+        e.damage = 0f;
+
+        e.entityData.set(DATA_LIFE, Math.max(1, lifeTicks));
+        e.entityData.set(DATA_AGE, 0);
+        e.entityData.set(DATA_ORIENTATION, (byte) (orientation != null ? orientation.ordinal() : 0));
+
+        e.entityData.set(DATA_AIM_X, (float) target.x);
+        e.entityData.set(DATA_AIM_Y, (float) target.y);
+        e.entityData.set(DATA_AIM_Z, (float) target.z);
 
         e.setPos(spawn);
         level.addFreshEntity(e);
     }
 
     @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(DATA_LIFE, 10);
+        builder.define(DATA_AGE, 0);
+        builder.define(DATA_ORIENTATION, (byte) 0);
+        builder.define(DATA_AIM_X, 0f);
+        builder.define(DATA_AIM_Y, 0f);
+        builder.define(DATA_AIM_Z, 0f);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("Life", entityData.get(DATA_LIFE));
+        tag.putInt("Age", entityData.get(DATA_AGE));
+        tag.putByte("Ori", entityData.get(DATA_ORIENTATION));
+        tag.putFloat("Ax", entityData.get(DATA_AIM_X));
+        tag.putFloat("Ay", entityData.get(DATA_AIM_Y));
+        tag.putFloat("Az", entityData.get(DATA_AIM_Z));
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        entityData.set(DATA_LIFE, tag.getInt("Life"));
+        entityData.set(DATA_AGE, tag.getInt("Age"));
+        entityData.set(DATA_ORIENTATION, tag.getByte("Ori"));
+        entityData.set(DATA_AIM_X, tag.getFloat("Ax"));
+        entityData.set(DATA_AIM_Y, tag.getFloat("Ay"));
+        entityData.set(DATA_AIM_Z, tag.getFloat("Az"));
+    }
+
+    public int life() {
+        return entityData.get(DATA_LIFE);
+    }
+
+    public int age() {
+        return entityData.get(DATA_AGE);
+    }
+
+    public CutOrientation orientation() {
+        int o = entityData.get(DATA_ORIENTATION);
+        if (o < 0 || o >= CutOrientation.values().length) {
+            return CutOrientation.HORIZONTAL;
+        }
+        return CutOrientation.values()[o];
+    }
+
+    public Vec3 aimDir() {
+        Vec3 aim = new Vec3(
+                entityData.get(DATA_AIM_X),
+                entityData.get(DATA_AIM_Y),
+                entityData.get(DATA_AIM_Z)
+        );
+        return aim.subtract(position()).normalize();
+    }
+
+    @Override
     public void tick() {
         super.tick();
-
-        if (level().isClientSide) {
-            return;
-        }
 
         int age = entityData.get(DATA_AGE) + 1;
         entityData.set(DATA_AGE, age);
@@ -1199,11 +1693,27 @@ public final class CutEffectEntity extends Entity {
             return;
         }
 
+        if (level().isClientSide) {
+            return;
+        }
+
         move(MoverType.SELF, moveDir().scale(0.6));
 
-        if (level() instanceof ServerLevel sl) {
-            tryHit(sl);
+        if (!(level() instanceof ServerLevel sl)) {
+            discard();
+            return;
         }
+
+        tryHit(sl);
+    }
+
+    private Vec3 moveDir() {
+        Vec3 n = aimDir();
+        CutOrientation o = orientation();
+        if (o == CutOrientation.VERTICAL) {
+            return new Vec3(n.x, Math.abs(n.y) < 0.2 ? 0.55 : n.y, n.z).normalize();
+        }
+        return new Vec3(n.x, 0.0, n.z).normalize();
     }
 
     private void tryHit(ServerLevel sl) {
@@ -1221,86 +1731,38 @@ public final class CutEffectEntity extends Entity {
         if (!hit.intersects(le.getBoundingBox())) return;
 
         DamageSource src = sl.damageSources().generic();
-        if (ownerId != null) {
-            Entity o = sl.getEntity(ownerId);
-            if (o instanceof LivingEntity lo) {
-                src = sl.damageSources().mobAttack(lo);
-            }
+
+        Entity owner = ownerId != null ? sl.getEntity(ownerId) : null;
+        if (owner instanceof LivingEntity ol) {
+            src = sl.damageSources().mobAttack(ol);
         }
 
         le.hurt(src, damage);
-        damage = 0;
+        discard();
     }
 
-    private static AABB orientedBox(Vec3 c, Vec3 u, Vec3 v, Vec3 n, double eu, double ev, double en) {
-        Vec3 uu = u.scale(eu);
-        Vec3 vv = v.scale(ev);
-        Vec3 nn = n.scale(en);
+    private static AABB orientedBox(
+            Vec3 center,
+            Vec3 u,
+            Vec3 v,
+            Vec3 n,
+            double hu,
+            double hv,
+            double hn
+    ) {
+        Vec3 a = center.add(u.scale(hu)).add(v.scale(hv)).add(n.scale(hn));
+        Vec3 b = center.add(u.scale(-hu)).add(v.scale(-hv)).add(n.scale(-hn));
 
-        Vec3[] p = new Vec3[]{
-                c.add(uu).add(vv).add(nn),
-                c.add(uu).add(vv).subtract(nn),
-                c.add(uu).subtract(vv).add(nn),
-                c.add(uu).subtract(vv).subtract(nn),
-                c.subtract(uu).add(vv).add(nn),
-                c.subtract(uu).add(vv).subtract(nn),
-                c.subtract(uu).subtract(vv).add(nn),
-                c.subtract(uu).subtract(vv).subtract(nn)
-        };
+        double minX = Math.min(a.x, b.x);
+        double minY = Math.min(a.y, b.y);
+        double minZ = Math.min(a.z, b.z);
 
-        double minX = p[0].x, minY = p[0].y, minZ = p[0].z;
-        double maxX = minX, maxY = minY, maxZ = minZ;
-
-        for (Vec3 vtx : p) {
-            minX = Math.min(minX, vtx.x);
-            minY = Math.min(minY, vtx.y);
-            minZ = Math.min(minZ, vtx.z);
-            maxX = Math.max(maxX, vtx.x);
-            maxY = Math.max(maxY, vtx.y);
-            maxZ = Math.max(maxZ, vtx.z);
-        }
+        double maxX = Math.max(a.x, b.x);
+        double maxY = Math.max(a.y, b.y);
+        double maxZ = Math.max(a.z, b.z);
 
         return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
     }
-
-    public Vec3 moveDir() {
-        return new Vec3(
-                entityData.get(DATA_MOVE_X),
-                entityData.get(DATA_MOVE_Y),
-                entityData.get(DATA_MOVE_Z)
-        );
-    }
-
-    public Vec3 aimDir() {
-        return new Vec3(
-                entityData.get(DATA_AIM_X),
-                entityData.get(DATA_AIM_Y),
-                entityData.get(DATA_AIM_Z)
-        );
-    }
-
-    public CutOrientation getOrientation() {
-        return CutOrientation.values()[entityData.get(DATA_ORIENTATION)];
-    }
-
-    @Override
-    protected void defineSynchedData(SynchedEntityData.Builder b) {
-        b.define(DATA_LIFE, 1);
-        b.define(DATA_AGE, 0);
-        b.define(DATA_ORIENTATION, (byte) 0);
-        b.define(DATA_MOVE_X, 0f);
-        b.define(DATA_MOVE_Y, 0f);
-        b.define(DATA_MOVE_Z, 1f);
-        b.define(DATA_AIM_X, 0f);
-        b.define(DATA_AIM_Y, 0f);
-        b.define(DATA_AIM_Z, 1f);
-    }
-
-    @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {}
-
-    @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {}
 }
 
 ===== CutOrientation.java =====
@@ -1309,6 +1771,463 @@ package com.pgalaxyp.fragmento.rpg.content.entity;
 public enum CutOrientation {
     HORIZONTAL,
     VERTICAL
+}
+
+===== InfusedStrikeEntity.java =====
+package com.pgalaxyp.fragmento.rpg.content.entity;
+
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
+public final class InfusedStrikeEntity extends Entity {
+
+    private static final EntityDataAccessor<Integer> DATA_AGE =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.INT);
+
+    private static final EntityDataAccessor<Byte> DATA_PHASE =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.BYTE);
+
+    private static final EntityDataAccessor<Integer> DATA_PHASE_TICKS =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.INT);
+
+    private static final EntityDataAccessor<Float> DATA_IMPACT_X =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_IMPACT_Y =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_IMPACT_Z =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.FLOAT);
+
+    private static final EntityDataAccessor<Float> DATA_HIT_DAMAGE =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.FLOAT);
+
+    private static final EntityDataAccessor<Float> DATA_VEL_Y =
+            SynchedEntityData.defineId(InfusedStrikeEntity.class, EntityDataSerializers.FLOAT);
+
+    private static final int MAX_AGE_TICKS = 26;
+
+    private static final float DESCEND_SPEED = 1.65f;
+
+    private static final int IMPACT_TICKS = 3;
+    private static final int PULL_TICKS = 14;
+    private static final int RELEASE_TICKS = 1;
+
+    private static final double IMPACT_AOE_RADIUS = 2.35;
+    private static final double VORTEX_RADIUS = 4.35;
+    private static final double VORTEX_HALF_HEIGHT = 1.05;
+
+    private static final double PULL_BASE = 0.08;
+    private static final double PULL_MAX = 0.34;
+
+    private static final double RELEASE_UP = 1.35;
+    private static final double RELEASE_OUT = 0.22;
+
+    private UUID ownerId;
+    private final Set<UUID> impacted = new HashSet<>();
+
+    private enum Phase {
+        DESCEND,
+        IMPACT,
+        VORTEX_PULL,
+        VORTEX_RELEASE,
+        DONE
+    }
+
+    public InfusedStrikeEntity(EntityType<? extends InfusedStrikeEntity> type, Level level) {
+        super(type, level);
+        this.noPhysics = true;
+        this.setNoGravity(true);
+    }
+
+    public static UUID spawn(
+            ServerLevel level,
+            EntityType<InfusedStrikeEntity> type,
+            UUID ownerId,
+            float hitDamage,
+            Vec3 start,
+            Vec3 impact
+    ) {
+        if (level == null || type == null || start == null || impact == null) return null;
+
+        InfusedStrikeEntity e = new InfusedStrikeEntity(type, level);
+        e.ownerId = ownerId;
+
+        e.entityData.set(DATA_AGE, 0);
+        e.entityData.set(DATA_PHASE, (byte) Phase.DESCEND.ordinal());
+        e.entityData.set(DATA_PHASE_TICKS, 0);
+
+        e.entityData.set(DATA_IMPACT_X, (float) impact.x);
+        e.entityData.set(DATA_IMPACT_Y, (float) impact.y);
+        e.entityData.set(DATA_IMPACT_Z, (float) impact.z);
+
+        e.entityData.set(DATA_HIT_DAMAGE, Math.max(0f, hitDamage));
+        e.entityData.set(DATA_VEL_Y, -DESCEND_SPEED);
+
+        e.setPos(start);
+
+        boolean added = level.addFreshEntity(e);
+        return added ? e.getUUID() : null;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        int age = entityData.get(DATA_AGE) + 1;
+        entityData.set(DATA_AGE, age);
+
+        if (age > MAX_AGE_TICKS) {
+            discard();
+            return;
+        }
+
+        if (level().isClientSide) {
+            return;
+        }
+
+        if (!(level() instanceof ServerLevel sl)) {
+            discard();
+            return;
+        }
+
+        Phase phase = phase();
+
+        if (phase == Phase.DESCEND) {
+            tickDescend(sl);
+            return;
+        }
+
+        if (phase == Phase.IMPACT) {
+            tickImpact();
+            return;
+        }
+
+        if (phase == Phase.VORTEX_PULL) {
+            tickVortexPull(sl);
+            return;
+        }
+
+        if (phase == Phase.VORTEX_RELEASE) {
+            tickVortexRelease(sl);
+            return;
+        }
+
+        discard();
+    }
+
+    private void tickDescend(ServerLevel sl) {
+        Vec3 pos = position();
+        Vec3 next = pos.add(0.0, entityData.get(DATA_VEL_Y), 0.0);
+
+        Hit hit = resolveHit(sl, pos, next);
+
+        if (hit == null) {
+            move(MoverType.SELF, next.subtract(pos));
+            return;
+        }
+
+        Vec3 impact = hit.pos != null ? hit.pos : impactPos();
+        setPos(impact);
+
+        if (hit.entity instanceof LivingEntity le) {
+            applyImpactDamage(sl, impact, le);
+        } else {
+            applyImpactAoeDamage(sl, impact);
+        }
+
+        entityData.set(DATA_IMPACT_X, (float) impact.x);
+        entityData.set(DATA_IMPACT_Y, (float) impact.y);
+        entityData.set(DATA_IMPACT_Z, (float) impact.z);
+
+        setPhase(Phase.IMPACT);
+    }
+
+    private void tickImpact() {
+        int t = entityData.get(DATA_PHASE_TICKS) + 1;
+        entityData.set(DATA_PHASE_TICKS, t);
+
+        if (t >= IMPACT_TICKS) {
+            setPhase(Phase.VORTEX_PULL);
+        }
+    }
+
+    private void tickVortexPull(ServerLevel sl) {
+        int t = entityData.get(DATA_PHASE_TICKS) + 1;
+        entityData.set(DATA_PHASE_TICKS, t);
+
+        Vec3 c = impactPos();
+
+        AABB box = new AABB(
+                c.x - VORTEX_RADIUS, c.y - VORTEX_HALF_HEIGHT, c.z - VORTEX_RADIUS,
+                c.x + VORTEX_RADIUS, c.y + VORTEX_HALF_HEIGHT, c.z + VORTEX_RADIUS
+        );
+
+        double pct = Math.min(1.0, (double) t / (double) PULL_TICKS);
+        double force = PULL_BASE + (PULL_MAX - PULL_BASE) * pct;
+
+        for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, box, LivingEntity::isAlive)) {
+            if (ownerId != null && ownerId.equals(le.getUUID())) continue;
+
+            Vec3 p = le.position();
+            Vec3 d = new Vec3(c.x - p.x, 0.0, c.z - p.z);
+            double len = d.length();
+            if (len < 0.001) continue;
+
+            double falloff = 1.0 - Math.min(1.0, len / VORTEX_RADIUS);
+            double f = force * (0.35 + 0.65 * falloff);
+
+            Vec3 dir = d.normalize();
+            Vec3 dm = le.getDeltaMovement();
+
+            double nx = dm.x * 0.72 + dir.x * f;
+            double nz = dm.z * 0.72 + dir.z * f;
+            double ny = Math.min(dm.y, 0.15) * 0.45;
+
+            le.setDeltaMovement(nx, ny, nz);
+            le.hurtMarked = true;
+        }
+
+        if (t >= PULL_TICKS) {
+            setPhase(Phase.VORTEX_RELEASE);
+        }
+    }
+
+    private void tickVortexRelease(ServerLevel sl) {
+        Vec3 c = impactPos();
+
+        AABB box = new AABB(
+                c.x - VORTEX_RADIUS, c.y - VORTEX_HALF_HEIGHT, c.z - VORTEX_RADIUS,
+                c.x + VORTEX_RADIUS, c.y + VORTEX_HALF_HEIGHT, c.z + VORTEX_RADIUS
+        );
+
+        for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, box, LivingEntity::isAlive)) {
+            if (ownerId != null && ownerId.equals(le.getUUID())) continue;
+
+            Vec3 p = le.position();
+            Vec3 out = new Vec3(p.x - c.x, 0.0, p.z - c.z);
+            if (out.lengthSqr() < 1.0e-6) out = new Vec3(1.0, 0.0, 0.0);
+            out = out.normalize().scale(RELEASE_OUT);
+
+            le.setDeltaMovement(out.x, RELEASE_UP, out.z);
+            le.hurtMarked = true;
+        }
+
+        int t = entityData.get(DATA_PHASE_TICKS) + 1;
+        entityData.set(DATA_PHASE_TICKS, t);
+
+        if (t >= RELEASE_TICKS) {
+            setPhase(Phase.DONE);
+            discard();
+        }
+    }
+
+    private void applyImpactDamage(ServerLevel sl, Vec3 impact, LivingEntity direct) {
+        float dmg = entityData.get(DATA_HIT_DAMAGE);
+        if (dmg <= 0f) return;
+
+        DamageSource src = sl.damageSources().generic();
+        if (ownerId != null) {
+            Entity o = sl.getEntity(ownerId);
+            if (o instanceof LivingEntity lo) {
+                src = sl.damageSources().mobAttack(lo);
+            }
+        }
+
+        if (direct != null && direct.isAlive() && !impacted.contains(direct.getUUID())) {
+            impacted.add(direct.getUUID());
+            direct.hurt(src, dmg);
+        }
+
+        AABB box = new AABB(
+                impact.x - IMPACT_AOE_RADIUS, impact.y - 1.0, impact.z - IMPACT_AOE_RADIUS,
+                impact.x + IMPACT_AOE_RADIUS, impact.y + 2.2, impact.z + IMPACT_AOE_RADIUS
+        );
+
+        for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, box, LivingEntity::isAlive)) {
+            if (direct != null && le.getUUID().equals(direct.getUUID())) continue;
+            if (ownerId != null && ownerId.equals(le.getUUID())) continue;
+            if (impacted.contains(le.getUUID())) continue;
+
+            Vec3 p = le.getBoundingBox().getCenter();
+            double dx = p.x - impact.x;
+            double dz = p.z - impact.z;
+            double dist = Math.sqrt(dx * dx + dz * dz);
+            double falloff = 1.0 - Math.min(1.0, dist / IMPACT_AOE_RADIUS);
+
+            float dealt = (float) (dmg * (0.35 + 0.45 * falloff));
+            if (dealt <= 0.01f) continue;
+
+            impacted.add(le.getUUID());
+            le.hurt(src, dealt);
+        }
+    }
+
+    private void applyImpactAoeDamage(ServerLevel sl, Vec3 impact) {
+        float dmg = entityData.get(DATA_HIT_DAMAGE);
+        if (dmg <= 0f) return;
+
+        DamageSource src = sl.damageSources().generic();
+        if (ownerId != null) {
+            Entity o = sl.getEntity(ownerId);
+            if (o instanceof LivingEntity lo) {
+                src = sl.damageSources().mobAttack(lo);
+            }
+        }
+
+        AABB box = new AABB(
+                impact.x - IMPACT_AOE_RADIUS, impact.y - 1.0, impact.z - IMPACT_AOE_RADIUS,
+                impact.x + IMPACT_AOE_RADIUS, impact.y + 2.2, impact.z + IMPACT_AOE_RADIUS
+        );
+
+        for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, box, LivingEntity::isAlive)) {
+            if (ownerId != null && ownerId.equals(le.getUUID())) continue;
+            if (impacted.contains(le.getUUID())) continue;
+
+            Vec3 p = le.getBoundingBox().getCenter();
+            double dx = p.x - impact.x;
+            double dz = p.z - impact.z;
+            double dist = Math.sqrt(dx * dx + dz * dz);
+            double falloff = 1.0 - Math.min(1.0, dist / IMPACT_AOE_RADIUS);
+
+            float dealt = (float) (dmg * (0.45 + 0.45 * falloff));
+            if (dealt <= 0.01f) continue;
+
+            impacted.add(le.getUUID());
+            le.hurt(src, dealt);
+        }
+    }
+
+    private Hit resolveHit(ServerLevel sl, Vec3 from, Vec3 to) {
+
+        BlockHitResult bhr = sl.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        double blockDist = Double.POSITIVE_INFINITY;
+        Vec3 blockPos = null;
+
+        if (bhr != null && bhr.getType() == HitResult.Type.BLOCK) {
+            blockPos = bhr.getLocation();
+            blockDist = blockPos.distanceTo(from);
+        }
+
+        AABB sweep = new AABB(
+                Math.min(from.x, to.x), Math.min(from.y, to.y), Math.min(from.z, to.z),
+                Math.max(from.x, to.x), Math.max(from.y, to.y), Math.max(from.z, to.z)
+        ).inflate(0.45);
+
+        LivingEntity closest = null;
+        double best = blockDist;
+
+        for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, sweep, LivingEntity::isAlive)) {
+            if (ownerId != null && ownerId.equals(le.getUUID())) continue;
+
+            AABB bb = le.getBoundingBox().inflate(0.25);
+            if (!bb.intersects(sweep)) continue;
+
+            Vec3 c = bb.getCenter();
+            double d = c.distanceTo(from);
+
+            if (d < best) {
+                best = d;
+                closest = le;
+            }
+        }
+
+        if (closest != null) {
+            Vec3 p = closest.getBoundingBox().getCenter();
+            return new Hit(p, closest);
+        }
+
+        if (blockPos != null) {
+            return new Hit(blockPos, null);
+        }
+
+        Vec3 impact = impactPos();
+        if (to.y <= impact.y + 0.05) {
+            return new Hit(impact, null);
+        }
+
+        return null;
+    }
+
+    private void setPhase(Phase p) {
+        entityData.set(DATA_PHASE, (byte) (p != null ? p.ordinal() : 0));
+        entityData.set(DATA_PHASE_TICKS, 0);
+    }
+
+    public Phase phase() {
+        int i = entityData.get(DATA_PHASE);
+        Phase[] v = Phase.values();
+        if (i < 0 || i >= v.length) return Phase.DESCEND;
+        return v[i];
+    }
+
+    public int phaseTicks() {
+        return entityData.get(DATA_PHASE_TICKS);
+    }
+
+    public int ageTicks() {
+        return entityData.get(DATA_AGE);
+    }
+
+    public Vec3 impactPos() {
+        return new Vec3(
+                entityData.get(DATA_IMPACT_X),
+                entityData.get(DATA_IMPACT_Y),
+                entityData.get(DATA_IMPACT_Z)
+        );
+    }
+
+    public float hitDamage() {
+        return entityData.get(DATA_HIT_DAMAGE);
+    }
+
+    public float velY() {
+        return entityData.get(DATA_VEL_Y);
+    }
+
+    public boolean isVortexActive() {
+        Phase p = phase();
+        return p == Phase.VORTEX_PULL || p == Phase.VORTEX_RELEASE;
+    }
+
+    public boolean isImpactFlash() {
+        return phase() == Phase.IMPACT;
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder b) {
+        b.define(DATA_AGE, 0);
+        b.define(DATA_PHASE, (byte) Phase.DESCEND.ordinal());
+        b.define(DATA_PHASE_TICKS, 0);
+        b.define(DATA_IMPACT_X, 0f);
+        b.define(DATA_IMPACT_Y, 0f);
+        b.define(DATA_IMPACT_Z, 0f);
+        b.define(DATA_HIT_DAMAGE, 0f);
+        b.define(DATA_VEL_Y, -DESCEND_SPEED);
+    }
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {}
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {}
+
+    private record Hit(Vec3 pos, LivingEntity entity) {}
 }
 
 ===== RpgEntityRegistry.java =====
@@ -1338,6 +2257,16 @@ public final class RpgEntityRegistry {
                             .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "cut").toString())
             );
 
+    public static final DeferredHolder<EntityType<?>, EntityType<InfusedStrikeEntity>> INFUSED_STRIKE =
+            ENTITY_TYPES.register(
+                    "infused_strike",
+                    () -> EntityType.Builder.of(InfusedStrikeEntity::new, MobCategory.MISC)
+                            .sized(0.9f, 1.6f)
+                            .clientTrackingRange(96)
+                            .updateInterval(1)
+                            .build(ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "infused_strike").toString())
+            );
+
     public static void register(IEventBus modBus) {
         ENTITY_TYPES.register(modBus);
     }
@@ -1345,12 +2274,114 @@ public final class RpgEntityRegistry {
     private RpgEntityRegistry() {}
 }
 
+===== CatalystProfile.java =====
+package com.pgalaxyp.fragmento.rpg.content.profile;
+
+import com.pgalaxyp.fragmento.rpg.catalyst.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.engine.catalyst.CatalystEffectAdapter;
+import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
+
+import java.util.Map;
+import java.util.Objects;
+
+public record CatalystProfile(
+        CatalystDefinition catalyst,
+        CatalystEffectAdapter effects,
+        Map<SkillId, SkillTuning> skillTunings
+) {
+    public CatalystProfile {
+        Objects.requireNonNull(catalyst);
+        Objects.requireNonNull(effects);
+        skillTunings = Map.copyOf(Objects.requireNonNullElseGet(skillTunings, Map::of));
+    }
+
+    public CatalystFamilyId family() {
+        return catalyst.family();
+    }
+}
+
+===== RpgProfiles.java =====
+package com.pgalaxyp.fragmento.rpg.content.profile;
+
+import com.pgalaxyp.fragmento.rpg.catalyst.registry.CatalystDefinition;
+import com.pgalaxyp.fragmento.rpg.content.catalyst.FluteItem;
+import com.pgalaxyp.fragmento.rpg.content.catalyst.bard.BardFluteEffects;
+import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
+import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
+import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
+
+import java.util.Map;
+
+public final class RpgProfiles {
+
+    private static final SkillSlotId NORMAL = new SkillSlotId(1);
+    private static final SkillSlotId SPECIAL = new SkillSlotId(2);
+
+    public static void registerAll() {
+        registerBard();
+    }
+
+    private static void registerBard() {
+        CatalystFamilyId family = new CatalystFamilyId("bard");
+
+        Map<SkillSlotId, SkillId> skillsBySlot = Map.of(
+                NORMAL, BardSkills.BARDO_NORMAL_INFUSED,
+                SPECIAL, BardSkills.BARDO_SPECIAL_CASTED
+        );
+
+        CatalystDefinition def = new CatalystDefinition(
+                family,
+                FluteItem::isFlute,
+                skillsBySlot
+        );
+
+        Map<SkillId, SkillTuning> tunings = Map.of(
+                BardSkills.BARDO_NORMAL_INFUSED,
+                new SkillTuning(
+                        Duration.ofTicks(0),
+                        Duration.ofTicks(100),
+                        Duration.ofTicks(10),
+                        Duration.ofTicks(26)
+                ),
+                BardSkills.BARDO_SPECIAL_CASTED,
+                new SkillTuning(
+                        Duration.ofTicks(40),
+                        Duration.ofTicks(400),
+                        Duration.ofTicks(10),
+                        Duration.ofTicks(0)
+                )
+        );
+
+        RpgRegistry.catalysts().register(def);
+
+        CatalystProfile profile = new CatalystProfile(
+                def,
+                new BardFluteEffects(),
+                tunings
+        );
+
+        RpgRegistry.profiles().register(profile);
+
+        for (var e : tunings.entrySet()) {
+            RpgRegistry.skillTunings().register(e.getKey(), e.getValue());
+        }
+    }
+
+    private RpgProfiles() {}
+}
+
 ===== RpgContent.java =====
 package com.pgalaxyp.fragmento.rpg.content;
 
-import com.pgalaxyp.fragmento.rpg.content.catalyst.CatalystRegistration;
 import com.pgalaxyp.fragmento.rpg.content.catalyst.ItemCatalystRegistry;
 import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg.content.profile.RpgProfiles;
 import net.neoforged.bus.api.IEventBus;
 
 public final class RpgContent {
@@ -1358,7 +2389,7 @@ public final class RpgContent {
     public static void register(IEventBus modBus) {
         RpgEntityRegistry.register(modBus);
         ItemCatalystRegistry.register(modBus);
-        CatalystRegistration.registerAll();
+        RpgProfiles.registerAll();
     }
 
     private RpgContent() {}
@@ -1385,6 +2416,21 @@ public enum ActionKind {
     COMBO_STEP,
     INFUSED_EXECUTE,
     CAST_FINISH
+}
+
+===== ExecutionFacts.java =====
+package com.pgalaxyp.fragmento.rpg.domain.execution;
+
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+
+public record ExecutionFacts(
+        Time now,
+        boolean onGround,
+        boolean inWater
+) {
+    public boolean hasActiveCombatEntity() {
+        return onGround || inWater;
+    }
 }
 
 ===== CatalystFamilyId.java =====
@@ -1471,19 +2517,7 @@ package com.pgalaxyp.fragmento.rpg.domain.timing;
 public record Duration(long ticks) {
 
     public static Duration ofTicks(long ticks) {
-        return new Duration(Math.max(0, ticks));
-    }
-
-    public static Duration ofSeconds(double seconds, int ticksPerSecond) {
-        if (seconds <= 0.0 || ticksPerSecond <= 0) {
-            return new Duration(0L);
-        }
-        long t = Math.round(seconds * (double) ticksPerSecond);
-        return new Duration(Math.max(0L, t));
-    }
-
-    public boolean isZero() {
-        return ticks <= 0;
+        return new Duration(ticks);
     }
 }
 
@@ -1492,29 +2526,35 @@ package com.pgalaxyp.fragmento.rpg.domain.timing;
 
 public record Time(long ticks) {
 
+    public static final Time ZERO = new Time(0L);
+
     public static Time ofTicks(long ticks) {
-        return new Time(Math.max(0L, ticks));
+        return new Time(ticks);
     }
 
-    public Time plus(Duration d) {
-        if (d == null) {
-            return this;
-        }
-        return new Time(ticks + Math.max(0L, d.ticks()));
+    public Time plus(Time other) {
+        if (other == null) return this;
+        return new Time(this.ticks + other.ticks);
     }
 
-    public boolean isAfterOrEqual(Time other) {
-        if (other == null) {
-            return false;
-        }
-        return ticks >= other.ticks();
+    public Time plus(Duration duration) {
+        if (duration == null) return this;
+        return new Time(this.ticks + duration.ticks());
+    }
+
+    public boolean isAfter(Time other) {
+        if (other == null) return false;
+        return ticks > other.ticks;
     }
 
     public boolean isBefore(Time other) {
-        if (other == null) {
-            return false;
-        }
-        return ticks < other.ticks();
+        if (other == null) return false;
+        return ticks < other.ticks;
+    }
+
+    public boolean isAfterOrEqual(Time other) {
+        if (other == null) return true;
+        return ticks >= other.ticks;
     }
 }
 
@@ -1532,12 +2572,30 @@ public record SpawnCutEffect(
         double spawnX,
         double spawnY,
         double spawnZ,
-        double aimX,
-        double aimY,
-        double aimZ,
+        double targetX,
+        double targetY,
+        double targetZ,
         int lifeTicks,
         float damage,
         CutOrientation orientation
+) implements RpgEffect {}
+
+===== SpawnInfusedStrikeEffect.java =====
+package com.pgalaxyp.fragmento.rpg.effect.gameplay;
+
+import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
+
+import java.util.UUID;
+
+public record SpawnInfusedStrikeEffect(
+        UUID ownerId,
+        float damage,
+        double startX,
+        double startY,
+        double startZ,
+        double impactX,
+        double impactY,
+        double impactZ
 ) implements RpgEffect {}
 
 ===== RpgEffect.java =====
@@ -1545,51 +2603,23 @@ package com.pgalaxyp.fragmento.rpg.effect;
 
 public interface RpgEffect {}
 
-===== EffectApplier.java =====
-package com.pgalaxyp.fragmento.rpg.effect.runtime;
-
-import com.pgalaxyp.fragmento.rpg.content.entity.CutEffectEntity;
-import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
-import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.phys.Vec3;
-
-public final class EffectApplier {
-
-    public static void applySpawnCut(ServerLevel level, SpawnCutEffect e) {
-        if (level == null || e == null) return;
-
-        Vec3 spawn = new Vec3(e.spawnX(), e.spawnY(), e.spawnZ());
-        Vec3 target = new Vec3(e.aimX(), e.aimY(), e.aimZ());
-
-        CutEffectEntity.spawn(
-                level,
-                RpgEntityRegistry.CUT.get(),
-                e.ownerId(),
-                e.targetId(),
-                spawn,
-                target,
-                e.lifeTicks(),
-                e.damage(),
-                e.orientation()
-        );
-    }
-
-    private EffectApplier() {}
-}
-
 ===== BardFluteEffects.java =====
 package com.pgalaxyp.fragmento.rpg.engine.catalyst;
 
 import com.pgalaxyp.fragmento.rpg.content.entity.CutOrientation;
+import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
 import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnInfusedStrikeEffect;
 import com.pgalaxyp.fragmento.rpg.targeting.AimResolver;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -1597,6 +2627,8 @@ import java.util.List;
 public final class BardFluteEffects implements CatalystEffectAdapter {
 
     private static final int CUT_LIFE_TICKS = 15;
+    private static final float INFUSED_HIT_DAMAGE = 6.0f;
+
     private final AimResolver aim = new AimResolver();
 
     @Override
@@ -1607,8 +2639,18 @@ public final class BardFluteEffects implements CatalystEffectAdapter {
             SkillId skillId,
             Time now
     ) {
-        if (action != ActionKind.COMBO_STEP) return List.of();
+        if (action == ActionKind.COMBO_STEP) {
+            return onComboStep(player, comboStep);
+        }
 
+        if (action == ActionKind.INFUSED_EXECUTE && skillId != null && skillId.value() == BardSkills.BARDO_NORMAL_INFUSED.value()) {
+            return onInfusedStrike(player);
+        }
+
+        return List.of();
+    }
+
+    private List<RpgEffect> onComboStep(ServerPlayer player, int comboStep) {
         AimResolver.Aim a = aim.resolve(player, 20.0, 5.0);
         LivingEntity target = a.target();
         Vec3 targetPoint = target != null
@@ -1652,6 +2694,32 @@ public final class BardFluteEffects implements CatalystEffectAdapter {
                 )
         );
     }
+
+    private List<RpgEffect> onInfusedStrike(ServerPlayer player) {
+        AimResolver.Aim a = aim.resolve(player, 22.0, 7.0);
+        LivingEntity target = a.target();
+
+        Vec3 foot = target != null
+                ? new Vec3(target.getX(), target.getBoundingBox().minY, target.getZ())
+                : a.point();
+
+        Vec3 from = foot.add(0.0, 1.0, 0.0);
+        Vec3 to = foot.add(0.0, -12.0, 0.0);
+
+        BlockHitResult hit = player.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        Vec3 impact = hit != null && hit.getType() == HitResult.Type.BLOCK ? hit.getLocation() : foot.add(0.0, -1.0, 0.0);
+
+        Vec3 start = foot.add(0.0, 5.0, 0.0);
+
+        return List.of(
+                new SpawnInfusedStrikeEffect(
+                        player.getUUID(),
+                        INFUSED_HIT_DAMAGE,
+                        start.x, start.y, start.z,
+                        impact.x, impact.y, impact.z
+                )
+        );
+    }
 }
 
 ===== CatalystEffectAdapter.java =====
@@ -1674,31 +2742,6 @@ public interface CatalystEffectAdapter {
             SkillId skillId,
             Time now
     );
-}
-
-===== CatalystEffectRegistry.java =====
-package com.pgalaxyp.fragmento.rpg.engine.catalyst;
-
-import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
-
-import java.util.HashMap;
-import java.util.Map;
-
-public final class CatalystEffectRegistry {
-
-    private static final Map<CatalystFamilyId, CatalystEffectAdapter> BY_FAMILY = new HashMap<>();
-
-    public static void register(CatalystFamilyId family, CatalystEffectAdapter adapter) {
-        if (family != null && adapter != null) {
-            BY_FAMILY.put(family, adapter);
-        }
-    }
-
-    public static CatalystEffectAdapter resolve(CatalystFamilyId family) {
-        return BY_FAMILY.get(family);
-    }
-
-    private CatalystEffectRegistry() {}
 }
 
 ===== EquippedSkillsResolver.java =====
@@ -1820,91 +2863,16 @@ public final class LoadoutUpdater {
     }
 }
 
-===== InteractionBlocker.java =====
-package com.pgalaxyp.fragmento.rpg.lock;
-
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
-import com.pgalaxyp.fragmento.rpg.session.RpgSession;
-import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
-import com.pgalaxyp.fragmento.rpg.state.runtime.ActionLockState;
-import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-
-public final class InteractionBlocker {
-
-    private final RpgSessionManager sessions;
-
-    public InteractionBlocker(RpgSessionManager sessions) {
-        this.sessions = sessions;
-    }
-
-    private boolean shouldBlock(ServerPlayer player) {
-        RpgSession session = sessions.sessionFor(player);
-        ServerCombatState state = session.state();
-        if (state == null) return false;
-
-        if (state.loadout() == null || !state.loadout().valid()) return false;
-
-        ActionLockState lock = state.lock();
-        if (lock == null) return false;
-
-        Time now = Time.ofTicks(player.level().getGameTime());
-        return lock.blocksVanillaInteraction(now);
-    }
-
-    @SubscribeEvent
-    public void onAttackEntity(AttackEntityEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!shouldBlock(player)) return;
-        event.setCanceled(true);
-    }
-
-    @SubscribeEvent
-    public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!shouldBlock(player)) return;
-        event.setCanceled(true);
-    }
-
-    @SubscribeEvent
-    public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!shouldBlock(player)) return;
-        event.setCanceled(true);
-    }
-
-    @SubscribeEvent
-    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!shouldBlock(player)) return;
-        event.setCanceled(true);
-    }
-
-    @SubscribeEvent
-    public void onBreak(BlockEvent.BreakEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player)) return;
-        if (!shouldBlock(player)) return;
-        event.setCanceled(true);
-    }
-}
-
 ===== InventoryLock.java =====
 package com.pgalaxyp.fragmento.rpg.lock;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class InventoryLock {
@@ -1918,7 +2886,7 @@ public final class InventoryLock {
     }
 
     private final Map<UUID, Snapshot> remembered = new HashMap<>();
-    private final Map<UUID, Boolean> reentryGuard = new HashMap<>();
+    private final Set<UUID> reentryGuard = new HashSet<>();
 
     public void sync(ServerPlayer player, boolean shouldLock) {
         if (player == null) return;
@@ -1928,13 +2896,11 @@ public final class InventoryLock {
 
         if (shouldLock && !locked) {
             remember(player);
-            FragmentoLog.log(LogChannel.INV, "invLock enter, player.uuid={}", id);
             return;
         }
 
         if (!shouldLock && locked) {
             clear(player);
-            FragmentoLog.log(LogChannel.INV, "invLock exit, player.uuid={}", id);
         }
     }
 
@@ -1945,7 +2911,7 @@ public final class InventoryLock {
         Snapshot snap = remembered.get(id);
         if (snap == null) return;
 
-        if (Boolean.TRUE.equals(reentryGuard.get(id))) return;
+        if (reentryGuard.contains(id)) return;
 
         int selected = player.getInventory().selected;
         ItemStack main = player.getItemBySlot(EquipmentSlot.MAINHAND);
@@ -1969,13 +2935,11 @@ public final class InventoryLock {
         }
 
         if (changed) {
-            reentryGuard.put(id, Boolean.TRUE);
+            reentryGuard.add(id);
             try {
                 player.inventoryMenu.broadcastChanges();
-            } catch (Throwable t) {
-                FragmentoLog.logEx(LogChannel.INV, t, "invLock broadcastChanges failed, player.uuid={}", id);
             } finally {
-                reentryGuard.put(id, Boolean.FALSE);
+                reentryGuard.remove(id);
             }
         }
     }
@@ -1989,16 +2953,7 @@ public final class InventoryLock {
         ItemStack off = player.getItemBySlot(EquipmentSlot.OFFHAND);
 
         remembered.put(id, new Snapshot(selected, main, off));
-        reentryGuard.put(id, Boolean.FALSE);
-
-        FragmentoLog.log(
-                LogChannel.INV,
-                "invLock remember, player.uuid={} selected={} main={} off={}",
-                id,
-                selected,
-                stackKey(main),
-                stackKey(off)
-        );
+        reentryGuard.remove(id);
     }
 
     public void clear(ServerPlayer player) {
@@ -2008,35 +2963,46 @@ public final class InventoryLock {
         remembered.remove(id);
         reentryGuard.remove(id);
     }
-
-    private static String stackKey(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return "empty";
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        return key != null ? key + " x" + stack.getCount() : stack.getItem().toString() + " x" + stack.getCount();
-    }
 }
 
 ===== ActionLockRule.java =====
 package com.pgalaxyp.fragmento.rpg.lock.rule;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ActionLockState;
 
 public final class ActionLockRule {
 
-    public ActionLockState lock(ActionKind kind, SkillId skillId, Duration duration, Time now) {
-        ActionKind safeKind = kind != null ? kind : ActionKind.NONE;
-        Time endsAt = now.plus(duration != null ? duration : Duration.ofTicks(0L));
+    public ActionLockState lock(
+            ActionKind kind,
+            SkillId skillId,
+            Duration duration,
+            Time now
+    ) {
+        if (now == null) {
+            return ActionLockState.idle();
+        }
 
-        Time swapLockUntil = Time.ofTicks(0L);
+        ActionKind safeKind = kind != null ? kind : ActionKind.NONE;
+        Duration safeDuration = duration != null ? duration : Duration.ofTicks(0L);
+
+        Time endsAt = now.plus(safeDuration);
+
+        Time swapLockUntil = Time.ZERO;
         if (safeKind == ActionKind.CAST_FINISH) {
             swapLockUntil = endsAt;
         }
 
-        return new ActionLockState(safeKind, skillId, endsAt, swapLockUntil);
+        return new ActionLockState(
+                true,
+                safeKind,
+                skillId,
+                endsAt,
+                swapLockUntil
+        );
     }
 }
 
@@ -2207,10 +3173,12 @@ import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
 import com.pgalaxyp.fragmento.rpg.domain.id.CatalystId;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.AbilitySnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.ExecutionSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
 import io.netty.buffer.ByteBuf;
@@ -2268,6 +3236,13 @@ public record CombatSnapshotPayload(
             ByteBufCodecs.VAR_LONG.encode(buf, e.getValue().castEndsAt().ticks());
             ByteBufCodecs.BOOL.encode(buf, e.getValue().ready());
         }
+
+        ExecutionSnapshot exec = snap.execution() != null ? snap.execution() : ExecutionSnapshot.idle();
+        ByteBufCodecs.BOOL.encode(buf, exec.active());
+        ByteBufCodecs.VAR_INT.encode(buf, exec.kind() != null ? exec.kind().ordinal() : ExecutionKind.NONE.ordinal());
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.execId());
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.startedAt() != null ? exec.startedAt().ticks() : 0L);
+        ByteBufCodecs.VAR_LONG.encode(buf, exec.expectedEndAt() != null ? exec.expectedEndAt().ticks() : 0L);
 
         LockSnapshot lock = snap.lock();
         ActionKind kind = lock.actionKind() != null ? lock.actionKind() : ActionKind.NONE;
@@ -2345,6 +3320,13 @@ public record CombatSnapshotPayload(
         AbilitySnapshot abilities =
                 new AbilitySnapshot(Map.copyOf(cds), Map.copyOf(infused), Map.copyOf(casting));
 
+        boolean execActive = ByteBufCodecs.BOOL.decode(buf);
+        ExecutionKind execKind = ExecutionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+        long execId = ByteBufCodecs.VAR_LONG.decode(buf);
+        Time execStartedAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        Time execExpectedEndAt = Time.ofTicks(ByteBufCodecs.VAR_LONG.decode(buf));
+        ExecutionSnapshot exec = new ExecutionSnapshot(execActive, execKind, execId, execStartedAt, execExpectedEndAt);
+
         ActionKind kind = ActionKind.values()[ByteBufCodecs.VAR_INT.decode(buf)];
 
         SkillId skillId = null;
@@ -2371,51 +3353,69 @@ public record CombatSnapshotPayload(
         LoadoutSnapshot loadout = new LoadoutSnapshot(catalyst, family, offhandEmpty);
 
         return new CombatSnapshotPayload(
-                new CombatSnapshot(version, combo, abilities, lock, loadout)
+                new CombatSnapshot(version, combo, abilities, exec, lock, loadout)
         );
     }
 }
 
-===== RpgNetwork.java =====
-package com.pgalaxyp.fragmento.rpg.network;
+===== CutFxPayload.java =====
+package com.pgalaxyp.fragmento.rpg.network.payload.s2c;
 
-import com.pgalaxyp.fragmento.rpg.client.network.ClientNetworkProxy;
-import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AbilityIntentPayload;
-import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AttackIntentPayload;
-import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatSnapshotPayload;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 
-public final class RpgNetwork {
+public record CutFxPayload(
+        double spawnX,
+        double spawnY,
+        double spawnZ,
+        double aimX,
+        double aimY,
+        double aimZ,
+        int lifeTicks,
+        byte orientationOrdinal
+) implements CustomPacketPayload {
 
-    public static void register(IEventBus modBus) {
-        modBus.addListener(RpgNetwork::onRegister);
+    public static final Type<CutFxPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("fragmento", "cut_fx"));
+
+    public static final StreamCodec<ByteBuf, CutFxPayload> STREAM_CODEC =
+            StreamCodec.of(CutFxPayload::write, CutFxPayload::read);
+
+    private static void write(ByteBuf buf, CutFxPayload payload) {
+        ByteBufCodecs.DOUBLE.encode(buf, payload.spawnX());
+        ByteBufCodecs.DOUBLE.encode(buf, payload.spawnY());
+        ByteBufCodecs.DOUBLE.encode(buf, payload.spawnZ());
+
+        ByteBufCodecs.DOUBLE.encode(buf, payload.aimX());
+        ByteBufCodecs.DOUBLE.encode(buf, payload.aimY());
+        ByteBufCodecs.DOUBLE.encode(buf, payload.aimZ());
+
+        ByteBufCodecs.VAR_INT.encode(buf, payload.lifeTicks());
+        ByteBufCodecs.BYTE.encode(buf, payload.orientationOrdinal());
     }
 
-    private static void onRegister(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+    private static CutFxPayload read(ByteBuf buf) {
+        double sx = ByteBufCodecs.DOUBLE.decode(buf);
+        double sy = ByteBufCodecs.DOUBLE.decode(buf);
+        double sz = ByteBufCodecs.DOUBLE.decode(buf);
 
-        registrar.playToServer(
-                AttackIntentPayload.TYPE,
-                AttackIntentPayload.STREAM_CODEC,
-                RpgPayloadHandler::handleAttackIntent
-        );
+        double ax = ByteBufCodecs.DOUBLE.decode(buf);
+        double ay = ByteBufCodecs.DOUBLE.decode(buf);
+        double az = ByteBufCodecs.DOUBLE.decode(buf);
 
-        registrar.playToServer(
-                AbilityIntentPayload.TYPE,
-                AbilityIntentPayload.STREAM_CODEC,
-                RpgPayloadHandler::handleAbilityIntent
-        );
+        int life = ByteBufCodecs.VAR_INT.decode(buf);
+        byte o = ByteBufCodecs.BYTE.decode(buf);
 
-        registrar.playToClient(
-                CombatSnapshotPayload.TYPE,
-                CombatSnapshotPayload.STREAM_CODEC,
-                ClientNetworkProxy::handleSnapshot
-        );
+        return new CutFxPayload(sx, sy, sz, ax, ay, az, life, o);
     }
 
-    private RpgNetwork() {}
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 }
 
 ===== RpgPayloadHandler.java =====
@@ -2461,8 +3461,6 @@ public final class RpgPayloadHandler {
 ===== RpgSnapshotSender.java =====
 package com.pgalaxyp.fragmento.rpg.network;
 
-import com.pgalaxyp.fragmento.bootstrap.logging.FragmentoLog;
-import com.pgalaxyp.fragmento.bootstrap.logging.LogChannel;
 import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatSnapshotPayload;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import net.minecraft.server.level.ServerPlayer;
@@ -2472,44 +3470,37 @@ public final class RpgSnapshotSender {
 
     public void send(ServerPlayer player, CombatSnapshot snapshot) {
         if (player == null || snapshot == null || snapshot.version() == null) {
-            FragmentoLog.log(
-                    LogChannel.SNAPSHOT,
-                    "snapshotSender send ignore, playerNull={} snapshotNull={} versionNull={}",
-                    player == null,
-                    snapshot == null,
-                    snapshot != null && snapshot.version() == null
-            );
             return;
         }
 
-        FragmentoLog.log(
-                LogChannel.SNAPSHOT,
-                "snapshotSender send start, player.name={} player.uuid={} player.eid={} version={} step={} lockKind={}",
-                player.getGameProfile().getName(),
-                player.getUUID(),
-                player.getId(),
-                snapshot.version().value(),
-                snapshot.combo() != null ? snapshot.combo().stepIndex() : -1,
-                snapshot.lock() != null ? snapshot.lock().actionKind() : null
-        );
+        PacketDistributor.sendToPlayer(player, new CombatSnapshotPayload(snapshot));
+    }
+}
 
-        try {
-            PacketDistributor.sendToPlayer(player, new CombatSnapshotPayload(snapshot));
-            FragmentoLog.log(
-                    LogChannel.SNAPSHOT,
-                    "snapshotSender send ok, player.uuid={} version={}",
-                    player.getUUID(),
-                    snapshot.version().value()
-            );
-        } catch (Throwable t) {
-            FragmentoLog.logEx(
-                    LogChannel.SNAPSHOT,
-                    t,
-                    "snapshotSender send failed, player.uuid={} version={}",
-                    player.getUUID(),
-                    snapshot.version().value()
-            );
-        }
+===== CatalystProfileRegistry.java =====
+package com.pgalaxyp.fragmento.rpg.registry;
+
+import com.pgalaxyp.fragmento.rpg.content.profile.CatalystProfile;
+import com.pgalaxyp.fragmento.rpg.domain.id.CatalystFamilyId;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+public final class CatalystProfileRegistry {
+
+    private final Map<CatalystFamilyId, CatalystProfile> byFamily = new HashMap<>();
+
+    public void register(CatalystProfile profile) {
+        if (profile == null) return;
+        CatalystFamilyId family = profile.family();
+        if (family == null) return;
+        byFamily.put(family, Objects.requireNonNull(profile));
+    }
+
+    public CatalystProfile resolve(CatalystFamilyId family) {
+        if (family == null) return null;
+        return byFamily.get(family);
     }
 }
 
@@ -2521,13 +3512,95 @@ import com.pgalaxyp.fragmento.rpg.catalyst.registry.CatalystRegistry;
 public final class RpgRegistry {
 
     private static final CatalystRegistry CATALYSTS = new CatalystRegistry();
+    private static final CatalystProfileRegistry PROFILES = new CatalystProfileRegistry();
+    private static final SkillTuningRegistry SKILL_TUNINGS = new SkillTuningRegistry();
 
     public static CatalystRegistry catalysts() {
         return CATALYSTS;
     }
 
-    private RpgRegistry() {
+    public static CatalystProfileRegistry profiles() {
+        return PROFILES;
     }
+
+    public static SkillTuningRegistry skillTunings() {
+        return SKILL_TUNINGS;
+    }
+
+    private RpgRegistry() {}
+}
+
+===== SkillTuningRegistry.java =====
+package com.pgalaxyp.fragmento.rpg.registry;
+
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+public final class SkillTuningRegistry {
+
+    private final Map<SkillId, SkillTuning> bySkill = new HashMap<>();
+
+    public void register(SkillId skillId, SkillTuning tuning) {
+        if (skillId == null || tuning == null) return;
+        bySkill.put(skillId, Objects.requireNonNull(tuning));
+    }
+
+    public SkillTuning resolve(SkillId skillId) {
+        if (skillId == null) return null;
+        return bySkill.get(skillId);
+    }
+}
+
+===== EffectApplier.java =====
+package com.pgalaxyp.fragmento.rpg.runtime;
+
+import com.pgalaxyp.fragmento.rpg.content.entity.CutEffectEntity;
+import com.pgalaxyp.fragmento.rpg.content.entity.InfusedStrikeEntity;
+import com.pgalaxyp.fragmento.rpg.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnInfusedStrikeEffect;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+
+public final class EffectApplier {
+
+    public static void applyCut(ServerPlayer player, SpawnCutEffect e) {
+        if (player == null || e == null) return;
+        if (!(player.level() instanceof ServerLevel sl)) return;
+
+        CutEffectEntity.spawn(
+                sl,
+                RpgEntityRegistry.CUT.get(),
+                e.ownerId(),
+                e.targetId(),
+                new Vec3(e.spawnX(), e.spawnY(), e.spawnZ()),
+                new Vec3(e.targetX(), e.targetY(), e.targetZ()),
+                e.lifeTicks(),
+                e.damage(),
+                e.orientation()
+        );
+    }
+
+    public static void applySpawnInfusedStrike(ServerPlayer player, SpawnInfusedStrikeEffect e) {
+        if (player == null || e == null) return;
+        if (!(player.level() instanceof ServerLevel sl)) return;
+
+        InfusedStrikeEntity.spawn(
+                sl,
+                RpgEntityRegistry.INFUSED_STRIKE.get(),
+                e.ownerId(),
+                e.damage(),
+                new Vec3(e.startX(), e.startY(), e.startZ()),
+                new Vec3(e.impactX(), e.impactY(), e.impactZ())
+        );
+    }
+
+    private EffectApplier() {}
 }
 
 ===== RpgEventRouter.java =====
@@ -2566,30 +3639,34 @@ public final class RpgEventRouter {
 ===== RpgRuntime.java =====
 package com.pgalaxyp.fragmento.rpg.runtime;
 
+import com.pgalaxyp.fragmento.rpg.domain.execution.ExecutionFacts;
+import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
+import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
+import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnInfusedStrikeEffect;
+import com.pgalaxyp.fragmento.rpg.lock.InventoryLock;
 import com.pgalaxyp.fragmento.rpg.network.RpgSnapshotSender;
 import com.pgalaxyp.fragmento.rpg.session.RpgSession;
 import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
-import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
-import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
-import com.pgalaxyp.fragmento.rpg.effect.runtime.EffectApplier;
-import com.pgalaxyp.fragmento.rpg.effect.gameplay.SpawnCutEffect;
-import com.pgalaxyp.fragmento.rpg.lock.InventoryLock;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ActionLockState;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class RpgRuntime {
 
     private final Map<UUID, CombatSnapshotVersion> lastSentVersion = new HashMap<>();
+    private final Map<UUID, Set<UUID>> executionEntitiesByPlayer = new HashMap<>();
 
     private final RpgSnapshotSender snapshotSender = new RpgSnapshotSender();
     private final InventoryLock inventoryLock = new InventoryLock();
@@ -2607,8 +3684,10 @@ public final class RpgRuntime {
     public void onAttackIntent(ServerPlayer player, AttackIntent intent) {
         if (player == null || intent == null) return;
 
+        ExecutionFacts facts = executionFacts(player);
+
         RpgSession session = sessions.sessionFor(player);
-        RpgSession.Update up = session.onAttackIntent(player, intent);
+        RpgSession.Update up = session.onAttackIntent(player, intent, facts);
 
         applyUpdate(player, up);
     }
@@ -2616,8 +3695,10 @@ public final class RpgRuntime {
     public void onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
         if (player == null || intent == null) return;
 
+        ExecutionFacts facts = executionFacts(player);
+
         RpgSession session = sessions.sessionFor(player);
-        RpgSession.Update up = session.onAbilityIntent(player, intent);
+        RpgSession.Update up = session.onAbilityIntent(player, intent, facts);
 
         applyUpdate(player, up);
     }
@@ -2625,8 +3706,10 @@ public final class RpgRuntime {
     public void onTick(ServerPlayer player) {
         if (player == null) return;
 
+        ExecutionFacts facts = executionFacts(player);
+
         RpgSession session = sessions.sessionFor(player);
-        RpgSession.Update up = session.tick(player);
+        RpgSession.Update up = session.tick(player, facts);
 
         applyUpdate(player, up);
     }
@@ -2634,105 +3717,167 @@ public final class RpgRuntime {
     public void onLogout(ServerPlayer player) {
         if (player == null) return;
 
-        UUID id = player.getUUID();
-
-        sessions.clear(player);
-        lastSentVersion.remove(id);
         inventoryLock.clear(player);
+        lastSentVersion.remove(player.getUUID());
+
+        Set<UUID> ids = executionEntitiesByPlayer.remove(player.getUUID());
+        if (ids != null && player.level() instanceof ServerLevel sl) {
+            for (UUID id : ids) {
+                if (id == null) continue;
+                var e = sl.getEntity(id);
+                if (e != null) e.discard();
+            }
+        }
     }
 
     private void applyUpdate(ServerPlayer player, RpgSession.Update up) {
         if (player == null || up == null) return;
 
         ServerCombatState state = up.state();
+        if (state != null) {
+            syncInventoryLock(player, state);
+            syncExecutionEntities(player, state);
+            sendSnapshotIfChanged(player, state);
+        }
 
-        applyEffects(player, up.effects());
-        syncInventoryLock(player, state);
-        tickInventoryLock(player, state);
-        sendIfVersionChanged(player, state);
-    }
-
-    private void applyEffects(ServerPlayer player, List<RpgEffect> effects) {
-        if (effects == null || effects.isEmpty()) return;
-        if (!(player.level() instanceof ServerLevel sl)) return;
-
-        for (RpgEffect e : effects) {
-            if (e instanceof SpawnCutEffect s) {
-                EffectApplier.applySpawnCut(sl, s);
-            }
+        List<RpgEffect> effects = up.effects();
+        if (effects != null && !effects.isEmpty()) {
+            applyEffects(player, effects);
         }
     }
 
-    private void sendIfVersionChanged(ServerPlayer player, ServerCombatState state) {
-        if (state == null || state.version() == null) return;
+    private void sendSnapshotIfChanged(ServerPlayer player, ServerCombatState state) {
+        if (player == null || state == null) return;
+
+        CombatSnapshotVersion next = state.version();
+        if (next == null) return;
 
         UUID id = player.getUUID();
         CombatSnapshotVersion last = lastSentVersion.get(id);
 
-        if (last != null && !state.version().isAfter(last)) {
+        if (last != null && last.raw() >= next.raw()) {
             return;
         }
 
-        lastSentVersion.put(id, state.version());
-        snapshotSender.send(player, state.snapshot());
+        lastSentVersion.put(id, next);
+        snapshotSender.send(player, state.toSnapshot());
+    }
+
+    private void applyEffects(ServerPlayer player, List<RpgEffect> effects) {
+        if (player == null || effects == null) return;
+
+        for (RpgEffect e : effects) {
+            switch (e) {
+                case SpawnCutEffect cut -> EffectApplier.applyCut(player, cut);
+                case SpawnInfusedStrikeEffect infused -> EffectApplier.applySpawnInfusedStrike(player, infused);
+                case null, default -> {
+                }
+            }
+
+        }
+    }
+
+    private void syncExecutionEntities(ServerPlayer player, ServerCombatState state) {
+        if (player == null || state == null) return;
+        if (!(player.level() instanceof ServerLevel sl)) return;
+
+        ExecutionState exec = state.execution();
+        if (exec == null) return;
+
+        UUID pid = player.getUUID();
+        Set<UUID> tracked = executionEntitiesByPlayer.computeIfAbsent(pid, k -> new HashSet<>());
+
+        if (!exec.active()) {
+            if (!tracked.isEmpty()) {
+                for (UUID id : tracked) {
+                    if (id == null) continue;
+                    var ent = sl.getEntity(id);
+                    if (ent != null) ent.discard();
+                }
+                tracked.clear();
+            }
+            return;
+        }
+
+        Set<UUID> live = new HashSet<>(tracked);
+        if (!live.isEmpty()) {
+            for (UUID id : live) {
+                if (id == null) continue;
+                var ent = sl.getEntity(id);
+                if (ent == null || !ent.isAlive()) {
+                    tracked.remove(id);
+                }
+            }
+        }
     }
 
     private void syncInventoryLock(ServerPlayer player, ServerCombatState state) {
-        if (state == null || !state.loadout().valid()) {
-            inventoryLock.sync(player, false);
-            return;
-        }
+        if (player == null || state == null) return;
 
-        Time now = Time.ofTicks(player.level().getGameTime());
-        ActionLockState lock = state.lock();
-
-        inventoryLock.sync(player, lock != null && lock.itemSwapLocked(now));
+        boolean shouldLock = shouldLock(state, Time.ofTicks(player.level().getGameTime()));
+        inventoryLock.sync(player, shouldLock);
+        if (shouldLock) inventoryLock.tick(player);
     }
 
-    private void tickInventoryLock(ServerPlayer player, ServerCombatState state) {
-        if (state == null || !state.loadout().valid()) return;
+    private static boolean shouldLock(ServerCombatState state, Time now) {
+        if (state == null || now == null) return false;
 
-        Time now = Time.ofTicks(player.level().getGameTime());
-        ActionLockState lock = state.lock();
+        ActionLockState lock = state.actionLock();
+        if (lock == null || !lock.active()) return false;
 
-        if (lock != null && lock.itemSwapLocked(now)) {
-            inventoryLock.tick(player);
+        return lock.endsAt() == null || now.ticks() < lock.endsAt().ticks();
+    }
+
+    private static ExecutionFacts executionFacts(ServerPlayer player) {
+        if (player == null) {
+            return new ExecutionFacts(Time.ZERO, false, false);
         }
+
+        long t = player.level().getGameTime();
+        Time now = Time.ofTicks(t);
+
+        boolean onGround = player.onGround();
+        boolean inWater = player.isInWater();
+
+        return new ExecutionFacts(now, onGround, inWater);
     }
 }
 
 ===== RpgWiring.java =====
 package com.pgalaxyp.fragmento.rpg.runtime;
 
-import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
-import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
-import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
-import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
-import com.pgalaxyp.fragmento.rpg.skill.rule.CastedRule;
-import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
-import com.pgalaxyp.fragmento.rpg.skill.runtime.AbilityEngine;
-import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
+import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
+import com.pgalaxyp.fragmento.rpg.combat.engine.CombatEngine;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboResetRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboTimingRule;
-import com.pgalaxyp.fragmento.rpg.combat.engine.CombatEngine;
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionGateRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.HoldLatchRule;
-import com.pgalaxyp.fragmento.rpg.skill.rule.CooldownRule;
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.EquipGateRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.LockGateRule;
+import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
+import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
 import com.pgalaxyp.fragmento.rpg.skill.config.AbilityConfig;
-import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
+import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
+import com.pgalaxyp.fragmento.rpg.skill.rule.CastedRule;
+import com.pgalaxyp.fragmento.rpg.skill.rule.CooldownRule;
+import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
+import com.pgalaxyp.fragmento.rpg.skill.runtime.AbilityEngine;
 
 public final class RpgWiring {
 
     private static final ComboConfig COMBO_CONFIG = new DefaultComboConfig();
-    private static final AbilityConfig ABILITY_CONFIG = new DefaultAbilityConfig();
+    private static final AbilityConfig ABILITY_CONFIG = new RegistryAbilityConfig();
 
     public static RpgSessionManager createSessionManager() {
         EquipGateRule equipGate = new EquipGateRule();
         LockGateRule lockGate = new LockGateRule();
         CooldownRule cooldownRule = new CooldownRule();
         ActionLockRule actionLockRule = new ActionLockRule();
+        ExecutionGateRule executionGate = new ExecutionGateRule();
 
         InfusedRule infusedRule = new InfusedRule(cooldownRule, ABILITY_CONFIG);
         CastedRule castedRule = new CastedRule(cooldownRule, ABILITY_CONFIG);
@@ -2740,18 +3885,21 @@ public final class RpgWiring {
         CombatEngine combatEngine = new CombatEngine(
                 equipGate,
                 lockGate,
+                executionGate,
                 COMBO_CONFIG,
                 actionLockRule,
                 new ComboRule(),
                 new ComboTimingRule(),
                 new ComboResetRule(),
                 new HoldLatchRule(),
-                infusedRule
+                infusedRule,
+                ABILITY_CONFIG
         );
 
         AbilityEngine abilityEngine = new AbilityEngine(
                 equipGate,
                 lockGate,
+                executionGate,
                 ABILITY_CONFIG,
                 actionLockRule,
                 infusedRule,
@@ -2776,32 +3924,42 @@ public final class RpgWiring {
         public Duration actionLockDuration() {
             return Duration.ofTicks(10);
         }
+
+        @Override
+        public Duration executionEntityLife() {
+            return Duration.ofTicks(15);
+        }
     }
 
-    private static final class DefaultAbilityConfig implements AbilityConfig {
+    private static final class RegistryAbilityConfig implements AbilityConfig {
+
+        private SkillTuning tuning(SkillId skillId) {
+            if (skillId == null) return null;
+            return RpgRegistry.skillTunings().resolve(skillId);
+        }
 
         @Override
         public Duration castDuration(SkillId skillId) {
-            if (skillId != null && skillId.value() == BardSkills.BARDO_SPECIAL_CASTED.value()) {
-                return Duration.ofTicks(40);
-            }
-            return Duration.ofTicks(0);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.castDuration() != null ? t.castDuration() : Duration.ofTicks(0);
         }
 
         @Override
         public Duration cooldownDuration(SkillId skillId) {
-            if (skillId != null && skillId.value() == BardSkills.BARDO_NORMAL_INFUSED.value()) {
-                return Duration.ofTicks(200);
-            }
-            if (skillId != null && skillId.value() == BardSkills.BARDO_SPECIAL_CASTED.value()) {
-                return Duration.ofTicks(400);
-            }
-            return Duration.ofTicks(0);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.cooldownDuration() != null ? t.cooldownDuration() : Duration.ofTicks(0);
         }
 
         @Override
         public Duration actionLockDuration(SkillId skillId) {
-            return Duration.ofTicks(10);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.actionLockDuration() != null ? t.actionLockDuration() : Duration.ofTicks(0);
+        }
+
+        @Override
+        public Duration executionEntityLife(SkillId skillId) {
+            SkillTuning t = tuning(skillId);
+            return t != null && t.executionEntityLife() != null ? t.executionEntityLife() : Duration.ofTicks(0);
         }
     }
 
@@ -2811,22 +3969,26 @@ public final class RpgWiring {
 ===== RpgSession.java =====
 package com.pgalaxyp.fragmento.rpg.session;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionLifecycleRule;
+import com.pgalaxyp.fragmento.rpg.content.profile.CatalystProfile;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
+import com.pgalaxyp.fragmento.rpg.domain.execution.ExecutionFacts;
 import com.pgalaxyp.fragmento.rpg.domain.input.AbilityIntent;
 import com.pgalaxyp.fragmento.rpg.domain.input.AttackIntent;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.effect.RpgEffect;
 import com.pgalaxyp.fragmento.rpg.engine.catalyst.CatalystEffectAdapter;
-import com.pgalaxyp.fragmento.rpg.engine.catalyst.CatalystEffectRegistry;
 import com.pgalaxyp.fragmento.rpg.loadout.LoadoutUpdater;
+import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
 import com.pgalaxyp.fragmento.rpg.skill.runtime.AbilityEngine;
 import com.pgalaxyp.fragmento.rpg.combat.engine.CombatEngine;
 import com.pgalaxyp.fragmento.rpg.time.RpgClock;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ActionLockState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
 import net.minecraft.server.level.ServerPlayer;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public final class RpgSession {
 
@@ -2834,6 +3996,7 @@ public final class RpgSession {
     private final CombatEngine combatEngine;
     private final AbilityEngine abilityEngine;
     private final LoadoutUpdater loadoutUpdater;
+    private final ExecutionLifecycleRule executionLifecycle = new ExecutionLifecycleRule();
 
     private ServerCombatState state;
 
@@ -2851,30 +4014,33 @@ public final class RpgSession {
         this.state = initial;
     }
 
-    public Update onAttackIntent(ServerPlayer player, AttackIntent intent) {
+    public Update onAttackIntent(ServerPlayer player, AttackIntent intent, ExecutionFacts facts) {
         Time now = clock.now();
 
         ServerCombatState before = state;
+        state = applyExecutionFacts(state, facts, now);
         state = loadoutUpdater.update(state, player);
         state = combatEngine.applyAttack(state, intent, now);
 
         return collectTransitions(player, before, state, now);
     }
 
-    public Update onAbilityIntent(ServerPlayer player, AbilityIntent intent) {
+    public Update onAbilityIntent(ServerPlayer player, AbilityIntent intent, ExecutionFacts facts) {
         Time now = clock.now();
 
         ServerCombatState before = state;
+        state = applyExecutionFacts(state, facts, now);
         state = loadoutUpdater.update(state, player);
         state = abilityEngine.apply(state, intent, now);
 
         return collectTransitions(player, before, state, now);
     }
 
-    public Update tick(ServerPlayer player) {
+    public Update tick(ServerPlayer player, ExecutionFacts facts) {
         Time now = clock.now();
 
         ServerCombatState before = state;
+        state = applyExecutionFacts(state, facts, now);
         state = loadoutUpdater.update(state, player);
         state = combatEngine.tick(state, now);
         state = abilityEngine.tick(state, now);
@@ -2886,6 +4052,11 @@ public final class RpgSession {
         return state;
     }
 
+    private ServerCombatState applyExecutionFacts(ServerCombatState s, ExecutionFacts facts, Time now) {
+        if (s == null) return s;
+        return s.withExecution(executionLifecycle.refresh(s.execution(), facts, now));
+    }
+
     private Update collectTransitions(
             ServerPlayer player,
             ServerCombatState before,
@@ -2894,8 +4065,8 @@ public final class RpgSession {
     ) {
         List<RpgEffect> effects = new ArrayList<>();
 
-        CatalystEffectAdapter adapter =
-                CatalystEffectRegistry.resolve(after.loadout().family());
+        CatalystProfile profile = RpgRegistry.profiles().resolve(after.loadout().family());
+        CatalystEffectAdapter adapter = profile != null ? profile.effects() : null;
 
         if (adapter == null) {
             return new Update(after, List.of());
@@ -2916,19 +4087,32 @@ public final class RpgSession {
             );
         }
 
-        ActionKind beforeLock = before.lock().actionKind();
-        ActionKind afterLock = after.lock().actionKind();
+        ActionLockState b = before.lock();
+        ActionLockState a = after.lock();
 
-        if (afterLock != beforeLock) {
-            effects.addAll(
-                    adapter.onAction(
-                            player,
-                            afterLock,
-                            after.combo().stepIndex(),
-                            after.lock().skillId(),
-                            now
-                    )
-            );
+        if (a != null) {
+            ActionKind k = a.actionKind();
+            boolean trigger =
+                    k == ActionKind.INFUSED_EXECUTE || k == ActionKind.CAST_FINISH;
+
+            if (trigger) {
+                boolean changed =
+                        k != (b != null ? b.actionKind() : null)
+                                || !Objects.equals(a.skillId(), b != null ? b.skillId() : null)
+                                || !Objects.equals(a.endsAt(), b != null ? b.endsAt() : null);
+
+                if (changed) {
+                    effects.addAll(
+                            adapter.onAction(
+                                    player,
+                                    k,
+                                    after.combo().stepIndex(),
+                                    a.skillId(),
+                                    now
+                            )
+                    );
+                }
+            }
         }
 
         return new Update(after, List.copyOf(effects));
@@ -3006,7 +4190,20 @@ public interface AbilityConfig {
     Duration castDuration(SkillId skillId);
     Duration cooldownDuration(SkillId skillId);
     Duration actionLockDuration(SkillId skillId);
+    Duration executionEntityLife(SkillId skillId);
 }
+
+===== SkillTuning.java =====
+package com.pgalaxyp.fragmento.rpg.skill.config;
+
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+
+public record SkillTuning(
+        Duration castDuration,
+        Duration cooldownDuration,
+        Duration actionLockDuration,
+        Duration executionEntityLife
+) {}
 
 ===== CastedRule.java =====
 package com.pgalaxyp.fragmento.rpg.skill.rule;
@@ -3350,6 +4547,7 @@ public final class InfusedRule {
 ===== AbilityEngine.java =====
 package com.pgalaxyp.fragmento.rpg.skill.runtime;
 
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionGateRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
 import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
@@ -3368,6 +4566,7 @@ public final class AbilityEngine {
 
     private final EquipGateRule equipGate;
     private final LockGateRule lockGate;
+    private final ExecutionGateRule executionGate;
     private final AbilityConfig config;
     private final ActionLockRule actionLockRule;
     private final InfusedRule infusedRule;
@@ -3376,6 +4575,7 @@ public final class AbilityEngine {
     public AbilityEngine(
             EquipGateRule equipGate,
             LockGateRule lockGate,
+            ExecutionGateRule executionGate,
             AbilityConfig config,
             ActionLockRule actionLockRule,
             InfusedRule infusedRule,
@@ -3383,6 +4583,7 @@ public final class AbilityEngine {
     ) {
         this.equipGate = equipGate;
         this.lockGate = lockGate;
+        this.executionGate = executionGate;
         this.config = config;
         this.actionLockRule = actionLockRule;
         this.infusedRule = infusedRule;
@@ -3395,6 +4596,10 @@ public final class AbilityEngine {
         }
 
         if (!equipGate.allowAbility(state.loadout(), intent)) {
+            return state;
+        }
+
+        if (!executionGate.allowAction(state.execution())) {
             return state;
         }
 
@@ -3517,11 +4722,12 @@ public record AbilityState(
 ===== ActionLockState.java =====
 package com.pgalaxyp.fragmento.rpg.state.runtime;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 public record ActionLockState(
+        boolean active,
         ActionKind actionKind,
         SkillId skillId,
         Time endsAt,
@@ -3529,20 +4735,14 @@ public record ActionLockState(
 ) {
 
     public static ActionLockState idle() {
-        Time zero = Time.ofTicks(0L);
-        return new ActionLockState(ActionKind.NONE, null, zero, zero);
+        return new ActionLockState(false, ActionKind.NONE, null, Time.ZERO, Time.ZERO);
     }
 
     public boolean isActive(Time now) {
-        return now != null && now.isBefore(endsAt);
-    }
-
-    public boolean itemSwapLocked(Time now) {
-        return now != null && now.isBefore(itemSwapLockedUntil);
-    }
-
-    public boolean blocksVanillaInteraction(Time now) {
-        return isActive(now) && actionKind == ActionKind.COMBO_STEP;
+        if (!active) return false;
+        if (now == null) return false;
+        if (endsAt == null) return true;
+        return now.ticks() < endsAt.ticks();
     }
 }
 
@@ -3590,6 +4790,50 @@ public record EquippedSkillsState(
     }
 }
 
+===== ExecutionKind.java =====
+package com.pgalaxyp.fragmento.rpg.state.runtime;
+
+public enum ExecutionKind {
+    NONE,
+    UNKNOWN,
+    COMBO_CUT,
+    INFUSED_CUT
+}
+
+===== ExecutionState.java =====
+package com.pgalaxyp.fragmento.rpg.state.runtime;
+
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+
+public record ExecutionState(
+        boolean active,
+        ExecutionKind kind,
+        long execId,
+        Time startedAt,
+        Time expectedEndAt
+) {
+
+    public static ExecutionState idle() {
+        return new ExecutionState(
+                false,
+                ExecutionKind.NONE,
+                0L,
+                Time.ofTicks(0L),
+                Time.ofTicks(0L)
+        );
+    }
+
+    public ExecutionState stop() {
+        return new ExecutionState(
+                false,
+                ExecutionKind.NONE,
+                execId,
+                startedAt,
+                expectedEndAt
+        );
+    }
+}
+
 ===== LoadoutState.java =====
 package com.pgalaxyp.fragmento.rpg.state.runtime;
 
@@ -3617,6 +4861,7 @@ package com.pgalaxyp.fragmento.rpg.state.runtime;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.ComboSnapshot;
+import com.pgalaxyp.fragmento.rpg.state.snapshot.ExecutionSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LoadoutSnapshot;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.LockSnapshot;
 
@@ -3626,6 +4871,7 @@ public record ServerCombatState(
         EquippedSkillsState equippedSkills,
         ComboState combo,
         AbilityState abilities,
+        ExecutionState execution,
         ActionLockState lock
 ) {
 
@@ -3636,46 +4882,18 @@ public record ServerCombatState(
                 EquippedSkillsState.empty(),
                 ComboState.idle(),
                 AbilityState.initial(),
+                ExecutionState.idle(),
                 ActionLockState.idle()
         );
     }
 
-    public ServerCombatState withLoadout(LoadoutState next) {
-        if (next != null && next.equals(loadout)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, lock);
+    public ActionLockState actionLock() {
+        return lock;
     }
 
-    public ServerCombatState withEquippedSkills(EquippedSkillsState next) {
-        if (next != null && next.equals(equippedSkills)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, next, combo, abilities, lock);
-    }
+    public CombatSnapshot toSnapshot() {
+        ExecutionState ex = execution != null ? execution : ExecutionState.idle();
 
-    public ServerCombatState withCombo(ComboState next) {
-        if (next != null && next.equals(combo)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, lock);
-    }
-
-    public ServerCombatState withAbilities(AbilityState next) {
-        if (next != null && next.equals(abilities)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, lock);
-    }
-
-    public ServerCombatState withLock(ActionLockState next) {
-        if (next != null && next.equals(lock)) {
-            return this;
-        }
-        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next);
-    }
-
-    public CombatSnapshot snapshot() {
         return new CombatSnapshot(
                 version,
                 new ComboSnapshot(
@@ -3685,6 +4903,13 @@ public record ServerCombatState(
                         combo.holdLatched()
                 ),
                 abilities.snapshot(),
+                new ExecutionSnapshot(
+                        ex.active(),
+                        ex.kind(),
+                        ex.execId(),
+                        ex.startedAt(),
+                        ex.expectedEndAt()
+                ),
                 new LockSnapshot(
                         lock.actionKind(),
                         lock.skillId(),
@@ -3698,14 +4923,44 @@ public record ServerCombatState(
                 )
         );
     }
+
+    public ServerCombatState withLoadout(LoadoutState next) {
+        if (next != null && next.equals(loadout)) return this;
+        return new ServerCombatState(version.next(), next, equippedSkills, combo, abilities, execution, lock);
+    }
+
+    public ServerCombatState withEquippedSkills(EquippedSkillsState next) {
+        if (next != null && next.equals(equippedSkills)) return this;
+        return new ServerCombatState(version.next(), loadout, next, combo, abilities, execution, lock);
+    }
+
+    public ServerCombatState withCombo(ComboState next) {
+        if (next != null && next.equals(combo)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, next, abilities, execution, lock);
+    }
+
+    public ServerCombatState withAbilities(AbilityState next) {
+        if (next != null && next.equals(abilities)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, next, execution, lock);
+    }
+
+    public ServerCombatState withExecution(ExecutionState next) {
+        if (next != null && next.equals(execution)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, next, lock);
+    }
+
+    public ServerCombatState withLock(ActionLockState next) {
+        if (next != null && next.equals(lock)) return this;
+        return new ServerCombatState(version.next(), loadout, equippedSkills, combo, abilities, execution, next);
+    }
 }
 
 ===== AbilitySnapshot.java =====
 package com.pgalaxyp.fragmento.rpg.state.snapshot;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
 import com.pgalaxyp.fragmento.rpg.domain.input.SkillSlotId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 import java.util.Map;
 
@@ -3714,6 +4969,12 @@ public record AbilitySnapshot(
         Map<SkillSlotId, SkillId> infusedArmed,
         Map<SkillSlotId, CastState> casting
 ) {
+
+    public SkillId selectedSkill() {
+        if (infusedArmed.isEmpty()) return null;
+        return infusedArmed.values().iterator().next();
+    }
+
     public record CastState(
             Time castEndsAt,
             boolean ready
@@ -3723,39 +4984,45 @@ public record AbilitySnapshot(
 ===== CombatSnapshot.java =====
 package com.pgalaxyp.fragmento.rpg.state.snapshot;
 
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+
 public record CombatSnapshot(
         CombatSnapshotVersion version,
         ComboSnapshot combo,
         AbilitySnapshot abilities,
+        ExecutionSnapshot execution,
         LockSnapshot lock,
         LoadoutSnapshot loadout
-) {}
+) {
+
+    public Time now() {
+        if (combo != null && combo.nextStepAt() != null) {
+            return combo.nextStepAt();
+        }
+        return Time.ofTicks(0L);
+    }
+}
 
 ===== CombatSnapshotVersion.java =====
 package com.pgalaxyp.fragmento.rpg.state.snapshot;
 
-public record CombatSnapshotVersion(
-        long value
-) {
-    public CombatSnapshotVersion {
-        if (value < 0) {
-            throw new IllegalArgumentException("Snapshot version must be >= 0");
-        }
+public record CombatSnapshotVersion(long value) {
+
+    public static CombatSnapshotVersion initial() {
+        return new CombatSnapshotVersion(0L);
     }
 
     public CombatSnapshotVersion next() {
-        return new CombatSnapshotVersion(value + 1);
+        return new CombatSnapshotVersion(value + 1L);
+    }
+
+    public long raw() {
+        return value;
     }
 
     public boolean isAfter(CombatSnapshotVersion other) {
-        if (other == null) {
-            return true;
-        }
-        return this.value > other.value;
-    }
-
-    public static CombatSnapshotVersion initial() {
-        return new CombatSnapshotVersion(0);
+        if (other == null) return true;
+        return value > other.value;
     }
 }
 
@@ -3769,9 +5036,23 @@ public record ComboSnapshot(
         Time nextStepAt,
         boolean holding,
         boolean holdLatched
+) {}
+
+===== ExecutionSnapshot.java =====
+package com.pgalaxyp.fragmento.rpg.state.snapshot;
+
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
+import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionKind;
+
+public record ExecutionSnapshot(
+        boolean active,
+        ExecutionKind kind,
+        long execId,
+        Time startedAt,
+        Time expectedEndAt
 ) {
-    public static ComboSnapshot idle() {
-        return new ComboSnapshot(0, Time.ofTicks(0), false, false);
+    public static ExecutionSnapshot idle() {
+        return new ExecutionSnapshot(false, ExecutionKind.NONE, 0L, Time.ofTicks(0), Time.ofTicks(0));
     }
 }
 
@@ -3790,9 +5071,9 @@ public record LoadoutSnapshot(
 ===== LockSnapshot.java =====
 package com.pgalaxyp.fragmento.rpg.state.snapshot;
 
-import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 import com.pgalaxyp.fragmento.rpg.domain.action.ActionKind;
 import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 public record LockSnapshot(
         ActionKind actionKind,

@@ -1,34 +1,37 @@
 package com.pgalaxyp.fragmento.rpg.runtime;
 
-import com.pgalaxyp.fragmento.rpg.content.skill.BardSkills;
-import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
-import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
-import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
-import com.pgalaxyp.fragmento.rpg.skill.rule.CastedRule;
-import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
-import com.pgalaxyp.fragmento.rpg.skill.runtime.AbilityEngine;
-import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
+import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
+import com.pgalaxyp.fragmento.rpg.combat.engine.CombatEngine;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboResetRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.ComboTimingRule;
-import com.pgalaxyp.fragmento.rpg.combat.engine.CombatEngine;
+import com.pgalaxyp.fragmento.rpg.combat.rule.ExecutionGateRule;
 import com.pgalaxyp.fragmento.rpg.combat.rule.HoldLatchRule;
-import com.pgalaxyp.fragmento.rpg.skill.rule.CooldownRule;
+import com.pgalaxyp.fragmento.rpg.domain.id.SkillId;
+import com.pgalaxyp.fragmento.rpg.domain.timing.Duration;
+import com.pgalaxyp.fragmento.rpg.lock.rule.ActionLockRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.EquipGateRule;
 import com.pgalaxyp.fragmento.rpg.lock.rule.LockGateRule;
+import com.pgalaxyp.fragmento.rpg.registry.RpgRegistry;
+import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
 import com.pgalaxyp.fragmento.rpg.skill.config.AbilityConfig;
-import com.pgalaxyp.fragmento.rpg.combat.config.ComboConfig;
+import com.pgalaxyp.fragmento.rpg.skill.config.SkillTuning;
+import com.pgalaxyp.fragmento.rpg.skill.rule.CastedRule;
+import com.pgalaxyp.fragmento.rpg.skill.rule.CooldownRule;
+import com.pgalaxyp.fragmento.rpg.skill.rule.InfusedRule;
+import com.pgalaxyp.fragmento.rpg.skill.runtime.AbilityEngine;
 
 public final class RpgWiring {
 
     private static final ComboConfig COMBO_CONFIG = new DefaultComboConfig();
-    private static final AbilityConfig ABILITY_CONFIG = new DefaultAbilityConfig();
+    private static final AbilityConfig ABILITY_CONFIG = new RegistryAbilityConfig();
 
     public static RpgSessionManager createSessionManager() {
         EquipGateRule equipGate = new EquipGateRule();
         LockGateRule lockGate = new LockGateRule();
         CooldownRule cooldownRule = new CooldownRule();
         ActionLockRule actionLockRule = new ActionLockRule();
+        ExecutionGateRule executionGate = new ExecutionGateRule();
 
         InfusedRule infusedRule = new InfusedRule(cooldownRule, ABILITY_CONFIG);
         CastedRule castedRule = new CastedRule(cooldownRule, ABILITY_CONFIG);
@@ -36,18 +39,21 @@ public final class RpgWiring {
         CombatEngine combatEngine = new CombatEngine(
                 equipGate,
                 lockGate,
+                executionGate,
                 COMBO_CONFIG,
                 actionLockRule,
                 new ComboRule(),
                 new ComboTimingRule(),
                 new ComboResetRule(),
                 new HoldLatchRule(),
-                infusedRule
+                infusedRule,
+                ABILITY_CONFIG
         );
 
         AbilityEngine abilityEngine = new AbilityEngine(
                 equipGate,
                 lockGate,
+                executionGate,
                 ABILITY_CONFIG,
                 actionLockRule,
                 infusedRule,
@@ -72,32 +78,42 @@ public final class RpgWiring {
         public Duration actionLockDuration() {
             return Duration.ofTicks(10);
         }
+
+        @Override
+        public Duration executionEntityLife() {
+            return Duration.ofTicks(15);
+        }
     }
 
-    private static final class DefaultAbilityConfig implements AbilityConfig {
+    private static final class RegistryAbilityConfig implements AbilityConfig {
+
+        private SkillTuning tuning(SkillId skillId) {
+            if (skillId == null) return null;
+            return RpgRegistry.skillTunings().resolve(skillId);
+        }
 
         @Override
         public Duration castDuration(SkillId skillId) {
-            if (skillId != null && skillId.value() == BardSkills.BARDO_SPECIAL_CASTED.value()) {
-                return Duration.ofTicks(40);
-            }
-            return Duration.ofTicks(0);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.castDuration() != null ? t.castDuration() : Duration.ofTicks(0);
         }
 
         @Override
         public Duration cooldownDuration(SkillId skillId) {
-            if (skillId != null && skillId.value() == BardSkills.BARDO_NORMAL_INFUSED.value()) {
-                return Duration.ofTicks(200);
-            }
-            if (skillId != null && skillId.value() == BardSkills.BARDO_SPECIAL_CASTED.value()) {
-                return Duration.ofTicks(400);
-            }
-            return Duration.ofTicks(0);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.cooldownDuration() != null ? t.cooldownDuration() : Duration.ofTicks(0);
         }
 
         @Override
         public Duration actionLockDuration(SkillId skillId) {
-            return Duration.ofTicks(10);
+            SkillTuning t = tuning(skillId);
+            return t != null && t.actionLockDuration() != null ? t.actionLockDuration() : Duration.ofTicks(0);
+        }
+
+        @Override
+        public Duration executionEntityLife(SkillId skillId) {
+            SkillTuning t = tuning(skillId);
+            return t != null && t.executionEntityLife() != null ? t.executionEntityLife() : Duration.ofTicks(0);
         }
     }
 
