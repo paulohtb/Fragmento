@@ -4,10 +4,11 @@ import com.pgalaxyp.fragmento.rpg.domain.timing.Time;
 
 public record ExecutionFacts(
         Time now,
-        boolean onGround,
-        boolean inWater
+        boolean hasActiveCombatEntity
 ) {
-    public boolean hasActiveCombatEntity() {
-        return onGround || inWater;
+    public ExecutionFacts {
+        if (now == null) {
+            throw new IllegalArgumentException();
+        }
     }
 }

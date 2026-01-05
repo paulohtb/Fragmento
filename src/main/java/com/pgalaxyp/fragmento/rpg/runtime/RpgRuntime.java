@@ -11,7 +11,6 @@ import com.pgalaxyp.fragmento.rpg.lock.InventoryLock;
 import com.pgalaxyp.fragmento.rpg.network.RpgSnapshotSender;
 import com.pgalaxyp.fragmento.rpg.session.RpgSession;
 import com.pgalaxyp.fragmento.rpg.session.RpgSessionManager;
-import com.pgalaxyp.fragmento.rpg.state.runtime.ActionLockState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ExecutionState;
 import com.pgalaxyp.fragmento.rpg.state.runtime.ServerCombatState;
 import com.pgalaxyp.fragmento.rpg.state.snapshot.CombatSnapshotVersion;
@@ -127,14 +126,19 @@ public final class RpgRuntime {
     private void applyEffects(ServerPlayer player, List<RpgEffect> effects) {
         if (player == null || effects == null) return;
 
+        UUID pid = player.getUUID();
+        Set<UUID> tracked = executionEntitiesByPlayer.computeIfAbsent(pid, k -> new HashSet<>());
+
         for (RpgEffect e : effects) {
-            switch (e) {
+            UUID spawned = switch (e) {
                 case SpawnCutEffect cut -> EffectApplier.applyCut(player, cut);
                 case SpawnInfusedStrikeEffect infused -> EffectApplier.applySpawnInfusedStrike(player, infused);
-                case null, default -> {
-                }
-            }
+                case null, default -> null;
+            };
 
+            if (spawned != null) {
+                tracked.add(spawned);
+            }
         }
     }
 
@@ -160,9 +164,9 @@ public final class RpgRuntime {
             return;
         }
 
-        Set<UUID> live = new HashSet<>(tracked);
-        if (!live.isEmpty()) {
-            for (UUID id : live) {
+        if (!tracked.isEmpty()) {
+            Set<UUID> copy = new HashSet<>(tracked);
+            for (UUID id : copy) {
                 if (id == null) continue;
                 var ent = sl.getEntity(id);
                 if (ent == null || !ent.isAlive()) {
@@ -183,23 +187,42 @@ public final class RpgRuntime {
     private static boolean shouldLock(ServerCombatState state, Time now) {
         if (state == null || now == null) return false;
 
-        ActionLockState lock = state.actionLock();
+        var lock = state.actionLock();
         if (lock == null || !lock.active()) return false;
 
         return lock.endsAt() == null || now.ticks() < lock.endsAt().ticks();
     }
 
-    private static ExecutionFacts executionFacts(ServerPlayer player) {
+    private ExecutionFacts executionFacts(ServerPlayer player) {
         if (player == null) {
-            return new ExecutionFacts(Time.ZERO, false, false);
+            return new ExecutionFacts(Time.ZERO, false);
         }
 
-        long t = player.level().getGameTime();
-        Time now = Time.ofTicks(t);
+        Time now = Time.ofTicks(player.level().getGameTime());
 
-        boolean onGround = player.onGround();
-        boolean inWater = player.isInWater();
+        if (!(player.level() instanceof ServerLevel sl)) {
+            return new ExecutionFacts(now, false);
+        }
 
-        return new ExecutionFacts(now, onGround, inWater);
+        UUID pid = player.getUUID();
+        Set<UUID> tracked = executionEntitiesByPlayer.get(pid);
+        if (tracked == null || tracked.isEmpty()) {
+            return new ExecutionFacts(now, false);
+        }
+
+        boolean anyAlive = false;
+
+        Set<UUID> copy = new HashSet<>(tracked);
+        for (UUID id : copy) {
+            if (id == null) continue;
+            var ent = sl.getEntity(id);
+            if (ent == null || !ent.isAlive()) {
+                tracked.remove(id);
+                continue;
+            }
+            anyAlive = true;
+        }
+
+        return new ExecutionFacts(now, anyAlive);
     }
 }

@@ -9,13 +9,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.UUID;
+
 public final class EffectApplier {
 
-    public static void applyCut(ServerPlayer player, SpawnCutEffect e) {
-        if (player == null || e == null) return;
-        if (!(player.level() instanceof ServerLevel sl)) return;
+    public static UUID applyCut(ServerPlayer player, SpawnCutEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
 
-        CutEffectEntity.spawn(
+        return CutEffectEntity.spawn(
                 sl,
                 RpgEntityRegistry.CUT.get(),
                 e.ownerId(),
@@ -28,11 +30,11 @@ public final class EffectApplier {
         );
     }
 
-    public static void applySpawnInfusedStrike(ServerPlayer player, SpawnInfusedStrikeEffect e) {
-        if (player == null || e == null) return;
-        if (!(player.level() instanceof ServerLevel sl)) return;
+    public static UUID applySpawnInfusedStrike(ServerPlayer player, SpawnInfusedStrikeEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
 
-        InfusedStrikeEntity.spawn(
+        return InfusedStrikeEntity.spawn(
                 sl,
                 RpgEntityRegistry.INFUSED_STRIKE.get(),
                 e.ownerId(),
