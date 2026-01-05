@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.rpg.runtime.RpgRuntime;
+import com.pgalaxyp.fragmento.rpg_old.runtime.RpgRuntime;
 
 public final class RpgServices {
 

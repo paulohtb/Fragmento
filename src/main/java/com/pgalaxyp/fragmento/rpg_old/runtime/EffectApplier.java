@@ -1,0 +1,63 @@
+package com.pgalaxyp.fragmento.rpg_old.runtime;
+
+import com.pgalaxyp.fragmento.rpg_old.content.entity.CutEffectEntity;
+import com.pgalaxyp.fragmento.rpg_old.content.entity.InfusedStrikeEntity;
+import com.pgalaxyp.fragmento.rpg_old.content.entity.RpgEntityRegistry;
+import com.pgalaxyp.fragmento.rpg_old.content.entity.SpeedZoneEntity;
+import com.pgalaxyp.fragmento.rpg_old.effect.gameplay.SpawnCutEffect;
+import com.pgalaxyp.fragmento.rpg_old.effect.gameplay.SpawnInfusedStrikeEffect;
+import com.pgalaxyp.fragmento.rpg_old.effect.gameplay.SpawnSpeedZoneEffect;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.UUID;
+
+public final class EffectApplier {
+
+    public static UUID applyCut(ServerPlayer player, SpawnCutEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
+
+        return CutEffectEntity.spawn(
+                sl,
+                RpgEntityRegistry.CUT.get(),
+                e.ownerId(),
+                e.targetId(),
+                new Vec3(e.spawnX(), e.spawnY(), e.spawnZ()),
+                new Vec3(e.targetX(), e.targetY(), e.targetZ()),
+                e.lifeTicks(),
+                e.damage(),
+                e.orientation()
+        );
+    }
+
+    public static UUID applySpawnInfusedStrike(ServerPlayer player, SpawnInfusedStrikeEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
+
+        return InfusedStrikeEntity.spawn(
+                sl,
+                RpgEntityRegistry.INFUSED_STRIKE.get(),
+                e.ownerId(),
+                e.damage(),
+                new Vec3(e.startX(), e.startY(), e.startZ()),
+                new Vec3(e.impactX(), e.impactY(), e.impactZ())
+        );
+    }
+
+    public static UUID applySpawnSpeedZone(ServerPlayer player, SpawnSpeedZoneEffect e) {
+        if (player == null || e == null) return null;
+        if (!(player.level() instanceof ServerLevel sl)) return null;
+
+        return SpeedZoneEntity.spawn(
+                sl,
+                RpgEntityRegistry.SPEED_ZONE.get(),
+                e.ownerId(),
+                new Vec3(e.x(), e.y(), e.z()),
+                e.lifeTicks()
+        );
+    }
+
+    private EffectApplier() {}
+}

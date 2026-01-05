@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.rpg.network.RpgPayloadHandler;
-import com.pgalaxyp.fragmento.rpg.runtime.RpgEventRouter;
-import com.pgalaxyp.fragmento.rpg.runtime.RpgRuntime;
+import com.pgalaxyp.fragmento.rpg_old.network.RpgPayloadHandler;
+import com.pgalaxyp.fragmento.rpg_old.runtime.RpgEventRouter;
+import com.pgalaxyp.fragmento.rpg_old.runtime.RpgRuntime;
 import net.neoforged.neoforge.common.NeoForge;
 
 public final class RpgBootstrap {

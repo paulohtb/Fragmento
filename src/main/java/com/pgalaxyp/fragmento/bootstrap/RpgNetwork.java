@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.rpg.network.RpgPayloadHandler;
-import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AbilityIntentPayload;
-import com.pgalaxyp.fragmento.rpg.network.payload.c2s.AttackIntentPayload;
-import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatSnapshotPayload;
-import com.pgalaxyp.fragmento.rpg.client.ClientNetworkProxy;
+import com.pgalaxyp.fragmento.rpg_old.network.RpgPayloadHandler;
+import com.pgalaxyp.fragmento.rpg_old.network.payload.c2s.AbilityIntentPayload;
+import com.pgalaxyp.fragmento.rpg_old.network.payload.c2s.AttackIntentPayload;
+import com.pgalaxyp.fragmento.rpg_old.network.payload.s2c.CombatSnapshotPayload;
+import com.pgalaxyp.fragmento.rpg_old.client.ClientNetworkProxy;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
