@@ -9,17 +9,10 @@ public final class ComboEffectObserver {
 
     private final BasicSequence sequence;
 
-    public ComboEffectObserver(
-            long actorId,
-            BasicSequence sequence,
-            TickBus bus
-    ) {
+    public ComboEffectObserver(BasicSequence sequence, TickBus bus) {
         this.sequence = Objects.requireNonNull(sequence);
 
-        bus.subscribe(ComboStepStarted.class, e -> {
-            if (e.actorId() != actorId) return;
-            onStepStarted(e, bus);
-        });
+        bus.subscribe(ComboStepStarted.class, e -> onStepStarted(e, bus));
     }
 
     private void onStepStarted(ComboStepStarted e, TickBus bus) {

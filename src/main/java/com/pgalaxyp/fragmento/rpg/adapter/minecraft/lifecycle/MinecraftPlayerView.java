@@ -1,29 +1,39 @@
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
+import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import com.pgalaxyp.fragmento.rpg.platform.api.player.PlayerView;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import java.util.Objects;
 
-public record MinecraftPlayerView(long actorId) implements PlayerView {
+public final class MinecraftPlayerView implements PlayerView {
+
+    private final long actorId;
+    private final ActorContextServer context;
+
+    public MinecraftPlayerView(long actorId, ActorContextServer context) {
+        this.actorId = actorId;
+        this.context = Objects.requireNonNull(context);
+    }
+
+    @Override
+    public long actorId() {
+        return actorId;
+    }
 
     @Override
     public Vec3 position() {
-        assert ServerLifecycleHooks.getCurrentServer() != null;
-        var p = ServerLifecycleHooks.getCurrentServer()
-                .getPlayerList()
-                .getPlayers()
-                .getFirst()
-                .position();
-        return new Vec3(p.x, p.y, p.z);
+        var p = context.player(actorId).orElse(null);
+        if (p == null) return new Vec3(0, 0, 0);
+
+        var v = p.position();
+        return new Vec3(v.x, v.y, v.z);
     }
 
     @Override
     public Vec3 lookDirection() {
-        assert ServerLifecycleHooks.getCurrentServer() != null;
-        var p = ServerLifecycleHooks.getCurrentServer()
-                .getPlayerList()
-                .getPlayers()
-                .getFirst();
+        var p = context.player(actorId).orElse(null);
+        if (p == null) return new Vec3(0, 0, 0);
+
         var v = p.getLookAngle();
         return new Vec3(v.x, v.y, v.z);
     }
