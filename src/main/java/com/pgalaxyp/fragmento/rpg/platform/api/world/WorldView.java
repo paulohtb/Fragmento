@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.platform.api.world;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
 import java.util.Optional;
 
 public interface WorldView {

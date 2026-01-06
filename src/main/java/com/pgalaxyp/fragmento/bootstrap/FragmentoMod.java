@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.bootstrap;
 
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle.ModEntrypoint;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.ModEntrypoint;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 

@@ -14,8 +14,7 @@ public final class JavaClassLogger {
 
     private static final List<String> TARGET_FOLDERS = List.of(
             "java/com/pgalaxyp/fragmento/bootstrap",
-            "java/com/pgalaxyp/fragmento/rpg",
-            "java/com/pgalaxyp/fragmento/adapter"
+            "java/com/pgalaxyp/fragmento/rpg"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";
@@ -23,22 +22,18 @@ public final class JavaClassLogger {
     public static void main(String[] args) throws IOException {
 
         Path logDir = BASE_DIR
-                .resolve("java")
-                .resolve("com")
-                .resolve("pgalaxyp")
-                .resolve("fragmento")
-                .resolve("log");
+                .resolve("java/com/pgalaxyp/fragmento/log");
+
+        Files.createDirectories(logDir);
 
         Path outputFile = logDir.resolve(OUTPUT_FILE_NAME);
-
         List<String> outputLines = new ArrayList<>();
 
-        for (String folderName : TARGET_FOLDERS) {
-            Path targetDir = BASE_DIR
-                    .resolve(folderName);
+        for (String folder : TARGET_FOLDERS) {
+            Path targetDir = BASE_DIR.resolve(folder);
 
             if (Files.isDirectory(targetDir)) {
-                collectJavaFiles(targetDir, outputLines);
+                collectFilesRecursively(targetDir, outputLines);
             }
         }
 
@@ -51,28 +46,31 @@ public final class JavaClassLogger {
         );
     }
 
-    private static void collectJavaFiles(Path directory, List<String> outputLines) {
-        try (Stream<Path> files = Files.walk(directory)) {
-            files
+    private static void collectFilesRecursively(Path root, List<String> outputLines) {
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths
                     .filter(Files::isRegularFile)
-                    .filter(p ->
-                            p.toString().endsWith(".java") ||
-                                    p.toString().endsWith(".json")
-                    )
-                    .forEach(file -> processFile(file, outputLines));
+                    .filter(JavaClassLogger::isTargetFile)
+                    .sorted()
+                    .forEach(file -> appendFile(file, root, outputLines));
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Erro ao percorrer diretório: " + root, e);
         }
     }
 
-    private static void processFile(Path file, List<String> outputLines) {
-        outputLines.add("===== " + file.getFileName() + " =====");
+    private static boolean isTargetFile(Path path) {
+        return true;
+    }
 
-        try {
-            outputLines.addAll(Files.readAllLines(file, StandardCharsets.UTF_8));
+    private static void appendFile(Path file, Path root, List<String> outputLines) {
+        Path relativePath = root.relativize(file);
+        outputLines.add("===== " + relativePath + " =====");
+
+        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
+            lines.forEach(outputLines::add);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Erro ao ler arquivo: " + file, e);
         }
 
         outputLines.add("");
