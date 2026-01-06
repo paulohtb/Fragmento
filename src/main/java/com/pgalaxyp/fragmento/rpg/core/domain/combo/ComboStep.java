@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
 
-import com.pgalaxyp.fragmento.rpg.core.rule.zone.SpawnRule;
+import com.pgalaxyp.fragmento.rpg.core.domain.zone.SpawnRule;
 
 public record ComboStep(
         String stepId,

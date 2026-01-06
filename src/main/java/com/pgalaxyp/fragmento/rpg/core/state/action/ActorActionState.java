@@ -1,34 +1,33 @@
 package com.pgalaxyp.fragmento.rpg.core.state.action;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
-public final class ActorActionState {
-
-    private final Map<Long, ActionId> active = new HashMap<>();
-    private final Map<Long, Long> startedAt = new HashMap<>();
-
+public record ActorActionState(
+        Map<Long, ActionId> active,
+        Map<Long, Long> startedAt
+) {
     public boolean isIdle(long actorId) {
         return !active.containsKey(actorId);
     }
 
-    public Optional<ActionId> active(long actorId) {
-        return Optional.ofNullable(active.get(actorId));
+    public ActorActionState start(long actorId, ActionId id, long nowNanos) {
+        var a = new java.util.HashMap<>(active);
+        var t = new java.util.HashMap<>(startedAt);
+        a.put(actorId, id);
+        t.put(actorId, nowNanos);
+        return new ActorActionState(a, t);
     }
 
-    public void start(long actorId, ActionId id, long nowNanos) {
-        active.put(actorId, id);
-        startedAt.put(actorId, nowNanos);
+    public ActorActionState clear(long actorId) {
+        var a = new java.util.HashMap<>(active);
+        var t = new java.util.HashMap<>(startedAt);
+        a.remove(actorId);
+        t.remove(actorId);
+        return new ActorActionState(a, t);
     }
 
-    public boolean isActiveFor(long actorId, ActionId id) {
-        return id.equals(active.get(actorId));
-    }
-
-    public void clear(long actorId) {
-        active.remove(actorId);
-        startedAt.remove(actorId);
+    public static ActorActionState empty() {
+        return new ActorActionState(Map.of(), Map.of());
     }
 }

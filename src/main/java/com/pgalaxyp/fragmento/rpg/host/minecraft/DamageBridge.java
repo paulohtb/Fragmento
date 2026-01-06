@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.host.minecraft;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.event.DamageApplied;
 import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.core.domain.damage.DamageRequest;
 import java.util.Objects;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -12,20 +12,20 @@ public final class DamageBridge {
 
     public DamageBridge(ActorIds actorIds, TickBus bus) {
         this.actorIds = Objects.requireNonNull(actorIds);
-        bus.subscribe(DamageRequest.class, this::onDamage);
+        bus.subscribe(DamageApplied.class, this::onDamage);
     }
 
-    private void onDamage(DamageRequest r) {
-        var uuid = actorIds.uuidOf(r.targetActorId()).orElse(null);
+    private void onDamage(DamageApplied e) {
+        var uuid = actorIds.uuidOf(e.targetActorId()).orElse(null);
         if (uuid == null) return;
 
         var server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) return;
 
         for (var level : server.getAllLevels()) {
-            var e = level.getEntity(uuid);
-            if (e instanceof LivingEntity le && le.isAlive()) {
-                le.hurt(le.damageSources().magic(), (float) r.amount());
+            var ent = level.getEntity(uuid);
+            if (ent instanceof LivingEntity le && le.isAlive()) {
+                le.hurt(le.damageSources().magic(), (float) e.amount());
                 return;
             }
         }

@@ -20,7 +20,7 @@ package com.pgalaxyp.fragmento.rpg.core.content.combo;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboSequence;
 import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStep;
-import com.pgalaxyp.fragmento.rpg.core.rule.zone.SpawnRule;
+import com.pgalaxyp.fragmento.rpg.core.domain.zone.SpawnRule;
 import java.util.List;
 
 public final class FluteComboSequence {
@@ -79,7 +79,7 @@ public record ComboSequence(List<ComboStep> steps) {
 ===== core\domain\combo\ComboStep.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
 
-import com.pgalaxyp.fragmento.rpg.core.rule.zone.SpawnRule;
+import com.pgalaxyp.fragmento.rpg.core.domain.zone.SpawnRule;
 
 public record ComboStep(
         String stepId,
@@ -97,6 +97,48 @@ package com.pgalaxyp.fragmento.rpg.core.domain.damage;
 public enum DamageType {
     MAGIC
 }
+
+===== core\domain\event\DamageApplied.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.event;
+
+public record DamageApplied(
+        long sourceActorId,
+        long targetActorId,
+        double amount
+) {}
+
+===== core\domain\event\MissileExpired.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.event;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.missile.MagicMissileId;
+
+public record MissileExpired(
+        MagicMissileId missileId
+) {}
+
+===== core\domain\event\MissileSpawned.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.event;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.missile.MagicMissileId;
+
+public record MissileSpawned(
+        MagicMissileId missileId,
+        long sourceActorId,
+        long targetActorId
+) {}
+
+===== core\domain\missile\MagicMissileDef.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.missile;
+
+public record MagicMissileDef(
+        double damage,
+        double lifetimeSeconds
+) {}
+
+===== core\domain\missile\MagicMissileId.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.missile;
+
+public record MagicMissileId(long value) {}
 
 ===== core\domain\targeting\EntityTarget.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.targeting;
@@ -163,6 +205,48 @@ public record WeaponDef(
         ComboSequence combo,
         double baseCooldownSeconds
 ) {}
+
+===== core\domain\zone\SpawnQuery.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.zone;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
+
+public record SpawnQuery(
+        long actorId,
+        Target target,
+        SpawnRule rule,
+        SpawnSide lastSide,
+        double distance
+) {}
+
+===== core\domain\zone\SpawnResult.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.zone;
+
+import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
+
+public record SpawnResult(
+        boolean success,
+        Vec3 position,
+        SpawnSide usedSide
+) {}
+
+===== core\domain\zone\SpawnRule.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.zone;
+
+public enum SpawnRule {
+    AUTO,
+    OPPOSITE,
+    TOP
+}
+
+===== core\domain\zone\SpawnSide.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.zone;
+
+public enum SpawnSide {
+    LEFT,
+    RIGHT,
+    TOP
+}
 
 ===== core\engine\intent\ActionIntent.java =====
 package com.pgalaxyp.fragmento.rpg.core.engine.intent;
@@ -266,65 +350,6 @@ public record Vec3(double x, double y, double z) {
     }
 }
 
-===== core\rule\action\ActionIntentDispatcher.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.action;
-
-import com.pgalaxyp.fragmento.rpg.core.engine.intent.ActionIntent;
-import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
-import java.util.Objects;
-
-public final class ActionIntentDispatcher {
-
-    public ActionIntentDispatcher(ActionRuleDispatcher resolver, TickBus bus) {
-        Objects.requireNonNull(resolver);
-        Objects.requireNonNull(bus);
-        bus.subscribe(ActionIntent.class, resolver::onAttackIntent);
-    }
-}
-
-===== core\rule\action\ActionRuleDispatcher.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.action;
-
-import com.pgalaxyp.fragmento.rpg.core.engine.intent.ActionIntent;
-import com.pgalaxyp.fragmento.rpg.core.rule.combo.ComboActionRule;
-import com.pgalaxyp.fragmento.rpg.core.state.action.ActorActionState;
-import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboProgressState;
-import com.pgalaxyp.fragmento.rpg.engine.loop.GameTick;
-import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
-import java.util.Objects;
-
-public final class ActionRuleDispatcher {
-
-    private final ActorActionState actions;
-    private final ComboProgressState combos;
-    private final ComboActionRule comboRule;
-    private final TickBus bus;
-
-    private GameTick currentTick;
-
-    public ActionRuleDispatcher(
-            ActorActionState actions,
-            ComboProgressState combos,
-            ComboActionRule comboRule,
-            TickBus bus
-    ) {
-        this.actions = Objects.requireNonNull(actions);
-        this.combos = Objects.requireNonNull(combos);
-        this.comboRule = Objects.requireNonNull(comboRule);
-        this.bus = Objects.requireNonNull(bus);
-
-        bus.subscribe(GameTick.class, t -> currentTick = t);
-    }
-
-    public void onAttackIntent(ActionIntent intent) {
-        if (currentTick == null) return;
-
-        comboRule
-                .apply(intent, actions, combos, currentTick.nowNanos())
-                .ifPresent(bus::publish);
-    }
-}
-
 ===== core\rule\combo\ComboActionRule.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule.combo;
 
@@ -350,24 +375,19 @@ public final class ComboActionRule {
             ComboProgressState combos,
             long nowNanos
     ) {
-        var actorId = intent.actorId();
+        if (!actions.isIdle(intent.actorId())) return Optional.empty();
 
-        if (!actions.isIdle(actorId)) return Optional.empty();
-
-        if (combos.timedOut(actorId, nowNanos, COMBO_TIMEOUT_NANOS)) {
-            combos.reset(actorId);
+        var nextCombos = combos;
+        if (combos.timedOut(intent.actorId(), nowNanos, COMBO_TIMEOUT_NANOS)) {
+            nextCombos = combos.reset(intent.actorId());
         }
 
-        var stepIndex = combos.index(actorId);
-        var step = sequence.stepAt(stepIndex);
-
-        actions.start(actorId, intent.actionId(), nowNanos);
-        combos.advance(actorId, nowNanos);
-        actions.clear(actorId);
+        var step = sequence.stepAt(nextCombos.index(intent.actorId()));
 
         return Optional.of(new ComboStepTriggered(
-                actorId,
-                step.stepId()
+                intent.actorId(),
+                step.stepId(),
+                nextCombos.advance(intent.actorId(), nowNanos)
         ));
     }
 }
@@ -375,102 +395,95 @@ public final class ComboActionRule {
 ===== core\rule\combo\ComboStepTriggered.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule.combo;
 
+import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboProgressState;
+
 public record ComboStepTriggered(
         long actorId,
-        String stepId
+        String stepId,
+        ComboProgressState newComboState
 ) {}
 
-===== core\rule\zone\SpawnQuery.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.zone;
+===== core\rule\missile\MagicMissileRule.java =====
+package com.pgalaxyp.fragmento.rpg.core.rule.missile;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.DamageApplied;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.MissileExpired;
+import com.pgalaxyp.fragmento.rpg.core.state.missile.MagicMissileState;
+import java.util.ArrayList;
+import java.util.List;
 
-public record SpawnQuery(long actorId, Target target, SpawnRule rule, SpawnSide lastSide, double distance) {}
+public final class MagicMissileRule {
 
-===== core\rule\zone\SpawnResult.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.zone;
+    public Result tick(MagicMissileState missile, double deltaSeconds) {
+        var next = missile.tick(deltaSeconds);
 
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
+        if (!next.expired()) {
+            return new Result(next, List.of());
+        }
 
-public record SpawnResult(boolean success, Vec3 position, SpawnSide usedSide) {}
+        var events = new ArrayList<>();
+        events.add(new DamageApplied(
+                missile.sourceActorId(),
+                missile.targetActorId(),
+                missile.damage()
+        ));
+        events.add(new MissileExpired(missile.id()));
 
-===== core\rule\zone\SpawnRule.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.zone;
+        return new Result(null, events);
+    }
 
-public enum SpawnRule {
-    AUTO,
-    OPPOSITE,
-    TOP
-}
-
-===== core\rule\zone\SpawnSide.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.zone;
-
-public enum SpawnSide {
-    LEFT,
-    RIGHT,
-    TOP
+    public record Result(
+            MagicMissileState nextState,
+            List<Object> events
+    ) {}
 }
 
 ===== core\state\action\ActorActionState.java =====
 package com.pgalaxyp.fragmento.rpg.core.state.action;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
-public final class ActorActionState {
-
-    private final Map<Long, ActionId> active = new HashMap<>();
-    private final Map<Long, Long> startedAt = new HashMap<>();
-
+public record ActorActionState(
+        Map<Long, ActionId> active,
+        Map<Long, Long> startedAt
+) {
     public boolean isIdle(long actorId) {
         return !active.containsKey(actorId);
     }
 
-    public Optional<ActionId> active(long actorId) {
-        return Optional.ofNullable(active.get(actorId));
+    public ActorActionState start(long actorId, ActionId id, long nowNanos) {
+        var a = new java.util.HashMap<>(active);
+        var t = new java.util.HashMap<>(startedAt);
+        a.put(actorId, id);
+        t.put(actorId, nowNanos);
+        return new ActorActionState(a, t);
     }
 
-    public void start(long actorId, ActionId id, long nowNanos) {
-        active.put(actorId, id);
-        startedAt.put(actorId, nowNanos);
+    public ActorActionState clear(long actorId) {
+        var a = new java.util.HashMap<>(active);
+        var t = new java.util.HashMap<>(startedAt);
+        a.remove(actorId);
+        t.remove(actorId);
+        return new ActorActionState(a, t);
     }
 
-    public boolean isActiveFor(long actorId, ActionId id) {
-        return id.equals(active.get(actorId));
-    }
-
-    public void clear(long actorId) {
-        active.remove(actorId);
-        startedAt.remove(actorId);
+    public static ActorActionState empty() {
+        return new ActorActionState(Map.of(), Map.of());
     }
 }
 
 ===== core\state\combo\ComboProgressState.java =====
 package com.pgalaxyp.fragmento.rpg.core.state.combo;
 
-import java.util.HashMap;
 import java.util.Map;
 
-public final class ComboProgressState {
-
-    private final Map<Long, Integer> indexByActor = new HashMap<>();
-    private final Map<Long, Long> lastStepAt = new HashMap<>();
-
+public record ComboProgressState(
+        Map<Long, Integer> indexByActor,
+        Map<Long, Long> lastStepAt
+) {
     public int index(long actorId) {
         return indexByActor.getOrDefault(actorId, 0);
-    }
-
-    public void advance(long actorId, long nowNanos) {
-        indexByActor.put(actorId, index(actorId) + 1);
-        lastStepAt.put(actorId, nowNanos);
-    }
-
-    public void reset(long actorId) {
-        indexByActor.remove(actorId);
-        lastStepAt.remove(actorId);
     }
 
     public boolean timedOut(long actorId, long nowNanos, long timeoutNanos) {
@@ -478,38 +491,66 @@ public final class ComboProgressState {
         if (last == null) return false;
         return nowNanos - last >= timeoutNanos;
     }
-}
 
-===== core\state\damage\HealthComponent.java =====
-package com.pgalaxyp.fragmento.rpg.core.state.damage;
-
-public final class HealthComponent {
-    private double health;
-    private final double max;
-
-    public HealthComponent(double max) {
-        if (max <= 0.0) throw new IllegalArgumentException("max <= 0");
-        this.max = max;
-        this.health = max;
+    public ComboProgressState advance(long actorId, long nowNanos) {
+        var i = new java.util.HashMap<>(indexByActor);
+        var t = new java.util.HashMap<>(lastStepAt);
+        i.put(actorId, index(actorId) + 1);
+        t.put(actorId, nowNanos);
+        return new ComboProgressState(i, t);
     }
 
-    public double health() {
-        return health;
+    public ComboProgressState reset(long actorId) {
+        var i = new java.util.HashMap<>(indexByActor);
+        var t = new java.util.HashMap<>(lastStepAt);
+        i.remove(actorId);
+        t.remove(actorId);
+        return new ComboProgressState(i, t);
     }
 
-    public double max() {
-        return max;
-    }
-
-    public boolean alive() {
-        return health > 0.0;
-    }
-
-    public void apply(double amount) {
-        if (amount <= 0.0) return;
-        health = Math.max(0.0, health - amount);
+    public static ComboProgressState empty() {
+        return new ComboProgressState(Map.of(), Map.of());
     }
 }
+
+===== core\state\missile\MagicMissileState.java =====
+package com.pgalaxyp.fragmento.rpg.core.state.missile;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.missile.MagicMissileId;
+
+public record MagicMissileState(
+        MagicMissileId id,
+        long sourceActorId,
+        long targetActorId,
+        double damage,
+        double remainingSeconds
+) {
+    public MagicMissileState tick(double deltaSeconds) {
+        return new MagicMissileState(
+                id,
+                sourceActorId,
+                targetActorId,
+                damage,
+                remainingSeconds - deltaSeconds
+        );
+    }
+
+    public boolean expired() {
+        return remainingSeconds <= 0.0;
+    }
+}
+
+===== core\state\snapshot\CombatSnapshot.java =====
+package com.pgalaxyp.fragmento.rpg.core.state.snapshot;
+
+import com.pgalaxyp.fragmento.rpg.core.state.action.ActorActionState;
+import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboProgressState;
+
+public record CombatSnapshot(
+        long version,
+        ActorActionState actions,
+        ComboProgressState combos
+) {}
 
 ===== engine\loop\GameLoop.java =====
 package com.pgalaxyp.fragmento.rpg.engine.loop;
@@ -652,116 +693,61 @@ public record ActiveMagicMissile(
     }
 }
 
-===== engine\missile\MagicMissileEngineSystem.java =====
+===== engine\missile\MagicMissileEngine.java =====
 package com.pgalaxyp.fragmento.rpg.engine.missile;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.damage.DamageRequest;
-import com.pgalaxyp.fragmento.rpg.core.domain.damage.DamageType;
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
-import com.pgalaxyp.fragmento.rpg.core.rule.combo.ComboStepTriggered;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.MissileSpawned;
+import com.pgalaxyp.fragmento.rpg.core.domain.missile.MagicMissileId;
+import com.pgalaxyp.fragmento.rpg.core.rule.missile.MagicMissileRule;
+import com.pgalaxyp.fragmento.rpg.core.state.missile.MagicMissileState;
 import com.pgalaxyp.fragmento.rpg.engine.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.engine.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.platform.api.targeting.TargetQuery;
-import com.pgalaxyp.fragmento.rpg.platform.api.targeting.TargetResult;
-import com.pgalaxyp.fragmento.rpg.platform.api.targeting.TargetingPort;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.Map;
 
-public final class MagicMissileEngineSystem implements Updatable {
+public final class MagicMissileEngine implements Updatable {
 
-    private final List<ActiveMagicMissile> missiles = new ArrayList<>();
-    private final TargetingPort targeting;
-    private final Random rng;
+    private final Map<MagicMissileId, MagicMissileState> missiles = new HashMap<>();
+    private final MagicMissileRule rule = new MagicMissileRule();
 
-    public MagicMissileEngineSystem(TargetingPort targeting, Random rng, TickBus bus) {
-        this.targeting = targeting;
-        this.rng = rng;
-
-        bus.subscribe(ComboStepTriggered.class, this::onComboStep);
+    public MagicMissileEngine(TickBus bus) {
+        bus.subscribe(MissileSpawned.class, this::onSpawn);
     }
 
-    private void onComboStep(ComboStepTriggered e) {
-        var origin = new Vec3(0, 0, 0);
-        var direction = new Vec3(0, 0, 1);
-
-        var query = new TargetQuery(
-                e.actorId(),
-                origin,
-                direction,
-                2.0,
-                20.0
+    private void onSpawn(MissileSpawned e) {
+        missiles.put(
+                e.missileId(),
+                new MagicMissileState(
+                        e.missileId(),
+                        e.sourceActorId(),
+                        e.targetActorId(),
+                        3.0,
+                        0.6
+                )
         );
-
-        var target = targeting.resolve(query)
-                .map(TargetResult::target)
-                .orElse(null);
-
-        if (target == null || !target.isReal()) return;
-
-        var lifetime = 0.5 + rng.nextDouble() * 0.25;
-
-        missiles.add(new ActiveMagicMissile(
-                e.actorId(),
-                target.actorIdOrZero(),
-                3.0,
-                lifetime,
-                0.0
-        ));
     }
 
     @Override
     public void update(GameTick tick, TickBus bus) {
-        Iterator<ActiveMagicMissile> it = missiles.iterator();
+        Iterator<MagicMissileState> it = missiles.values().iterator();
 
         while (it.hasNext()) {
-            var m = it.next().advance(tick.deltaSeconds());
+            var m = it.next();
+            var result = rule.tick(m, tick.deltaSeconds());
 
-            if (m.expired()) {
-                bus.publish(new DamageRequest(
-                        m.sourceActorId(),
-                        m.targetActorId(),
-                        m.damage(),
-                        DamageType.MAGIC
-                ));
+            for (var ev : result.events()) {
+                bus.publish(ev);
+            }
+
+            if (result.nextState() == null) {
                 it.remove();
             } else {
                 it.remove();
-                missiles.add(m);
+                missiles.put(result.nextState().id(), result.nextState());
             }
         }
-    }
-}
-
-===== engine\time\TemporalProgress.java =====
-package com.pgalaxyp.fragmento.rpg.engine.time;
-
-public record TemporalProgress(double t01) {
-    public TemporalProgress {
-        if (t01 < 0.0) t01 = 0.0;
-        if (t01 > 1.0) t01 = 1.0;
-    }
-}
-
-===== engine\time\TimeDrivenMover.java =====
-package com.pgalaxyp.fragmento.rpg.engine.time;
-
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
-
-public final class TimeDrivenMover {
-    public TemporalProgress progress(double elapsedSeconds, double totalSeconds) {
-        if (totalSeconds <= 1.0e-9) return new TemporalProgress(1.0);
-        return new TemporalProgress(elapsedSeconds / totalSeconds);
-    }
-
-    public Vec3 position(Vec3 origin, Vec3 destination, TemporalProgress p) {
-        return Vec3.lerp(origin, destination, p.t01());
-    }
-
-    public Vec3 forward(Vec3 from, Vec3 to) {
-        return to.sub(from).normalized();
     }
 }
 
@@ -831,8 +817,8 @@ public final class ClientInputBridge {
 ===== host\minecraft\DamageBridge.java =====
 package com.pgalaxyp.fragmento.rpg.host.minecraft;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.event.DamageApplied;
 import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.core.domain.damage.DamageRequest;
 import java.util.Objects;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -843,20 +829,20 @@ public final class DamageBridge {
 
     public DamageBridge(ActorIds actorIds, TickBus bus) {
         this.actorIds = Objects.requireNonNull(actorIds);
-        bus.subscribe(DamageRequest.class, this::onDamage);
+        bus.subscribe(DamageApplied.class, this::onDamage);
     }
 
-    private void onDamage(DamageRequest r) {
-        var uuid = actorIds.uuidOf(r.targetActorId()).orElse(null);
+    private void onDamage(DamageApplied e) {
+        var uuid = actorIds.uuidOf(e.targetActorId()).orElse(null);
         if (uuid == null) return;
 
         var server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) return;
 
         for (var level : server.getAllLevels()) {
-            var e = level.getEntity(uuid);
-            if (e instanceof LivingEntity le && le.isAlive()) {
-                le.hurt(le.damageSources().magic(), (float) r.amount());
+            var ent = level.getEntity(uuid);
+            if (ent instanceof LivingEntity le && le.isAlive()) {
+                le.hurt(le.damageSources().magic(), (float) e.amount());
                 return;
             }
         }
@@ -1131,19 +1117,14 @@ package com.pgalaxyp.fragmento.rpg.host.minecraft;
 
 import com.pgalaxyp.fragmento.rpg.core.content.combo.FluteComboSequence;
 import com.pgalaxyp.fragmento.rpg.core.id.IdGen;
-import com.pgalaxyp.fragmento.rpg.core.rule.action.ActionIntentDispatcher;
-import com.pgalaxyp.fragmento.rpg.core.rule.action.ActionRuleDispatcher;
 import com.pgalaxyp.fragmento.rpg.core.rule.combo.ComboActionRule;
-import com.pgalaxyp.fragmento.rpg.core.state.action.ActorActionState;
-import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboProgressState;
 import com.pgalaxyp.fragmento.rpg.engine.loop.GameLoop;
 import com.pgalaxyp.fragmento.rpg.engine.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.engine.loop.UpdateScheduler;
-import com.pgalaxyp.fragmento.rpg.engine.missile.MagicMissileEngineSystem;
+import com.pgalaxyp.fragmento.rpg.engine.missile.MagicMissileEngine;
 import com.pgalaxyp.fragmento.rpg.host.minecraft.events.VanillaEventGate;
-import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
-import java.util.Random;
+import net.neoforged.bus.api.IEventBus;
 
 public final class ModEntrypoint {
 
@@ -1154,32 +1135,17 @@ public final class ModEntrypoint {
         var actorIds = new ActorIds(new IdGen(0L));
         ServerInputIntentHandler.init(actorIds);
 
-        var comboSequence = FluteComboSequence.create();
-        var actionState = new ActorActionState();
-        var comboState = new ComboProgressState();
-
-        var comboRule = new ComboActionRule(comboSequence);
-        var resolver = new ActionRuleDispatcher(
-                actionState,
-                comboState,
-                comboRule,
-                bus
-        );
-        new ActionIntentDispatcher(resolver, bus);
-
-        var missileSystem = new MagicMissileEngineSystem(
-                new MinecraftTargetingAdapter(actorIds),
-                new Random(),
-                bus
-        );
+        var comboRule = new ComboActionRule(FluteComboSequence.create());
 
         var scheduler = new UpdateScheduler()
-                .register(missileSystem);
+                .register(new MagicMissileEngine(bus));
 
         var loop = new GameLoop(System::nanoTime, scheduler, bus);
 
         NeoForge.EVENT_BUS.register(new GameLoopBridge(loop));
         NeoForge.EVENT_BUS.register(new VanillaEventGate());
+
+        new DamageBridge(actorIds, bus);
     }
 }
 

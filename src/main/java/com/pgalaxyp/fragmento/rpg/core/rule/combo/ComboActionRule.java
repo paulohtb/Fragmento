@@ -22,24 +22,19 @@ public final class ComboActionRule {
             ComboProgressState combos,
             long nowNanos
     ) {
-        var actorId = intent.actorId();
+        if (!actions.isIdle(intent.actorId())) return Optional.empty();
 
-        if (!actions.isIdle(actorId)) return Optional.empty();
-
-        if (combos.timedOut(actorId, nowNanos, COMBO_TIMEOUT_NANOS)) {
-            combos.reset(actorId);
+        var nextCombos = combos;
+        if (combos.timedOut(intent.actorId(), nowNanos, COMBO_TIMEOUT_NANOS)) {
+            nextCombos = combos.reset(intent.actorId());
         }
 
-        var stepIndex = combos.index(actorId);
-        var step = sequence.stepAt(stepIndex);
-
-        actions.start(actorId, intent.actionId(), nowNanos);
-        combos.advance(actorId, nowNanos);
-        actions.clear(actorId);
+        var step = sequence.stepAt(nextCombos.index(intent.actorId()));
 
         return Optional.of(new ComboStepTriggered(
-                actorId,
-                step.stepId()
+                intent.actorId(),
+                step.stepId(),
+                nextCombos.advance(intent.actorId(), nowNanos)
         ));
     }
 }
