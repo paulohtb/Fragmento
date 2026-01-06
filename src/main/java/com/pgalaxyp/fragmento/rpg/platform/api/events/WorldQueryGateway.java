@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.platform.api.events;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.event.TargetingRequestedEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.TargetingDataCollectedEvent;
+import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
+import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
 
 public interface WorldQueryGateway {
-    TargetingDataCollectedEvent collect(TargetingRequestedEvent request);
+    TargetingResolution collect(RequestTargeting request);
 }

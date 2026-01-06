@@ -18,7 +18,7 @@ public final class BasicInterruptRule implements InterruptRule {
 
         if (!currentAction.canBeInterruptedBy(cause)) return InterruptResult.ignored();
 
-        var next = new ActorState(actorId, null, current.combo());
+        var next = new ActorState(actorId, null, current.combo(), List.of());
 
         var events = List.<RpgEvent>of(new ActionInterruptedEvent(
                 actorId,

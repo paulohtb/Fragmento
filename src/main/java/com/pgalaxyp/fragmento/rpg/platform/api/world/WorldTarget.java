@@ -9,7 +9,6 @@ public record WorldTarget(
         Aabb bounds,
         long actorIdOrZero
 ) implements Target {
-
     @Override
     public boolean isReal() {
         return true;
