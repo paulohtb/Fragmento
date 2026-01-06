@@ -3,7 +3,7 @@ package com.pgalaxyp.fragmento.rpg.gameplay.damage;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;

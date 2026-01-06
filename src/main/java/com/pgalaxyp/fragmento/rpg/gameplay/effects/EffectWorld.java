@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.rpg.gameplay.effects;
 
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;

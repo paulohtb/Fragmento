@@ -2,7 +2,6 @@ package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.network.payload.c2s.InputIntentPayload;
-import com.pgalaxyp.fragmento.rpg.network.payload.s2c.CombatStateSnapshotPayload;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -25,21 +24,10 @@ public final class RpgNetwork {
                 InputIntentPayload.STREAM_CODEC,
                 (payload, ctx) -> handleInputIntent(bus, payload, ctx)
         );
-
-        registrar.playToClient(
-                CombatStateSnapshotPayload.TYPE,
-                CombatStateSnapshotPayload.STREAM_CODEC,
-                RpgNetwork::handleCombatSnapshot
-        );
     }
 
     private static void handleInputIntent(TickBus bus, InputIntentPayload payload, IPayloadContext ctx) {
         if (payload == null || ctx == null) return;
         ServerInputIntentHandler.handle(bus, payload, ctx);
-    }
-
-    private static void handleCombatSnapshot(CombatStateSnapshotPayload payload, IPayloadContext ctx) {
-        if (payload == null || ctx == null) return;
-        ctx.enqueueWork(() -> ClientCombatStateStore.apply(payload.snapshot()));
     }
 }

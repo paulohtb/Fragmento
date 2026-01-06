@@ -1,10 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.WeaponRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService;
-import com.pgalaxyp.fragmento.rpg.gameplay.weapon.WeaponRepository;
-import java.util.Objects;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -15,24 +14,27 @@ public final class PlayerSyncBridge {
     private final WeaponRepository weapons;
 
     public PlayerSyncBridge(ActorIds actorIds, ActorRepository actors, WeaponRepository weapons) {
-        this.actorIds = Objects.requireNonNull(actorIds);
-        this.actors = Objects.requireNonNull(actors);
-        this.weapons = Objects.requireNonNull(weapons);
+        this.actorIds = actorIds;
+        this.actors = actors;
+        this.weapons = weapons;
     }
 
     @SubscribeEvent
     public void onTick(ServerTickEvent.Post event) {
-        var server = event.getServer();
-        var sp = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
-        if (sp == null) return;
+        for (var sp : event.getServer().getPlayerList().getPlayers()) {
+            var actorId = actorIds.idFor(sp.getUUID());
 
-        var actorId = actorIds.idFor(sp.getUUID());
+            if (weapons.equippedWeapon(actorId).isEmpty()) {
+                weapons.equip(actorId, "FLUTE");
+            }
 
-        weapons.equip(actorId, "FLUTE");
+            var pos = sp.position();
+            var look = sp.getLookAngle();
 
-        var pos = sp.position();
-        var p = new Vec3(pos.x, pos.y, pos.z);
+            var p = new Vec3(pos.x, pos.y, pos.z);
+            var d = new Vec3(look.x, look.y, look.z);
 
-        actors.setPositionAndBounds(actorId, p, TargetRaycastService.defaultBoundsAt(p));
+            actors.setState(actorId, p, d, TargetRaycastService.defaultBoundsAt(p));
+        }
     }
 }

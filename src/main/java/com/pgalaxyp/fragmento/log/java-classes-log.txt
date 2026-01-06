@@ -15,127 +15,31 @@ public final class FragmentoMod {
     }
 }
 
-===== RpgBootstrap.java =====
-package com.pgalaxyp.fragmento.bootstrap;
+===== ClientInputBridge.java =====
+package com.pgalaxyp.fragmento.rpg.adapter.minecraft.input;
 
-import com.pgalaxyp.fragmento.rpg_old.network.RpgPayloadHandler;
-import com.pgalaxyp.fragmento.rpg_old.runtime.RpgEventRouter;
-import com.pgalaxyp.fragmento.rpg_old.runtime.RpgRuntime;
-import net.neoforged.neoforge.common.NeoForge;
+import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import com.pgalaxyp.fragmento.rpg.gameplay.input.InputAction;
+import com.pgalaxyp.fragmento.rpg.network.payload.c2s.InputIntentPayload;
 
-public final class RpgBootstrap {
+@EventBusSubscriber(modid = "fragmento", bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+public final class ClientInputBridge {
 
-    public static void init() {
-        RpgRuntime runtime = new RpgRuntime();
-        RpgServices.bind(runtime);
+    private ClientInputBridge() {}
 
-        RpgPayloadHandler.bindRuntime(runtime);
-        NeoForge.EVENT_BUS.register(new RpgEventRouter(runtime));
-    }
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        var mc = Minecraft.getInstance();
+        if (mc.player == null) return;
 
-    private RpgBootstrap() {}
-}
-
-===== RpgNetwork.java =====
-package com.pgalaxyp.fragmento.bootstrap;
-
-import com.pgalaxyp.fragmento.rpg_old.network.RpgPayloadHandler;
-import com.pgalaxyp.fragmento.rpg_old.network.payload.c2s.AbilityIntentPayload;
-import com.pgalaxyp.fragmento.rpg_old.network.payload.c2s.AttackIntentPayload;
-import com.pgalaxyp.fragmento.rpg_old.network.payload.s2c.CombatSnapshotPayload;
-import com.pgalaxyp.fragmento.rpg_old.client.ClientNetworkProxy;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-
-public final class RpgNetwork {
-
-    private static final String NETWORK_VERSION = "1";
-
-    public static void register(IEventBus modBus) {
-        modBus.addListener(RpgNetwork::onRegisterPayloads);
-    }
-
-    private static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(NETWORK_VERSION);
-
-        registrar.playToServer(
-                AttackIntentPayload.TYPE,
-                AttackIntentPayload.STREAM_CODEC,
-                RpgPayloadHandler::handleAttackIntent
-        );
-
-        registrar.playToServer(
-                AbilityIntentPayload.TYPE,
-                AbilityIntentPayload.STREAM_CODEC,
-                RpgPayloadHandler::handleAbilityIntent
-        );
-
-        registrar.playToClient(
-                CombatSnapshotPayload.TYPE,
-                CombatSnapshotPayload.STREAM_CODEC,
-                RpgNetwork::handleCombatSnapshot
-        );
-    }
-
-    private static void handleCombatSnapshot(CombatSnapshotPayload payload, IPayloadContext context) {
-        if (payload == null || context == null) return;
-        context.enqueueWork(() -> ClientNetworkProxy.applySnapshot(payload.snapshot()));
-    }
-
-    private RpgNetwork() {}
-}
-
-===== RpgServices.java =====
-package com.pgalaxyp.fragmento.bootstrap;
-
-import com.pgalaxyp.fragmento.rpg_old.runtime.RpgRuntime;
-
-public final class RpgServices {
-
-    private static RpgRuntime runtime;
-
-    public static void bind(RpgRuntime rt) {
-        runtime = rt;
-    }
-
-    public static RpgRuntime runtime() {
-        return runtime;
-    }
-
-    private RpgServices() {}
-}
-
-===== ActorContextServer.java =====
-package com.pgalaxyp.fragmento.rpg.adapter.minecraft.context;
-
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle.ActorIds;
-import java.util.Objects;
-import java.util.Optional;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
-
-public final class ActorContextServer {
-
-    private final ActorIds actorIds;
-
-    public ActorContextServer(ActorIds actorIds) {
-        this.actorIds = Objects.requireNonNull(actorIds);
-    }
-
-    public Optional<ServerPlayer> player(long actorId) {
-        var uuid = actorIds.uuidOf(actorId).orElse(null);
-        if (uuid == null) return Optional.empty();
-
-        var server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) return Optional.empty();
-
-        return Optional.ofNullable(server.getPlayerList().getPlayer(uuid));
-    }
-
-    public Optional<ServerLevel> level(long actorId) {
-        return player(actorId).map(ServerPlayer::serverLevel);
+        if (mc.options.keyAttack.consumeClick()) {
+            PacketDistributor.sendToServer(new InputIntentPayload(InputAction.ATTACK_PRIMARY.name()));
+        }
     }
 }
 
@@ -178,22 +82,18 @@ public final class ActorIds {
 ===== DamageBridge.java =====
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.gameplay.damage.DamageRequest;
-import java.util.List;
 import java.util.Objects;
 import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public final class DamageBridge {
 
-    private final ActorContextServer context;
     private final ActorIds actorIds;
 
-    public DamageBridge(ActorContextServer context, ActorIds actorIds, TickBus bus) {
-        this.context = Objects.requireNonNull(context);
+    public DamageBridge(ActorIds actorIds, TickBus bus) {
         this.actorIds = Objects.requireNonNull(actorIds);
-
         bus.subscribe(DamageRequest.class, this::onDamage);
     }
 
@@ -201,33 +101,16 @@ public final class DamageBridge {
         var uuid = actorIds.uuidOf(r.targetActorId()).orElse(null);
         if (uuid == null) return;
 
-        for (var level : context.player(r.sourceActorId()).map(p -> p.server.getAllLevels()).orElse(List.of())) {
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return;
+
+        for (var level : server.getAllLevels()) {
             var e = level.getEntity(uuid);
             if (e instanceof LivingEntity le && le.isAlive()) {
-                le.hurt(le.level().damageSources().magic(), (float) r.amount());
+                le.hurt(le.damageSources().magic(), (float) r.amount());
                 return;
             }
         }
-    }
-}
-
-===== DemoContent.java =====
-package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
-
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.BasicSequence;
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboStep;
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.SpawnRule;
-
-import java.util.List;
-
-public final class DemoContent {
-
-    public static BasicSequence fluteSequence() {
-        return new BasicSequence(List.of(
-                new ComboStep("step1", "MISSILE", SpawnRule.AUTO),
-                new ComboStep("step2", "MISSILE", SpawnRule.OPPOSITE),
-                new ComboStep("step3", "MISSILE", SpawnRule.TOP)
-        ));
     }
 }
 
@@ -255,10 +138,9 @@ public final class GameLoopBridge {
 ===== LivingSyncBridge.java =====
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorState;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import java.util.Objects;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -293,96 +175,17 @@ public final class LivingSyncBridge {
             var p = e.position();
             var pos = new Vec3(p.x, p.y, p.z);
 
+            var look = e.getLookAngle();
+            var dir = new Vec3(look.x, look.y, look.z);
+
             var bb = e.getBoundingBox();
             var bounds = new Aabb(
                     new Vec3(bb.minX, bb.minY, bb.minZ),
                     new Vec3(bb.maxX, bb.maxY, bb.maxZ)
             );
 
-            actors.putState(actorId, new ActorState(pos, bounds, true));
+            actors.setState(actorId, pos, dir, bounds);
         }
-    }
-}
-
-===== MinecraftInputView.java =====
-package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
-
-import com.pgalaxyp.fragmento.rpg.platform.api.player.InputView;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-
-import java.util.concurrent.atomic.AtomicBoolean;
-
-public final class MinecraftInputView implements InputView {
-
-    private final AtomicBoolean attack = new AtomicBoolean(false);
-
-    public MinecraftInputView() {
-        NeoForge.EVENT_BUS.addListener(this::onAttack);
-    }
-
-    private void onAttack(PlayerInteractEvent.LeftClickEmpty event) {
-        attack.set(true);
-    }
-
-    @Override
-    public boolean pressedThisTick(String actionId) {
-        if (!"ATTACK_PRIMARY".equals(actionId)) return false;
-        return attack.getAndSet(false);
-    }
-}
-
-===== MinecraftPlatformTime.java =====
-package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
-
-import com.pgalaxyp.fragmento.rpg.platform.api.time.PlatformTime;
-
-public final class MinecraftPlatformTime implements PlatformTime {
-    @Override
-    public long nowNanos() {
-        return System.nanoTime();
-    }
-}
-
-===== MinecraftPlayerView.java =====
-package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
-
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
-import com.pgalaxyp.fragmento.rpg.platform.api.player.PlayerView;
-import java.util.Objects;
-
-public final class MinecraftPlayerView implements PlayerView {
-
-    private final long actorId;
-    private final ActorContextServer context;
-
-    public MinecraftPlayerView(long actorId, ActorContextServer context) {
-        this.actorId = actorId;
-        this.context = Objects.requireNonNull(context);
-    }
-
-    @Override
-    public long actorId() {
-        return actorId;
-    }
-
-    @Override
-    public Vec3 position() {
-        var p = context.player(actorId).orElse(null);
-        if (p == null) return new Vec3(0, 0, 0);
-
-        var v = p.position();
-        return new Vec3(v.x, v.y, v.z);
-    }
-
-    @Override
-    public Vec3 lookDirection() {
-        var p = context.player(actorId).orElse(null);
-        if (p == null) return new Vec3(0, 0, 0);
-
-        var v = p.getLookAngle();
-        return new Vec3(v.x, v.y, v.z);
     }
 }
 
@@ -403,84 +206,83 @@ public final class MinecraftVisualWorld implements VisualWorld {
 ===== MinecraftWorldView.java =====
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.EntityHit;
-import com.pgalaxyp.fragmento.rpg.platform.api.world.RaycastQuery;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public final class MinecraftWorldView implements WorldView {
 
-    private final long actorId;
-    private final ActorContextServer context;
     private final ActorIds actorIds;
 
-    public MinecraftWorldView(long actorId, ActorContextServer context, ActorIds actorIds) {
-        this.actorId = actorId;
-        this.context = Objects.requireNonNull(context);
+    public MinecraftWorldView(ActorIds actorIds) {
         this.actorIds = Objects.requireNonNull(actorIds);
     }
 
     @Override
-    public Optional<EntityHit> raycastLivingEntity(RaycastQuery query) {
-        var player = context.player(actorId).orElse(null);
-        if (player == null) return Optional.empty();
+    public Optional<EntityHit> raycastLivingEntity(long sourceActorId, Vec3 origin, Vec3 direction, double minDistance, double maxDistance) {
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return Optional.empty();
 
-        var level = player.serverLevel();
+        var sourceUuid = actorIds.uuidOf(sourceActorId).orElse(null);
+        if (sourceUuid == null) return Optional.empty();
 
-        var o = query.origin();
-        var d = query.direction().normalized();
+        LivingEntity source = null;
+        ServerLevel level = null;
 
-        var mcOrigin = new net.minecraft.world.phys.Vec3(o.x(), o.y(), o.z());
-        var mcEnd = mcOrigin.add(
-                d.x() * query.maxDistance(),
-                d.y() * query.maxDistance(),
-                d.z() * query.maxDistance()
-        );
+        for (var l : server.getAllLevels()) {
+            var e = l.getEntity(sourceUuid);
+            if (e instanceof LivingEntity le && le.isAlive()) {
+                source = le;
+                level = l;
+                break;
+            }
+        }
 
-        var dx = mcEnd.x - mcOrigin.x;
-        var dy = mcEnd.y - mcOrigin.y;
-        var dz = mcEnd.z - mcOrigin.z;
+        if (source == null || level == null) return Optional.empty();
 
-        AABB sweep = player.getBoundingBox().expandTowards(dx, dy, dz).inflate(1.0);
+        var mcOrigin = new net.minecraft.world.phys.Vec3(origin.x(), origin.y(), origin.z());
+        var mcEnd = mcOrigin.add(direction.x() * maxDistance, direction.y() * maxDistance, direction.z() * maxDistance);
 
+        AABB sweep = source.getBoundingBox().expandTowards(mcEnd.subtract(mcOrigin)).inflate(1.0);
+
+        LivingEntity finalSource = source;
         var hit = ProjectileUtil.getEntityHitResult(
                 level,
-                player,
+                source,
                 mcOrigin,
                 mcEnd,
                 sweep,
-                e -> e instanceof LivingEntity le && le.isAlive() && e != player,
+                e -> e instanceof LivingEntity le && le.isAlive() && e != finalSource,
                 0.0f
         );
 
         if (hit == null) return Optional.empty();
 
-        var loc = hit.getLocation();
-        var dist = mcOrigin.distanceTo(loc);
-
-        if (dist < query.minDistance() || dist > query.maxDistance()) return Optional.empty();
-
-        var actor = actorIds.idFor(hit.getEntity().getUUID());
+        var pos = hit.getLocation();
+        var dist = mcOrigin.distanceTo(pos);
+        if (dist < minDistance || dist > maxDistance) return Optional.empty();
 
         return Optional.of(new EntityHit(
-                actor,
-                new Vec3(loc.x, loc.y, loc.z),
+                actorIds.idFor(hit.getEntity().getUUID()),
+                new Vec3(pos.x, pos.y, pos.z),
                 dist
         ));
     }
 
     @Override
     public boolean isSolidAt(Vec3 position) {
-        var level = context.level(actorId).orElse(null);
-        if (level == null) return false;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return false;
 
+        var level = server.overworld();
         var p = BlockPos.containing(position.x(), position.y(), position.z());
         return !level.getBlockState(p).getCollisionShape(level, p).isEmpty();
     }
@@ -489,28 +291,27 @@ public final class MinecraftWorldView implements WorldView {
 ===== ModEntrypoint.java =====
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
 import com.pgalaxyp.fragmento.rpg.core.boot.GameBootstrap;
 import com.pgalaxyp.fragmento.rpg.core.boot.RpgWiring;
 import com.pgalaxyp.fragmento.rpg.core.id.IdGen;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameLoop;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboResolver;
 import com.pgalaxyp.fragmento.rpg.gameplay.damage.DamageResolver;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.*;
+import com.pgalaxyp.fragmento.rpg.gameplay.effects.ComboEffectObserver;
+import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSpawnSystem;
+import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSystem;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MagicMissileDef;
-import com.pgalaxyp.fragmento.rpg.gameplay.input.CombatInputBinding;
-import com.pgalaxyp.fragmento.rpg.gameplay.input.InputRouter;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.WeaponRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService;
 import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnResolverService;
 import com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld;
-import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public final class ModEntrypoint {
 
@@ -518,72 +319,57 @@ public final class ModEntrypoint {
 
         var bus = new TickBus();
 
-        var actorIdGen = new IdGen(0L);
-        var effectIdGen = new IdGen(10_000L);
+        var actorIds = new ActorIds(new IdGen(0L));
+        ServerInputIntentHandler.init(actorIds);
 
-        var actorIds = new ActorIds(actorIdGen);
-        var actorContext = new ActorContextServer(actorIds);
+        var effectIds = new IdGen(10_000L);
+
         var actors = new ActorRepository();
-
-        assert ServerLifecycleHooks.getCurrentServer() != null;
-        var playerActorId = actorIds.idFor(
-                ServerLifecycleHooks.getCurrentServer()
-                        .getPlayerList().getPlayers().getFirst().getUUID()
-        );
-
-        var playerView = new MinecraftPlayerView(playerActorId, actorContext);
-        var worldView = new MinecraftWorldView(playerActorId, actorContext, actorIds);
+        var weapons = new WeaponRepository();
 
         var visuals = Optional.<VisualWorld>of(new MinecraftVisualWorld());
-        var inputView = new MinecraftInputView();
 
-        var sequence = DemoContent.fluteSequence();
+        var sequence = com.pgalaxyp.fragmento.rpg.content.sequences.DemoContent.fluteSequence();
         var missileDef = new MagicMissileDef(3.0, 0.5, 0.75);
 
-        var inputRouter = new InputRouter(
-                List.of(playerView),
-                inputView,
-                CombatInputBinding.defaultBinding()
-        );
+        var world = new MinecraftWorldView(actorIds);
+        var targeting = new TargetRaycastService(actors, world);
+        var spawns = new SpawnResolverService(new Random(), world);
 
-        var combo = new ComboResolver(sequence, actors, bus);
+        var combo = new ComboResolver(sequence, actors, weapons, bus);
         new ComboEffectObserver(sequence, bus);
 
-        var targeting = new TargetRaycastService(worldView, actors);
-        var spawns = new SpawnResolverService(worldView, new Random());
-
         var effectsRepo = new EffectRepository();
-        var effects = new EffectSystem(effectsRepo, worldView, visuals, actors);
+        var effects = new EffectSystem(effectsRepo, world, visuals, actors);
 
         var effectSpawn = new EffectSpawnSystem(
-                playerView,
                 actors,
                 sequence,
                 targeting,
                 spawns,
                 effects,
                 missileDef,
-                effectIdGen,
+                effectIds,
                 new Random(),
                 bus
         );
 
         var damage = new DamageResolver(actors, bus);
-        new DamageBridge(actorContext, actorIds, bus);
+        new DamageBridge(actorIds, bus);
+
+        RpgNetwork.register(modBus, bus);
 
         var wiring = new RpgWiring(
-                inputRouter,
                 combo,
                 effectSpawn,
                 effects,
                 damage
         );
 
-        var bootstrap = new GameBootstrap(System::nanoTime, wiring, bus);
-        GameLoop loop = bootstrap.build();
+        GameLoop loop = new GameBootstrap(System::nanoTime, wiring, bus).build();
 
         NeoForge.EVENT_BUS.register(new GameLoopBridge(loop));
-        NeoForge.EVENT_BUS.register(new PlayerSyncBridge(actorIds, actors));
+        NeoForge.EVENT_BUS.register(new PlayerSyncBridge(actorIds, actors, weapons));
         NeoForge.EVENT_BUS.register(new LivingSyncBridge(actorIds, actors));
     }
 }
@@ -591,10 +377,10 @@ public final class ModEntrypoint {
 ===== PlayerSyncBridge.java =====
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.WeaponRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService;
-import java.util.Objects;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -602,24 +388,118 @@ public final class PlayerSyncBridge {
 
     private final ActorIds actorIds;
     private final ActorRepository actors;
+    private final WeaponRepository weapons;
 
-    public PlayerSyncBridge(ActorIds actorIds, ActorRepository actors) {
-        this.actorIds = Objects.requireNonNull(actorIds);
-        this.actors = Objects.requireNonNull(actors);
+    public PlayerSyncBridge(ActorIds actorIds, ActorRepository actors, WeaponRepository weapons) {
+        this.actorIds = actorIds;
+        this.actors = actors;
+        this.weapons = weapons;
     }
 
     @SubscribeEvent
     public void onTick(ServerTickEvent.Post event) {
-        var server = event.getServer();
-        var sp = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
-        if (sp == null) return;
+        for (var sp : event.getServer().getPlayerList().getPlayers()) {
+            var actorId = actorIds.idFor(sp.getUUID());
 
-        var actorId = actorIds.idFor(sp.getUUID());
+            if (weapons.equippedWeapon(actorId).isEmpty()) {
+                weapons.equip(actorId, "FLUTE");
+            }
 
-        var pos = sp.position();
-        var p = new Vec3(pos.x, pos.y, pos.z);
+            var pos = sp.position();
+            var look = sp.getLookAngle();
 
-        actors.setPositionAndBounds(actorId, p, TargetRaycastService.defaultBoundsAt(p));
+            var p = new Vec3(pos.x, pos.y, pos.z);
+            var d = new Vec3(look.x, look.y, look.z);
+
+            actors.setState(actorId, p, d, TargetRaycastService.defaultBoundsAt(p));
+        }
+    }
+}
+
+===== RpgNetwork.java =====
+package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
+
+import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
+import com.pgalaxyp.fragmento.rpg.network.payload.c2s.InputIntentPayload;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+public final class RpgNetwork {
+
+    private static final String NETWORK_VERSION = "1";
+
+    private RpgNetwork() {}
+
+    public static void register(IEventBus modBus, TickBus bus) {
+        modBus.addListener((RegisterPayloadHandlersEvent e) -> onRegisterPayloads(e, bus));
+    }
+
+    private static void onRegisterPayloads(RegisterPayloadHandlersEvent event, TickBus bus) {
+        var registrar = event.registrar(NETWORK_VERSION);
+
+        registrar.playToServer(
+                InputIntentPayload.TYPE,
+                InputIntentPayload.STREAM_CODEC,
+                (payload, ctx) -> handleInputIntent(bus, payload, ctx)
+        );
+    }
+
+    private static void handleInputIntent(TickBus bus, InputIntentPayload payload, IPayloadContext ctx) {
+        if (payload == null || ctx == null) return;
+        ServerInputIntentHandler.handle(bus, payload, ctx);
+    }
+}
+
+===== ServerInputIntentHandler.java =====
+package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
+
+import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
+import com.pgalaxyp.fragmento.rpg.gameplay.input.InputAction;
+import com.pgalaxyp.fragmento.rpg.gameplay.input.InputEvent;
+import com.pgalaxyp.fragmento.rpg.network.payload.c2s.InputIntentPayload;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+public final class ServerInputIntentHandler {
+
+    private static ActorIds actorIds;
+
+    private ServerInputIntentHandler() {}
+
+    public static void init(ActorIds ids) {
+        actorIds = ids;
+    }
+
+    public static void handle(TickBus bus, InputIntentPayload payload, IPayloadContext ctx) {
+        if (actorIds == null) return;
+
+        var player = ctx.player();
+        if (player == null) return;
+
+        var actorId = actorIds.idFor(player.getUUID());
+        var action = InputAction.valueOf(payload.action());
+        bus.publish(new InputEvent(actorId, action));
+    }
+}
+
+===== DemoContent.java =====
+package com.pgalaxyp.fragmento.rpg.content.sequences;
+
+import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.BasicSequence;
+import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboStep;
+import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnRule;
+import java.util.List;
+
+public final class DemoContent {
+
+    private DemoContent() {}
+
+    public static BasicSequence fluteSequence() {
+        return new BasicSequence(List.of(
+                new ComboStep("flute_1", "MISSILE", SpawnRule.AUTO),
+                new ComboStep("flute_2", "MISSILE", SpawnRule.OPPOSITE),
+                new ComboStep("flute_3", "MISSILE", SpawnRule.TOP)
+        ));
     }
 }
 
@@ -671,24 +551,20 @@ import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboResolver;
 import com.pgalaxyp.fragmento.rpg.gameplay.damage.DamageResolver;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSpawnSystem;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSystem;
-import com.pgalaxyp.fragmento.rpg.gameplay.input.InputRouter;
 
 public final class RpgWiring implements ModuleWiring {
 
-    private final InputRouter input;
     private final ComboResolver combo;
     private final EffectSpawnSystem effectSpawn;
     private final EffectSystem effects;
     private final DamageResolver damage;
 
     public RpgWiring(
-            InputRouter input,
             ComboResolver combo,
             EffectSpawnSystem effectSpawn,
             EffectSystem effects,
             DamageResolver damage
     ) {
-        this.input = input;
         this.combo = combo;
         this.effectSpawn = effectSpawn;
         this.effects = effects;
@@ -698,7 +574,6 @@ public final class RpgWiring implements ModuleWiring {
     @Override
     public void registerSystems(UpdateScheduler scheduler, TickBus bus) {
         scheduler
-                .register(input)
                 .register(combo)
                 .register(effectSpawn)
                 .register(effects)
@@ -837,121 +712,16 @@ public final class UpdateScheduler {
     }
 }
 
-===== ContentRegistry.java =====
-package com.pgalaxyp.fragmento.rpg.core.registry;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Consumer;
-
-public final class ContentRegistry {
-    private final Map<String, Object> defs = new HashMap<>();
-
-    public <T> void register(String id, T def) {
-        Objects.requireNonNull(id);
-        Objects.requireNonNull(def);
-        if (defs.putIfAbsent(id, def) != null) {
-            throw new IllegalStateException("Duplicate id: " + id);
-        }
-    }
-
-    public <T> T get(String id, Class<T> type) {
-        Objects.requireNonNull(type);
-        var v = defs.get(id);
-        if (v == null) throw new IllegalStateException("Missing id: " + id);
-        return type.cast(v);
-    }
-
-    public void withAll(Consumer<Object> consumer) {
-        Objects.requireNonNull(consumer);
-        for (var v : defs.values()) consumer.accept(v);
-    }
-}
-
-===== DefRegistry.java =====
-package com.pgalaxyp.fragmento.rpg.core.registry;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-
-public final class DefRegistry<T> {
-    private final Map<String, T> defs = new HashMap<>();
-
-    public void register(String id, T def) {
-        Objects.requireNonNull(id);
-        Objects.requireNonNull(def);
-        if (defs.putIfAbsent(id, def) != null) {
-            throw new IllegalStateException("Duplicate id: " + id);
-        }
-    }
-
-    public Optional<T> find(String id) {
-        return Optional.ofNullable(defs.get(id));
-    }
-
-    public T get(String id) {
-        var v = defs.get(id);
-        if (v == null) throw new IllegalStateException("Missing id: " + id);
-        return v;
-    }
-}
-
-===== ActorRepository.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.actor;
-
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboState;
-import com.pgalaxyp.fragmento.rpg.gameplay.damage.HealthComponent;
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-
-public final class ActorRepository {
-    private final Map<Long, ActorState> states = new HashMap<>();
-    private final Map<Long, HealthComponent> health = new HashMap<>();
-    private final Map<Long, ComboState> combos = new HashMap<>();
-
-    public void putState(long actorId, ActorState state) {
-        states.put(actorId, state);
-    }
-
-    public Optional<ActorState> findState(long actorId) {
-        return Optional.ofNullable(states.get(actorId));
-    }
-
-    public ActorState requireState(long actorId) {
-        var s = states.get(actorId);
-        if (s == null) throw new IllegalStateException("Missing ActorState: " + actorId);
-        return s;
-    }
-
-    public HealthComponent health(long actorId) {
-        return health.computeIfAbsent(actorId, __ -> new HealthComponent(20.0));
-    }
-
-    public ComboState combo(long actorId) {
-        return combos.computeIfAbsent(actorId, __ -> new ComboState());
-    }
-
-    public void setPositionAndBounds(long actorId, Vec3 pos, Aabb bounds) {
-        var hc = health(actorId);
-        putState(actorId, new ActorState(pos, bounds, hc.alive()));
-    }
-}
-
 ===== ActorState.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.actor;
 
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 
-public record ActorState(Vec3 position, Aabb bounds, boolean alive) {
+public record ActorState(Vec3 position, Vec3 lookDirection, Aabb bounds, boolean alive) {
     public ActorState {
         if (position == null) throw new NullPointerException("position");
+        if (lookDirection == null) throw new NullPointerException("lookDirection");
         if (bounds == null) throw new NullPointerException("bounds");
     }
 }
@@ -960,11 +730,19 @@ public record ActorState(Vec3 position, Aabb bounds, boolean alive) {
 package com.pgalaxyp.fragmento.rpg.gameplay.combat.basic;
 
 import java.util.List;
+import java.util.Objects;
 
 public record BasicSequence(List<ComboStep> steps) {
     public BasicSequence {
         steps = List.copyOf(steps);
         if (steps.isEmpty()) throw new IllegalArgumentException("steps empty");
+    }
+
+    public ComboStep step(String stepId) {
+        for (var s : steps) {
+            if (Objects.equals(s.stepId(), stepId)) return s;
+        }
+        throw new IllegalStateException("Missing stepId: " + stepId);
     }
 }
 
@@ -974,10 +752,12 @@ package com.pgalaxyp.fragmento.rpg.gameplay.combat.basic;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectEnded;
 import com.pgalaxyp.fragmento.rpg.gameplay.input.InputAction;
 import com.pgalaxyp.fragmento.rpg.gameplay.input.InputEvent;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.CombatDirty;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.WeaponRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectEnded;
 
 import java.util.Objects;
 
@@ -985,40 +765,48 @@ public final class ComboResolver implements Updatable {
 
     private final BasicSequence sequence;
     private final ActorRepository actors;
+    private final WeaponRepository weapons;
     private final TickBus bus;
 
-    public ComboResolver(BasicSequence sequence, ActorRepository actors, TickBus bus) {
+    public ComboResolver(BasicSequence sequence, ActorRepository actors, WeaponRepository weapons, TickBus bus) {
         this.sequence = Objects.requireNonNull(sequence);
         this.actors = Objects.requireNonNull(actors);
+        this.weapons = Objects.requireNonNull(weapons);
         this.bus = Objects.requireNonNull(bus);
 
         bus.subscribe(InputEvent.class, this::onInput);
-        bus.subscribe(EffectEnded.class, this::onEffectEnd);
+        bus.subscribe(EffectEnded.class, this::onEffectEnded);
     }
 
     private void onInput(InputEvent e) {
         if (e.action() != InputAction.ATTACK_PRIMARY) return;
+        if (weapons.equippedWeapon(e.actorId()).filter("FLUTE"::equals).isEmpty()) return;
 
-        var state = actors.combo(e.actorId());
-        if (state.executing()) return;
+        var combo = actors.combo(e.actorId());
+        if (combo.executing()) return;
 
         var steps = sequence.steps();
-        var index = Math.floorMod(state.index(), steps.size());
-        var step = steps.get(index);
+        var idx = Math.floorMod(combo.index(), steps.size());
+        var step = steps.get(idx);
 
-        state.beginStep(index + 1, step.stepId());
+        combo.beginStep(idx + 1, step.stepId());
+
+        long v = actors.bumpCombatVersion(e.actorId());
+        bus.publish(new CombatDirty(e.actorId(), v));
         bus.publish(new ComboStepStarted(e.actorId(), step.stepId()));
     }
 
-    private void onEffectEnd(EffectEnded e) {
-        var state = actors.combo(e.actorId());
-        if (!Objects.equals(state.activeStepId(), e.stepId())) return;
-        state.endStep();
+    private void onEffectEnded(EffectEnded e) {
+        var combo = actors.combo(e.actorId());
+        if (!Objects.equals(combo.activeStepId(), e.stepId())) return;
+
+        combo.endStep();
+        long v = actors.bumpCombatVersion(e.actorId());
+        bus.publish(new CombatDirty(e.actorId(), v));
     }
 
     @Override
-    public void update(GameTick tick, TickBus bus) {
-    }
+    public void update(GameTick tick, TickBus bus) {}
 }
 
 ===== ComboState.java =====
@@ -1067,21 +855,14 @@ public final class ComboState {
 ===== ComboStep.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.combat.basic;
 
+import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnRule;
+
 public record ComboStep(String stepId, String effectMarker, SpawnRule spawnRule) {}
 
 ===== ComboStepStarted.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.combat.basic;
 
 public record ComboStepStarted(long actorId, String stepId) {}
-
-===== SpawnRule.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.combat.basic;
-
-public enum SpawnRule {
-    AUTO,
-    OPPOSITE,
-    TOP
-}
 
 ===== DamageRequest.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.damage;
@@ -1094,7 +875,7 @@ package com.pgalaxyp.fragmento.rpg.gameplay.damage;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
@@ -1243,17 +1024,16 @@ import com.pgalaxyp.fragmento.rpg.core.id.IdGen;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.BasicSequence;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MagicMissileDef;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MagicMissileEffect;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MissileGuidance;
 import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MissileLifetime;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService;
 import com.pgalaxyp.fragmento.rpg.gameplay.time.TimeDrivenMover;
 import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnQuery;
 import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnResolverService;
-import com.pgalaxyp.fragmento.rpg.platform.api.player.PlayerView;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
@@ -1261,13 +1041,12 @@ import java.util.Random;
 
 public final class EffectSpawnSystem implements Updatable {
 
-    private final PlayerView player;
     private final ActorRepository actors;
     private final BasicSequence sequence;
     private final TargetRaycastService targeting;
     private final SpawnResolverService spawns;
     private final EffectSystem effects;
-    private final MagicMissileDef missileDef;
+    private final MagicMissileDef def;
     private final IdGen ids;
     private final Random rng;
 
@@ -1278,24 +1057,22 @@ public final class EffectSpawnSystem implements Updatable {
     private final MissileLifetime lifetime = new MissileLifetime();
 
     public EffectSpawnSystem(
-            PlayerView player,
             ActorRepository actors,
             BasicSequence sequence,
             TargetRaycastService targeting,
             SpawnResolverService spawns,
             EffectSystem effects,
-            MagicMissileDef missileDef,
+            MagicMissileDef def,
             IdGen ids,
             Random rng,
             TickBus bus
     ) {
-        this.player = Objects.requireNonNull(player);
         this.actors = Objects.requireNonNull(actors);
         this.sequence = Objects.requireNonNull(sequence);
         this.targeting = Objects.requireNonNull(targeting);
         this.spawns = Objects.requireNonNull(spawns);
         this.effects = Objects.requireNonNull(effects);
-        this.missileDef = Objects.requireNonNull(missileDef);
+        this.def = Objects.requireNonNull(def);
         this.ids = Objects.requireNonNull(ids);
         this.rng = Objects.requireNonNull(rng);
 
@@ -1311,20 +1088,10 @@ public final class EffectSpawnSystem implements Updatable {
     }
 
     private void spawn(SpawnEffectRequest req, GameTick tick, TickBus bus) {
-        var step = sequence.steps().stream()
-                .filter(s -> Objects.equals(s.stepId(), req.stepId()))
-                .findFirst()
-                .orElse(null);
-
-        EffectEnded effectEnded = new EffectEnded(req.actorId(), req.stepId());
-
-        if (step == null) {
-            bus.publish(effectEnded);
-            return;
-        }
+        var step = sequence.step(req.stepId());
 
         var combo = actors.combo(req.actorId());
-        var target = targeting.resolve(player);
+        var target = targeting.resolve(req.actorId());
 
         var spawn = spawns.resolve(new SpawnQuery(
                 req.actorId(),
@@ -1335,7 +1102,7 @@ public final class EffectSpawnSystem implements Updatable {
         ));
 
         if (!spawn.success()) {
-            bus.publish(effectEnded);
+            bus.publish(new EffectEnded(req.actorId(), req.stepId()));
             return;
         }
 
@@ -1345,7 +1112,7 @@ public final class EffectSpawnSystem implements Updatable {
                 new EffectId(ids.next()),
                 req.actorId(),
                 req.stepId(),
-                missileDef,
+                def,
                 target,
                 spawn.position(),
                 mover,
@@ -1364,7 +1131,7 @@ package com.pgalaxyp.fragmento.rpg.gameplay.effects;
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
 import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;
@@ -1407,7 +1174,7 @@ package com.pgalaxyp.fragmento.rpg.gameplay.effects;
 
 import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
 import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;
@@ -1571,7 +1338,7 @@ public final class MagicMissileEffect implements Effect {
 ===== MissileGuidance.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.effects.missile;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.Target;
 import java.util.Optional;
@@ -1620,26 +1387,6 @@ package com.pgalaxyp.fragmento.rpg.gameplay.effects;
 
 public record SpawnEffectRequest(long actorId, String stepId) {}
 
-===== CombatInputBinding.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.input;
-
-import java.util.EnumSet;
-import java.util.Set;
-
-public record CombatInputBinding(Set<InputAction> actions) {
-    public CombatInputBinding {
-        actions = Set.copyOf(actions);
-    }
-
-    public static CombatInputBinding defaultBinding() {
-        return new CombatInputBinding(EnumSet.of(InputAction.ATTACK_PRIMARY));
-    }
-
-    public String actionId(InputAction action) {
-        return action.name();
-    }
-}
-
 ===== InputAction.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.input;
 
@@ -1651,41 +1398,6 @@ public enum InputAction {
 package com.pgalaxyp.fragmento.rpg.gameplay.input;
 
 public record InputEvent(long actorId, InputAction action) {}
-
-===== InputRouter.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.input;
-
-import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
-import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.core.loop.Updatable;
-import com.pgalaxyp.fragmento.rpg.platform.api.player.InputView;
-import com.pgalaxyp.fragmento.rpg.platform.api.player.PlayerView;
-import java.util.List;
-import java.util.Objects;
-
-public final class InputRouter implements Updatable {
-
-    private final List<PlayerView> players;
-    private final InputView input;
-    private final CombatInputBinding binding;
-
-    public InputRouter(List<PlayerView> players, InputView input, CombatInputBinding binding) {
-        this.players = List.copyOf(players);
-        this.input = Objects.requireNonNull(input);
-        this.binding = Objects.requireNonNull(binding);
-    }
-
-    @Override
-    public void update(GameTick tick, TickBus bus) {
-        for (var player : players) {
-            for (var action : binding.actions()) {
-                if (input.pressedThisTick(binding.actionId(action))) {
-                    bus.publish(new InputEvent(player.actorId(), action));
-                }
-            }
-        }
-    }
-}
 
 ===== Aabb.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.math;
@@ -1764,6 +1476,80 @@ public record Vec3(double x, double y, double z) {
     }
 }
 
+===== ActorRepository.java =====
+package com.pgalaxyp.fragmento.rpg.gameplay.state;
+
+import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorState;
+import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboState;
+import com.pgalaxyp.fragmento.rpg.gameplay.damage.HealthComponent;
+import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
+import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public final class ActorRepository {
+
+    private final Map<Long, ActorState> states = new HashMap<>();
+    private final Map<Long, HealthComponent> health = new HashMap<>();
+    private final Map<Long, ComboState> combos = new HashMap<>();
+    private final Map<Long, Long> combatVersion = new HashMap<>();
+
+    public Optional<ActorState> findState(long actorId) {
+        return Optional.ofNullable(states.get(actorId));
+    }
+
+    public ActorState requireState(long actorId) {
+        var s = states.get(actorId);
+        if (s == null) throw new IllegalStateException("Missing ActorState " + actorId);
+        return s;
+    }
+
+    public void setState(long actorId, Vec3 pos, Vec3 lookDir, Aabb bounds) {
+        var hc = health(actorId);
+        states.put(actorId, new ActorState(pos, lookDir, bounds, hc.alive()));
+    }
+
+    public HealthComponent health(long actorId) {
+        return health.computeIfAbsent(actorId, __ -> new HealthComponent(20.0));
+    }
+
+    public ComboState combo(long actorId) {
+        return combos.computeIfAbsent(actorId, __ -> new ComboState());
+    }
+
+    public long bumpCombatVersion(long actorId) {
+        long v = combatVersion.getOrDefault(actorId, 0L) + 1L;
+        combatVersion.put(actorId, v);
+        return v;
+    }
+}
+
+===== CombatDirty.java =====
+package com.pgalaxyp.fragmento.rpg.gameplay.state;
+
+public record CombatDirty(long actorId, long version) {}
+
+===== WeaponRepository.java =====
+package com.pgalaxyp.fragmento.rpg.gameplay.state;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public final class WeaponRepository {
+
+    private final Map<Long, String> equipped = new HashMap<>();
+
+    public void equip(long actorId, String weaponId) {
+        equipped.put(actorId, weaponId);
+    }
+
+    public Optional<String> equippedWeapon(long actorId) {
+        return Optional.ofNullable(equipped.get(actorId));
+    }
+}
+
 ===== EntityTarget.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.targeting;
 
@@ -1798,34 +1584,37 @@ public sealed interface Target permits EntityTarget, VirtualTarget {
 ===== TargetRaycastService.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.targeting;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
-import com.pgalaxyp.fragmento.rpg.platform.api.player.PlayerView;
-import com.pgalaxyp.fragmento.rpg.platform.api.world.RaycastQuery;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;
 
 public final class TargetRaycastService {
 
-    private final WorldView world;
     private final ActorRepository actors;
+    private final WorldView world;
 
-    public TargetRaycastService(WorldView world, ActorRepository actors) {
-        this.world = Objects.requireNonNull(world);
+    public TargetRaycastService(ActorRepository actors, WorldView world) {
         this.actors = Objects.requireNonNull(actors);
+        this.world = Objects.requireNonNull(world);
     }
 
-    public Target resolve(PlayerView player) {
-        var origin = player.position();
-        var dir = player.lookDirection().normalized();
+    public Target resolve(long actorId) {
+        var stSelf = actors.findState(actorId).orElse(null);
+        if (stSelf == null || !stSelf.alive()) {
+            return new VirtualTarget(new Vec3(0, 0, 0));
+        }
 
-        var hit = world.raycastLivingEntity(new RaycastQuery(origin, dir, 3.0, 20.0));
-        if (hit.isPresent()) {
-            var h = hit.get();
-            var st = actors.findState(h.actorId());
-            if (st.isPresent()) {
-                return new EntityTarget(h.actorId(), st.get().bounds().center(), st.get().bounds());
+        var origin = stSelf.position();
+        var dir = stSelf.lookDirection().normalized();
+
+        var hit = world.raycastLivingEntity(actorId, origin, dir, 3.0, 20.0).orElse(null);
+
+        if (hit != null) {
+            var st = actors.findState(hit.actorId()).orElse(null);
+            if (st != null && st.alive()) {
+                return new EntityTarget(hit.actorId(), st.bounds().center(), st.bounds());
             }
         }
 
@@ -1833,11 +1622,10 @@ public final class TargetRaycastService {
     }
 
     public static Aabb defaultBoundsAt(Vec3 p) {
-        var r = 0.3;
-        var h = 1.8;
+        var e = 0.3;
         return new Aabb(
-                new Vec3(p.x() - r, p.y(), p.z() - r),
-                new Vec3(p.x() + r, p.y() + h, p.z() + r)
+                new Vec3(p.x() - e, p.y(), p.z() - e),
+                new Vec3(p.x() + e, p.y() + 1.8, p.z() + e)
         );
     }
 }
@@ -1863,21 +1651,6 @@ public record VirtualTarget(Vec3 position) implements Target {
     @Override
     public long actorIdOrZero() {
         return 0L;
-    }
-}
-
-===== GameTime.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.time;
-
-import com.pgalaxyp.fragmento.rpg.core.loop.GameTick;
-
-public record GameTime(long nowNanos, long deltaNanos) {
-    public static GameTime fromTick(GameTick tick) {
-        return new GameTime(tick.nowNanos(), tick.deltaNanos());
-    }
-
-    public double deltaSeconds() {
-        return deltaNanos / 1_000_000_000.0;
     }
 }
 
@@ -1911,33 +1684,9 @@ public final class TimeDrivenMover {
     }
 }
 
-===== TimeSource.java =====
-package com.pgalaxyp.fragmento.rpg.gameplay.time;
-
-import com.pgalaxyp.fragmento.rpg.platform.api.time.PlatformTime;
-import java.util.Objects;
-
-public final class TimeSource {
-    private final PlatformTime platformTime;
-    private long lastNow;
-
-    public TimeSource(PlatformTime platformTime) {
-        this.platformTime = Objects.requireNonNull(platformTime);
-        this.lastNow = platformTime.nowNanos();
-    }
-
-    public GameTime sample() {
-        var now = platformTime.nowNanos();
-        var delta = Math.max(0L, now - lastNow);
-        lastNow = now;
-        return new GameTime(now, delta);
-    }
-}
-
 ===== SpawnQuery.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.zone;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.SpawnRule;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.Target;
 
 public record SpawnQuery(long actorId, Target target, SpawnRule rule, SpawnSide lastSide, double distance) {}
@@ -1945,54 +1694,45 @@ public record SpawnQuery(long actorId, Target target, SpawnRule rule, SpawnSide 
 ===== SpawnResolverService.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.zone;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.SpawnRule;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldView;
 import java.util.Objects;
 import java.util.Random;
 
 public final class SpawnResolverService {
-    private final WorldView world;
-    private final Random rng;
 
-    public SpawnResolverService(WorldView world, Random rng) {
-        this.world = Objects.requireNonNull(world);
+    private final Random rng;
+    private final WorldView world;
+
+    public SpawnResolverService(Random rng, WorldView world) {
         this.rng = Objects.requireNonNull(rng);
+        this.world = Objects.requireNonNull(world);
     }
 
     public SpawnResult resolve(SpawnQuery q) {
-        var target = q.target();
-        var aabb = target.bounds();
-        var center = aabb.center();
-        var ext = aabb.extent();
+        var t = q.target();
+        var c = t.bounds().center();
+        var e = t.bounds().extent();
 
-        var side = chooseSide(q.rule(), q.lastSide());
+        var side = choose(q.rule(), q.lastSide());
         var pos = switch (side) {
-            case LEFT -> new Vec3(center.x() - ext.x() - q.distance(), center.y(), center.z());
-            case RIGHT -> new Vec3(center.x() + ext.x() + q.distance(), center.y(), center.z());
-            case TOP -> new Vec3(center.x(), center.y() + ext.y() + q.distance(), center.z());
+            case LEFT -> new Vec3(c.x() - e.x() - q.distance(), c.y(), c.z());
+            case RIGHT -> new Vec3(c.x() + e.x() + q.distance(), c.y(), c.z());
+            case TOP -> new Vec3(c.x(), c.y() + e.y() + q.distance(), c.z());
         };
 
-        if (!isValid(pos)) {
-            return new SpawnResult(false, pos, side);
-        }
+        if (world.isSolidAt(pos)) return new SpawnResult(false, pos, side);
         return new SpawnResult(true, pos, side);
     }
 
-    private SpawnSide chooseSide(SpawnRule rule, SpawnSide last) {
+    private SpawnSide choose(SpawnRule rule, SpawnSide last) {
         return switch (rule) {
             case TOP -> SpawnSide.TOP;
-            case OPPOSITE -> {
-                if (last == SpawnSide.LEFT) yield SpawnSide.RIGHT;
-                if (last == SpawnSide.RIGHT) yield SpawnSide.LEFT;
-                yield rng.nextBoolean() ? SpawnSide.LEFT : SpawnSide.RIGHT;
-            }
             case AUTO -> rng.nextBoolean() ? SpawnSide.LEFT : SpawnSide.RIGHT;
+            case OPPOSITE -> last == SpawnSide.LEFT ? SpawnSide.RIGHT
+                    : last == SpawnSide.RIGHT ? SpawnSide.LEFT
+                    : rng.nextBoolean() ? SpawnSide.LEFT : SpawnSide.RIGHT;
         };
-    }
-
-    private boolean isValid(Vec3 p) {
-        return !world.isSolidAt(p);
     }
 }
 
@@ -2003,6 +1743,15 @@ import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 
 public record SpawnResult(boolean success, Vec3 position, SpawnSide usedSide) {}
 
+===== SpawnRule.java =====
+package com.pgalaxyp.fragmento.rpg.gameplay.zone;
+
+public enum SpawnRule {
+    AUTO,
+    OPPOSITE,
+    TOP
+}
+
 ===== SpawnSide.java =====
 package com.pgalaxyp.fragmento.rpg.gameplay.zone;
 
@@ -2012,79 +1761,30 @@ public enum SpawnSide {
     TOP
 }
 
-===== InputPayloadHandler.java =====
-package com.pgalaxyp.fragmento.rpg.network;
-
-import com.pgalaxyp.fragmento.rpg.gameplay.input.InputEvent;
-import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.network.payload.c2s.InputIntentPayload;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-
-public final class InputPayloadHandler {
-
-    private final TickBus bus;
-
-    public InputPayloadHandler(TickBus bus) {
-        this.bus = bus;
-    }
-
-    public void handle(InputIntentPayload payload, IPayloadContext ctx) {
-        ctx.enqueueWork(() ->
-                bus.publish(new InputEvent(payload.actorId(), payload.action()))
-        );
-    }
-}
-
 ===== InputIntentPayload.java =====
 package com.pgalaxyp.fragmento.rpg.network.payload.c2s;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.input.InputAction;
-import net.minecraft.network.FriendlyByteBuf;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-public record InputIntentPayload(long actorId, InputAction action) implements CustomPacketPayload {
+public record InputIntentPayload(String action) implements CustomPacketPayload {
 
     public static final Type<InputIntentPayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(
-                    "fragmento",
-                    "input_intent"));
+            new Type<>(ResourceLocation.fromNamespaceAndPath("fragmento", "input_intent"));
 
-    public static final StreamCodec<FriendlyByteBuf, InputIntentPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, p) -> {
-                        buf.writeLong(p.actorId());
-                        buf.writeEnum(p.action());
-                    },
-                    buf -> new InputIntentPayload(
-                            buf.readLong(),
-                            buf.readEnum(InputAction.class)
-                    )
-            );
+    public static final StreamCodec<ByteBuf, InputIntentPayload> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8,
+            InputIntentPayload::action,
+            InputIntentPayload::new
+    );
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
-}
-
-===== InputView.java =====
-package com.pgalaxyp.fragmento.rpg.platform.api.player;
-
-public interface InputView {
-    boolean pressedThisTick(String actionId);
-}
-
-===== PlayerView.java =====
-package com.pgalaxyp.fragmento.rpg.platform.api.player;
-
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
-
-public interface PlayerView {
-    long actorId();
-    Vec3 position();
-    Vec3 lookDirection();
 }
 
 ===== PlatformTime.java =====
@@ -2111,17 +1811,6 @@ import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 
 public record EntityHit(long actorId, Vec3 hitPos, double distance) {}
 
-===== RaycastQuery.java =====
-package com.pgalaxyp.fragmento.rpg.platform.api.world;
-
-import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
-
-public record RaycastQuery(Vec3 origin, Vec3 direction, double minDistance, double maxDistance) {
-    public RaycastQuery {
-        if (maxDistance < minDistance) throw new IllegalArgumentException("maxDistance < minDistance");
-    }
-}
-
 ===== WorldView.java =====
 package com.pgalaxyp.fragmento.rpg.platform.api.world;
 
@@ -2129,6 +1818,6 @@ import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import java.util.Optional;
 
 public interface WorldView {
-    Optional<EntityHit> raycastLivingEntity(RaycastQuery query);
+    Optional<EntityHit> raycastLivingEntity(long sourceActorId, Vec3 origin, Vec3 direction, double minDistance, double maxDistance);
     boolean isSolidAt(Vec3 position);
 }

@@ -1,9 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorState;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Aabb;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import java.util.Objects;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -38,13 +37,16 @@ public final class LivingSyncBridge {
             var p = e.position();
             var pos = new Vec3(p.x, p.y, p.z);
 
+            var look = e.getLookAngle();
+            var dir = new Vec3(look.x, look.y, look.z);
+
             var bb = e.getBoundingBox();
             var bounds = new Aabb(
                     new Vec3(bb.minX, bb.minY, bb.minZ),
                     new Vec3(bb.maxX, bb.maxY, bb.maxZ)
             );
 
-            actors.putState(actorId, new ActorState(pos, bounds, true));
+            actors.setState(actorId, pos, dir, bounds);
         }
     }
 }

@@ -1,96 +1,66 @@
 package com.pgalaxyp.fragmento.rpg.adapter.minecraft.lifecycle;
 
-import com.pgalaxyp.fragmento.bootstrap.RpgNetwork;
-import com.pgalaxyp.fragmento.rpg.adapter.minecraft.context.ActorContextServer;
-import com.pgalaxyp.fragmento.rpg.core.boot.GameBootstrap;
-import com.pgalaxyp.fragmento.rpg.core.boot.RpgWiring;
-import com.pgalaxyp.fragmento.rpg.core.id.IdGen;
-import com.pgalaxyp.fragmento.rpg.core.loop.GameLoop;
-import com.pgalaxyp.fragmento.rpg.core.loop.TickBus;
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboResolver;
-import com.pgalaxyp.fragmento.rpg.gameplay.damage.DamageResolver;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSpawnSystem;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSystem;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.ComboEffectObserver;
-import com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MagicMissileDef;
-import com.pgalaxyp.fragmento.rpg.gameplay.input.CombatInputBinding;
-import com.pgalaxyp.fragmento.rpg.gameplay.input.InputRouter;
-import com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService;
-import com.pgalaxyp.fragmento.rpg.gameplay.weapon.WeaponRepository;
-import com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnResolverService;
-import com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld;
-import java.util.Optional;
-import java.util.Random;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.common.NeoForge;
 
 public final class ModEntrypoint {
 
     public ModEntrypoint(IEventBus modBus) {
 
-        var bus = new TickBus();
+        var bus = new com.pgalaxyp.fragmento.rpg.core.loop.TickBus();
 
-        var actorIdGen = new IdGen(0L);
-        var effectIdGen = new IdGen(10_000L);
+        var actorIds = new ActorIds(new com.pgalaxyp.fragmento.rpg.core.id.IdGen(0L));
+        ServerInputIntentHandler.init(actorIds);
 
-        var actorIds = new ActorIds(actorIdGen);
-        var actorContext = new ActorContextServer(actorIds);
+        var effectIds = new com.pgalaxyp.fragmento.rpg.core.id.IdGen(10_000L);
 
-        var actors = new ActorRepository();
-        var weapons = new WeaponRepository();
+        var actors = new com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository();
+        var weapons = new com.pgalaxyp.fragmento.rpg.gameplay.state.WeaponRepository();
 
-        var visuals = Optional.<VisualWorld>of(new MinecraftVisualWorld());
+        WeaponBootstrap.register(WeaponContent.flute(), weapons);
 
-        var inputRouter = new InputRouter(CombatInputBinding.defaultBinding());
+        var visuals = java.util.Optional.<com.pgalaxyp.fragmento.rpg.platform.api.visual.VisualWorld>of(new MinecraftVisualWorld());
 
-        var sequence = DemoContent.fluteSequence();
-        var missileDef = new MagicMissileDef(3.0, 0.5, 0.75);
+        var sequence = com.pgalaxyp.fragmento.rpg.content.sequences.DemoContent.fluteSequence();
+        var missileDef = new com.pgalaxyp.fragmento.rpg.gameplay.effects.missile.MagicMissileDef(3.0, 0.5, 0.75);
 
-        var combo = new ComboResolver(sequence, actors, bus);
-        new ComboEffectObserver(sequence, bus);
+        var world = new MinecraftWorldView(actorIds);
+        var targeting = new com.pgalaxyp.fragmento.rpg.gameplay.targeting.TargetRaycastService(actors, world);
+        var spawns = new com.pgalaxyp.fragmento.rpg.gameplay.zone.SpawnResolverService(new java.util.Random(), world);
 
-        var effectsRepo = new EffectRepository();
-        var effects = new EffectSystem(effectsRepo, visuals, actors);
+        var combo = new com.pgalaxyp.fragmento.rpg.gameplay.combat.basic.ComboResolver(sequence, actors, weapons, bus);
+        new com.pgalaxyp.fragmento.rpg.gameplay.effects.ComboEffectObserver(sequence, bus);
 
-        var targeting = new TargetRaycastService(actors);
-        var spawns = new SpawnResolverService(new Random());
+        var effectsRepo = new com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectRepository();
+        var effects = new com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSystem(effectsRepo, world, visuals, actors);
 
-        var effectSpawn = new EffectSpawnSystem(
+        var effectSpawn = new com.pgalaxyp.fragmento.rpg.gameplay.effects.EffectSpawnSystem(
                 actors,
-                weapons,
                 sequence,
                 targeting,
                 spawns,
                 effects,
                 missileDef,
-                effectIdGen,
-                new Random(),
+                effectIds,
+                new java.util.Random(),
                 bus
         );
 
-        var damage = new DamageResolver(actors, bus);
-        new DamageBridge(actorContext, actorIds, bus);
-
-        var snapshotBridge = new SnapshotBridge(actorContext, actors, effectsRepo, bus);
+        var damage = new com.pgalaxyp.fragmento.rpg.gameplay.damage.DamageResolver(actors, bus);
+        new DamageBridge(actorIds, bus);
 
         RpgNetwork.register(modBus, bus);
 
-        var wiring = new RpgWiring(
-                inputRouter,
+        var wiring = new com.pgalaxyp.fragmento.rpg.core.boot.RpgWiring(
                 combo,
                 effectSpawn,
                 effects,
                 damage
         );
 
-        var bootstrap = new GameBootstrap(System::nanoTime, wiring, bus);
-        GameLoop loop = bootstrap.build();
+        var loop = new com.pgalaxyp.fragmento.rpg.core.boot.GameBootstrap(System::nanoTime, wiring, bus).build();
 
-        NeoForge.EVENT_BUS.register(new GameLoopBridge(loop));
-        NeoForge.EVENT_BUS.register(new PlayerSyncBridge(actorIds, actors, weapons));
-        NeoForge.EVENT_BUS.register(new LivingSyncBridge(actorIds, actors));
-        NeoForge.EVENT_BUS.register(snapshotBridge);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(new GameLoopBridge(loop));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(new PlayerSyncBridge(actorIds, actors, weapons));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(new LivingSyncBridge(actorIds, actors));
     }
 }

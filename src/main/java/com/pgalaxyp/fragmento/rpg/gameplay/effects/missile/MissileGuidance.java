@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.gameplay.effects.missile;
 
-import com.pgalaxyp.fragmento.rpg.gameplay.actor.ActorRepository;
+import com.pgalaxyp.fragmento.rpg.gameplay.state.ActorRepository;
 import com.pgalaxyp.fragmento.rpg.gameplay.math.Vec3;
 import com.pgalaxyp.fragmento.rpg.gameplay.targeting.Target;
 import java.util.Optional;
