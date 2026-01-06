@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.math;
 
 public record Aabb(Vec3 min, Vec3 max) {
+
     public Vec3 center() {
         return new Vec3(
                 (min.x() + max.x()) * 0.5,

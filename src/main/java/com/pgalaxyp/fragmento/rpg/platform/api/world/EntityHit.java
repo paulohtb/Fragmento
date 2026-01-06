@@ -1,5 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.platform.api.world;
 
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
+import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
 
-public record EntityHit(long actorId, Vec3 hitPos, double distance) {}
+public record EntityHit(
+        Target target,
+        double distance
+) {}

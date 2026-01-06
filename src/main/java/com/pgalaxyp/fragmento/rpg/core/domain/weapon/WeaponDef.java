@@ -1,9 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.weapon;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboSequence;
+import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 
 public record WeaponDef(
-        String weaponId,
-        ComboSequence combo,
-        double baseCooldownSeconds
+        String id,
+        ActionDef primaryAction
 ) {}
