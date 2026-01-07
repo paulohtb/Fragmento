@@ -1,6 +1,7 @@
 ===== FragmentoMod.java =====
 package com.pgalaxyp.fragmento.bootstrap;
 
+import com.pgalaxyp.fragmento.rpg.host.minecraft.bootstrap.ModInit;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -9,40 +10,27 @@ public final class FragmentoMod {
 
     public static final String MODID = "fragmento";
 
-    public FragmentoMod(IEventBus modBus) {}
+    public FragmentoMod(IEventBus modBus) {
+        ModInit.init(modBus);
+    }
 }
 
 ===== core\content\bard\BardFlute.java =====
 package com.pgalaxyp.fragmento.rpg.core.content.bard;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionPriority;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionTimeline;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionType;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.CancelPolicy;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
-import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboSequence;
-import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStepDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.MagicMissileEffect;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetFilter;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetPolicy;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetRelation;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingRequest;
+import com.pgalaxyp.fragmento.rpg.core.domain.action.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.combo.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.domain.targeting.*;
 import com.pgalaxyp.fragmento.rpg.core.domain.weapon.WeaponDef;
-import java.util.EnumSet;
+
 import java.util.List;
 import java.util.Set;
 
 public final class BardFlute {
 
     public static WeaponDef create() {
-        var missile = new MagicMissileEffect(
-                4.0,
-                0.5,
-                0.75,
-                5.0
-        );
+        var missile = new EffectId("magic_missile");
 
         var targeting = new TargetingRequest(
                 TargetRelation.ENEMY,
@@ -50,21 +38,26 @@ public final class BardFlute {
                 Set.of(TargetFilter.LIVING, TargetFilter.VISIBLE)
         );
 
-        var stepTimeline = new ActionTimeline(0, 0, 0);
+        var timeline = new ActionTimeline(120, 80, 160);
+
+        var interrupts = Set.of(
+                InterruptMask.MOVEMENT,
+                InterruptMask.DAMAGE,
+                InterruptMask.CONTROL
+        );
 
         var combo = new ComboSequence(List.of(
-                new ComboStepDef("hit_1", stepTimeline, missile, targeting),
-                new ComboStepDef("hit_2", stepTimeline, missile, targeting),
-                new ComboStepDef("hit_3", stepTimeline, missile, targeting)
+                new ComboStepDef("hit_1", timeline, missile, targeting, interrupts),
+                new ComboStepDef("hit_2", timeline, missile, targeting, interrupts),
+                new ComboStepDef("hit_3", timeline, missile, targeting, interrupts)
         ));
 
         var action = new ActionDef(
-                new ActionId("bard_flute_attack"),
+                new ActionId("bard_flute_combo"),
                 ActionType.COMBO,
                 ActionPriority.NORMAL,
-                stepTimeline,
+                timeline,
                 CancelPolicy.SAME_OR_LOWER,
-                EnumSet.of(InterruptMask.MOVEMENT, InterruptMask.DAMAGE, InterruptMask.CONTROL),
                 combo
         );
 
@@ -76,7 +69,6 @@ public final class BardFlute {
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboSequence;
-import java.util.EnumSet;
 
 public record ActionDef(
         ActionId id,
@@ -84,9 +76,12 @@ public record ActionDef(
         ActionPriority priority,
         ActionTimeline timeline,
         CancelPolicy cancelPolicy,
-        EnumSet<InterruptMask> interruptMask,
         ComboSequence combo
-) {}
+) {
+    public boolean hasCombo() {
+        return combo != null && combo.size() > 0;
+    }
+}
 
 ===== core\domain\action\ActionId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
@@ -106,10 +101,14 @@ public enum ActionPriority {
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
 
 public record ActionTimeline(
-        long windup,
-        long active,
-        long recovery
-) {}
+        long windupMillis,
+        long activeMillis,
+        long recoveryMillis
+) {
+    public long totalMillis() {
+        return windupMillis + activeMillis + recoveryMillis;
+    }
+}
 
 ===== core\domain\action\ActionType.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
@@ -132,17 +131,10 @@ public enum CancelPolicy {
 ===== core\domain\action\InterruptMask.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
 
-import java.util.EnumSet;
-
 public enum InterruptMask {
-    NONE,
     MOVEMENT,
     DAMAGE,
-    CONTROL;
-
-    public static EnumSet<InterruptMask> none() {
-        return EnumSet.of(NONE);
-    }
+    CONTROL
 }
 
 ===== core\domain\combo\ComboSequence.java =====
@@ -154,113 +146,46 @@ public record ComboSequence(List<ComboStepDef> steps) {
     public ComboSequence {
         steps = List.copyOf(steps);
     }
+
+    public int size() {
+        return steps.size();
+    }
+
+    public ComboStepDef step(int index) {
+        return steps.get(index);
+    }
 }
 
 ===== core\domain\combo\ComboStepDef.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionTimeline;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingRequest;
+import java.util.Set;
 
 public record ComboStepDef(
         String id,
         ActionTimeline timeline,
-        EffectDef effect,
-        TargetingRequest targeting
-) {}
+        EffectId effect,
+        TargetingRequest targeting,
+        Set<InterruptMask> interruptMask
+) {
+    public ComboStepDef {
+        interruptMask = interruptMask == null ? Set.of() : Set.copyOf(interruptMask);
+    }
+}
 
 ===== core\domain\effect\EffectDef.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.effect;
 
-public sealed interface EffectDef permits MagicMissileEffect {}
+public sealed interface EffectDef permits EffectId {}
 
-===== core\domain\effect\MagicMissileEffect.java =====
+===== core\domain\effect\EffectId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.effect;
 
-public record MagicMissileEffect(
-        double damage,
-        double minFlightSeconds,
-        double maxLifetimeSeconds,
-        double spawnRadiusBlocks
-) implements EffectDef {
-    public MagicMissileEffect {
-        if (minFlightSeconds <= 0) throw new IllegalArgumentException("minFlightSeconds");
-        if (maxLifetimeSeconds <= 0) throw new IllegalArgumentException("maxLifetimeSeconds");
-        if (maxLifetimeSeconds < minFlightSeconds) throw new IllegalArgumentException("maxLifetimeSeconds < minFlightSeconds");
-        if (spawnRadiusBlocks <= 0) throw new IllegalArgumentException("spawnRadiusBlocks");
-    }
-}
-
-===== core\domain\event\ActionInterruptedEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
-
-public record ActionInterruptedEvent(
-        long actorId,
-        ActionId actionId,
-        InterruptMask cause,
-        long createdAt
-) implements RpgEvent {}
-
-===== core\domain\event\EffectAppliedEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-
-public record EffectAppliedEvent(
-        long actorId,
-        EffectDef effect,
-        Target target,
-        long createdAt
-) implements RpgEvent {}
-
-===== core\domain\event\RpgEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-public interface RpgEvent {}
-
-===== core\domain\event\TargetingDataCollectedEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-import java.util.Optional;
-
-public record TargetingDataCollectedEvent(
-        TargetingRequestedEvent request,
-        Optional<Target> target
-) implements RpgEvent {}
-
-===== core\domain\event\TargetingRequestedEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingRequest;
-
-public record TargetingRequestedEvent(
-        long actorId,
-        ActionId actionId,
-        int comboIndex,
-        String stepId,
-        EffectDef effect,
-        TargetingRequest targeting,
-        long createdAt
-) implements RpgEvent {}
-
-===== core\domain\event\TargetingResolvedEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.event;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-import java.util.Optional;
-
-public record TargetingResolvedEvent(
-        TargetingRequestedEvent request,
-        Optional<Target> target
-) implements RpgEvent {}
+public record EffectId(String value) implements EffectDef {}
 
 ===== core\domain\targeting\Target.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.targeting;
@@ -293,7 +218,11 @@ public record TargetingRequest(
         TargetRelation relation,
         TargetPolicy policy,
         Set<TargetFilter> filters
-) {}
+) {
+    public TargetingRequest {
+        filters = filters == null ? Set.of() : Set.copyOf(filters);
+    }
+}
 
 ===== core\domain\targeting\TargetingResolution.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.targeting;
@@ -302,9 +231,9 @@ import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
 
 public record TargetingResolution(
         long actorId,
-        Vec3 casterPos,
-        Vec3 casterLook,
-        Target target
+        Vec3 casterPosition,
+        Vec3 casterDirection,
+        Target resolvedTarget
 ) {}
 
 ===== core\domain\targeting\TargetPolicy.java =====
@@ -340,9 +269,18 @@ public record VirtualTarget(
     public Aabb bounds() {
         var p = position;
         var eps = 0.01;
+        var neg = Double.NEGATIVE_INFINITY;
         return new Aabb(
-                new Vec3(p.x() - eps, p.y() - eps, p.z() - eps),
-                new Vec3(p.x() + eps, p.y() + eps, p.z() + eps)
+                new Vec3(
+                        p.x() + Math.copySign(eps, neg),
+                        p.y() + Math.copySign(eps, neg),
+                        p.z() + Math.copySign(eps, neg)
+                ),
+                new Vec3(
+                        p.x() + eps,
+                        p.y() + eps,
+                        p.z() + eps
+                )
         );
     }
 
@@ -367,37 +305,6 @@ public record WeaponDef(
         ActionDef primaryAction
 ) {}
 
-===== core\domain\zone\SpawnQuery.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.zone;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-
-public record SpawnQuery(
-        long actorId,
-        Target target,
-        SpawnRule rule,
-        SpawnSide lastSide,
-        double distance
-) {}
-
-===== core\domain\zone\SpawnRule.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.zone;
-
-public enum SpawnRule {
-    AUTO,
-    OPPOSITE,
-    TOP
-}
-
-===== core\domain\zone\SpawnSide.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.zone;
-
-public enum SpawnSide {
-    LEFT,
-    RIGHT,
-    TOP
-}
-
 ===== core\math\Aabb.java =====
 package com.pgalaxyp.fragmento.rpg.core.math;
 
@@ -413,9 +320,9 @@ public record Aabb(Vec3 min, Vec3 max) {
 
     public Vec3 extent() {
         return new Vec3(
-                (max.x() - min.x()) * 0.5,
-                (max.y() - min.y()) * 0.5,
-                (max.z() - min.z()) * 0.5
+                (max.x() + Math.copySign(min.x(), Double.NEGATIVE_INFINITY)) * 0.5,
+                (max.y() + Math.copySign(min.y(), Double.NEGATIVE_INFINITY)) * 0.5,
+                (max.z() + Math.copySign(min.z(), Double.NEGATIVE_INFINITY)) * 0.5
         );
     }
 
@@ -436,7 +343,11 @@ public record Vec3(double x, double y, double z) {
     }
 
     public Vec3 sub(Vec3 o) {
-        return new Vec3(x - o.x(), y - o.y(), z - o.z());
+        return new Vec3(
+                x + Math.copySign(o.x(), Double.NEGATIVE_INFINITY),
+                y + Math.copySign(o.y(), Double.NEGATIVE_INFINITY),
+                z + Math.copySign(o.z(), Double.NEGATIVE_INFINITY)
+        );
     }
 
     public Vec3 mul(double s) {
@@ -457,7 +368,7 @@ public record Vec3(double x, double y, double z) {
 
     public Vec3 normalized() {
         var l = len();
-        if (l <= 1.0e-9) return new Vec3(0, 0, 0);
+        if (l <= 0.000000001) return new Vec3(0, 0, 0);
         return mul(1.0 / l);
     }
 }
@@ -467,8 +378,6 @@ package com.pgalaxyp.fragmento.rpg.core.rule.action;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.rule.combo.ComboProgressionRule;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
 import com.pgalaxyp.fragmento.rpg.core.rule.priority.PriorityRule;
 import com.pgalaxyp.fragmento.rpg.core.state.action.ActionState;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
@@ -493,68 +402,68 @@ public final class ActionOrchestrator implements ActionRuleSet {
 
     @Override
     public ActionResult applyPrimary(long actorId, ActorState current, ActionDef action, long now) {
-        var currentAction = current != null ? current.currentAction() : null;
+        var base = current == null ? ActorState.empty(actorId) : current;
 
-        if (currentAction != null && currentAction.isActiveAt(now)) {
-            if (!priorityRule.canInterrupt(currentAction, action)) {
-                return ActionResult.ignored();
+        var running = base.currentAction();
+        if (running != null && running.isActiveAt(now)) {
+            if (!priorityRule.canInterrupt(running, action)) {
+                return ActionResult.ignored(base);
             }
         }
 
-        var index = comboRule.nextIndex(current, action, now);
-        var step = action.combo().steps().get(index);
-        var endsAt = timingRule.computeEndsAt(step.timeline(), now);
+        if (!action.hasCombo()) {
+            return ActionResult.ignored(base);
+        }
+
+        int nextIndex = comboRule.nextIndex(base, action, now);
+        var step = action.combo().step(nextIndex);
+
+        long endsAt = timingRule.computeEndsAt(step.timeline(), now);
 
         var nextAction = new ActionState(
                 action.id(),
                 action.priority(),
                 now,
                 endsAt,
-                action.interruptMask()
+                step.interruptMask()
         );
 
-        var nextCombo = new ComboState(action.id(), index);
+        var nextCombo = new ComboState(action.id(), nextIndex);
 
-        var nextState = new ActorState(
-                actorId,
-                nextAction,
-                nextCombo,
-                current != null ? current.missiles() : null
-        );
+        var nextState = base.with(nextAction, nextCombo);
 
-        List<RuleCommand> commands = List.of(new RequestTargeting(
+        var targeting = new PendingTargeting(
                 actorId,
                 action.id(),
-                index,
-                step.id(),
+                nextIndex,
                 step.effect(),
                 step.targeting(),
                 20.0,
                 10.0,
                 now
-        ));
+        );
 
-        return new ActionResult(nextState, commands);
+        return ActionResult.applied(nextState, List.of(targeting));
     }
 }
 
 ===== core\rule\action\ActionResult.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule.action;
 
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
 import java.util.List;
 
 public record ActionResult(
         ActorState nextState,
-        List<RuleCommand> commands
+        List<PendingTargeting> targetings,
+        boolean consumed
 ) {
-    public boolean consumed() {
-        return commands != null && !commands.isEmpty();
+    public static ActionResult ignored(ActorState state) {
+        return new ActionResult(state, List.of(), false);
     }
 
-    public static ActionResult ignored() {
-        return new ActionResult(null, List.of());
+    public static ActionResult applied(ActorState state, List<PendingTargeting> targetings) {
+        return new ActionResult(state, List.copyOf(targetings), true);
     }
 }
 
@@ -592,10 +501,27 @@ public final class BasicActionTimingRule implements ActionTimingRule {
 
     @Override
     public long computeEndsAt(ActionTimeline timeline, long startedAt) {
-        var duration = timeline.windup() + timeline.active() + timeline.recovery();
-        return startedAt + Math.max((long) duration, 0L);
+        return startedAt + Math.max(timeline.totalMillis(), 0L);
     }
 }
+
+===== core\rule\action\PendingTargeting.java =====
+package com.pgalaxyp.fragmento.rpg.core.rule.action;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingRequest;
+
+public record PendingTargeting(
+        long actorId,
+        ActionId actionId,
+        int comboIndex,
+        EffectId effect,
+        TargetingRequest request,
+        double maxEntityDistance,
+        double maxVirtualDistance,
+        long createdAt
+) {}
 
 ===== core\rule\BasicRuleDispatcher.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule;
@@ -603,11 +529,13 @@ package com.pgalaxyp.fragmento.rpg.core.rule;
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
 import com.pgalaxyp.fragmento.rpg.core.rule.action.ActionRuleSet;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
 import com.pgalaxyp.fragmento.rpg.core.rule.effect.EffectRule;
 import com.pgalaxyp.fragmento.rpg.core.rule.intent.ActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.rule.intent.InterruptIntent;
 import com.pgalaxyp.fragmento.rpg.core.rule.interrupt.InterruptRule;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class BasicRuleDispatcher implements RuleDispatcher {
@@ -636,45 +564,62 @@ public final class BasicRuleDispatcher implements RuleDispatcher {
         );
 
         return new RuleFrame(
-                result.nextState() != null ? result.nextState() : current,
-                result.commands(),
-                result.consumed()
-        );
-    }
-
-    @Override
-    public RuleFrame applyInterrupt(long actorId, ActorState current, long now) {
-        var result = interruptRule.apply(actorId, current, null, now);
-        return new RuleFrame(
-                result.nextState() != null ? result.nextState() : current,
+                result.nextState(),
+                result.targetings(),
                 List.of(),
                 result.consumed()
         );
     }
 
     @Override
-    public RuleFrame applyTargetingResult(
+    public RuleFrame applyInterrupt(InterruptIntent intent, ActorState current, long now) {
+        if (current == null) current = ActorState.empty(intent.actorId());
+
+        var next = interruptRule.apply(
+                intent.actorId(),
+                current,
+                intent.cause(),
+                now
+        );
+
+        if (next.equals(current)) {
+            return new RuleFrame(current, List.of(), List.of(), false);
+        }
+
+        return new RuleFrame(
+                next,
+                List.of(),
+                List.of(),
+                true
+        );
+    }
+
+    @Override
+    public RuleFrame resolveTargeting(
             RuleFrame previous,
             ActionDef action,
+            PendingTargeting targeting,
             TargetingResolution resolution,
             long now
     ) {
-        for (var cmd : previous.commands()) {
-            if (cmd instanceof RequestTargeting rt) {
-                var eff = effectRule.onTargetResolved(
-                        rt.actorId(),
-                        previous.nextState(),
-                        action,
-                        rt.comboIndex(),
-                        resolution,
-                        now
-                );
+        var eff = effectRule.onTargetResolved(
+                targeting.actorId(),
+                previous.nextState(),
+                action,
+                targeting.comboIndex(),
+                resolution,
+                now
+        );
 
-                return new RuleFrame(eff.nextState(), List.of(), eff.consumed());
-            }
-        }
+        var effects = new ArrayList<>(previous.effects());
+        if (eff.effect() != null) effects.add(eff.effect());
 
-        return previous;
+        return new RuleFrame(
+                eff.nextState(),
+                List.of(),
+                List.copyOf(effects),
+                eff.consumed()
+        );
     }
 }
 
@@ -688,20 +633,11 @@ public final class BasicComboProgressionRule implements ComboProgressionRule {
 
     @Override
     public int nextIndex(ActorState current, ActionDef action, long now) {
-        var steps = action.combo().steps();
-        var size = steps.size();
-        if (size == 0) return 0;
+        if (action.combo() == null || action.combo().size() == 0) return 0;
+        if (current == null || !current.combo().matches(action.id())) return 0;
 
-        if (current == null) return 0;
-
-        var combo = current.combo();
-        if (combo == null || combo.actionId() == null) return 0;
-
-        if (!combo.actionId().equals(action.id())) return 0;
-
-        var candidate = combo.index() + 1;
-        if (candidate >= size) return 0;
-        return candidate;
+        int next = current.combo().index() + 1;
+        return Math.min(next, action.combo().size() - 1);
     }
 }
 
@@ -715,68 +651,14 @@ public interface ComboProgressionRule {
     int nextIndex(ActorState current, ActionDef action, long now);
 }
 
-===== core\rule\command\ApplyEffect.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.command;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-
-public record ApplyEffect(
-        long actorId,
-        EffectDef effect,
-        Target target,
-        long createdAt
-) implements RuleCommand {}
-
-===== core\rule\command\RequestTargeting.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.command;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingRequest;
-
-public record RequestTargeting(
-        long actorId,
-        ActionId actionId,
-        int comboIndex,
-        String stepId,
-        EffectDef effect,
-        TargetingRequest targeting,
-        double maxEntityDistanceBlocks,
-        double maxVirtualDistanceBlocks,
-        long createdAt
-) implements RuleCommand {}
-
-===== core\rule\command\RuleCommand.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.command;
-
-public sealed interface RuleCommand
-        permits ApplyEffect, RequestTargeting, SpawnMissile {}
-
-===== core\rule\command\SpawnMissile.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.command;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-
-public record SpawnMissile(
-        long actorId,
-        ActionId actionId,
-        int comboIndex,
-        EffectDef effect,
-        Target target,
-        long createdAt
-) implements RuleCommand {}
-
 ===== core\rule\effect\BasicEffectRule.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule.effect;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.MagicMissileEffect;
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.SpawnMissile;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
 
 public final class BasicEffectRule implements EffectRule {
 
@@ -790,28 +672,27 @@ public final class BasicEffectRule implements EffectRule {
             long now
     ) {
         if (current == null) current = ActorState.empty(actorId);
+        if (action == null || action.combo() == null) return EffectResult.ignored(current);
 
-        var steps = action.combo().steps();
-        if (comboIndex < 0 || comboIndex >= steps.size()) {
+        if (comboIndex < 0 || comboIndex >= action.combo().size()) {
             return EffectResult.ignored(current);
         }
 
-        var step = steps.get(comboIndex);
-        if (!(step.effect() instanceof MagicMissileEffect)) {
+        var step = action.combo().step(comboIndex);
+        EffectId effect = step.effect();
+        if (effect == null) {
             return EffectResult.ignored(current);
         }
 
         return new EffectResult(
                 current,
-                true,
-                new SpawnMissile(
+                new EffectState(
                         actorId,
-                        action.id(),
-                        comboIndex,
-                        step.effect(),
-                        resolution.target(),
+                        effect,
+                        resolution.resolvedTarget(),
                         now
-                )
+                ),
+                true
         );
     }
 }
@@ -821,8 +702,8 @@ package com.pgalaxyp.fragmento.rpg.core.rule.effect;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
 
 public interface EffectRule {
 
@@ -837,11 +718,11 @@ public interface EffectRule {
 
     record EffectResult(
             ActorState nextState,
-            boolean consumed,
-            RuleCommand command
+            EffectState effect,
+            boolean consumed
     ) {
-        public static EffectResult ignored(ActorState current) {
-            return new EffectResult(current, false, null);
+        public static EffectResult ignored(ActorState state) {
+            return new EffectResult(state, null, false);
         }
     }
 }
@@ -856,57 +737,39 @@ public record ActionIntent(
         ActionId actionId
 ) {}
 
+===== core\rule\intent\InterruptIntent.java =====
+package com.pgalaxyp.fragmento.rpg.core.rule.intent;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
+
+public record InterruptIntent(
+        long actorId,
+        InterruptMask cause
+) {}
+
 ===== core\rule\interrupt\BasicInterruptRule.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule.interrupt;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.ActionInterruptedEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.RpgEvent;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
-import java.util.List;
 
 public final class BasicInterruptRule implements InterruptRule {
 
     @Override
-    public InterruptResult apply(long actorId, ActorState current, InterruptMask cause, long now) {
-        if (cause == null || cause == InterruptMask.NONE) return InterruptResult.ignored();
-        if (current == null) return InterruptResult.ignored();
+    public ActorState apply(
+            long actorId,
+            ActorState current,
+            InterruptMask cause,
+            long now
+    ) {
+        if (current == null) return ActorState.empty(actorId);
+        if (cause == null) return current;
 
-        var currentAction = current.currentAction();
-        if (currentAction == null) return InterruptResult.ignored();
+        var action = current.currentAction();
+        if (action == null) return current;
+        if (!action.canBeInterruptedBy(cause)) return current;
 
-        if (!currentAction.canBeInterruptedBy(cause)) return InterruptResult.ignored();
-
-        var next = new ActorState(actorId, null, current.combo(), List.of());
-
-        var events = List.<RpgEvent>of(new ActionInterruptedEvent(
-                actorId,
-                currentAction.actionId(),
-                cause,
-                now
-        ));
-
-        return new InterruptResult(next, events);
-    }
-}
-
-===== core\rule\interrupt\InterruptResult.java =====
-package com.pgalaxyp.fragmento.rpg.core.rule.interrupt;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.event.RpgEvent;
-import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
-import java.util.List;
-
-public record InterruptResult(
-        ActorState nextState,
-        List<RpgEvent> events
-) {
-    public boolean consumed() {
-        return nextState != null;
-    }
-
-    public static InterruptResult ignored() {
-        return new InterruptResult(null, List.of());
+        return current.with(null, current.combo());
     }
 }
 
@@ -917,7 +780,7 @@ import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
 
 public interface InterruptRule {
-    InterruptResult apply(long actorId, ActorState current, InterruptMask cause, long now);
+    ActorState apply(long actorId, ActorState current, InterruptMask cause, long now);
 }
 
 ===== core\rule\priority\BasicPriorityRule.java =====
@@ -936,7 +799,7 @@ public final class BasicPriorityRule implements PriorityRule {
         var policy = nextAction.cancelPolicy();
         if (policy == CancelPolicy.NONE) return false;
 
-        var cmp = nextAction.priority().compareTo(currentAction.priority());
+        int cmp = nextAction.priority().compareTo(currentAction.priority());
         if (policy == CancelPolicy.ANY) return true;
         return cmp >= 0;
     }
@@ -957,9 +820,12 @@ package com.pgalaxyp.fragmento.rpg.core.rule;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
 import com.pgalaxyp.fragmento.rpg.core.rule.intent.ActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.rule.intent.InterruptIntent;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
+
 import java.util.List;
 
 public interface RuleDispatcher {
@@ -972,21 +838,23 @@ public interface RuleDispatcher {
     );
 
     RuleFrame applyInterrupt(
-            long actorId,
+            InterruptIntent intent,
             ActorState current,
             long now
     );
 
-    RuleFrame applyTargetingResult(
+    RuleFrame resolveTargeting(
             RuleFrame previous,
             ActionDef action,
+            PendingTargeting targeting,
             TargetingResolution resolution,
             long now
     );
 
     record RuleFrame(
             ActorState nextState,
-            List<RuleCommand> commands,
+            List<PendingTargeting> targetings,
+            List<EffectState> effects,
             boolean consumed
     ) {}
 }
@@ -997,24 +865,26 @@ package com.pgalaxyp.fragmento.rpg.core.state.action;
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionPriority;
 import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
-import java.util.EnumSet;
+
+import java.util.Set;
 
 public record ActionState(
         ActionId actionId,
         ActionPriority priority,
         long startedAt,
         long endsAt,
-        EnumSet<InterruptMask> interruptMask
+        Set<InterruptMask> interruptMask
 ) {
+    public ActionState {
+        interruptMask = interruptMask == null ? Set.of() : Set.copyOf(interruptMask);
+    }
+
     public boolean isActiveAt(long now) {
-        return now < endsAt;
+        return now >= startedAt && now < endsAt;
     }
 
     public boolean canBeInterruptedBy(InterruptMask cause) {
-        if (cause == null) return false;
-        if (interruptMask == null || interruptMask.isEmpty()) return false;
-        if (interruptMask.contains(InterruptMask.NONE)) return false;
-        return interruptMask.contains(cause);
+        return cause != null && interruptMask.contains(cause);
     }
 }
 
@@ -1023,23 +893,31 @@ package com.pgalaxyp.fragmento.rpg.core.state.actor;
 
 import com.pgalaxyp.fragmento.rpg.core.state.action.ActionState;
 import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboState;
-import com.pgalaxyp.fragmento.rpg.core.state.effect.ActiveMissile;
-import java.util.List;
 
 public record ActorState(
         long actorId,
+        long version,
         ActionState currentAction,
-        ComboState combo,
-        List<ActiveMissile> missiles
+        ComboState combo
 ) {
     public ActorState {
-        if (combo == null) combo = ComboState.empty();
-        if (missiles == null) missiles = List.of();
-        missiles = List.copyOf(missiles);
+        combo = combo == null ? ComboState.empty() : combo;
     }
 
     public static ActorState empty(long actorId) {
-        return new ActorState(actorId, null, ComboState.empty(), List.of());
+        return new ActorState(actorId, 0L, null, ComboState.empty());
+    }
+
+    public ActorState withAction(ActionState nextAction) {
+        return new ActorState(actorId, version + 1L, nextAction, combo);
+    }
+
+    public ActorState withCombo(ComboState nextCombo) {
+        return new ActorState(actorId, version + 1L, currentAction, nextCombo);
+    }
+
+    public ActorState with(ActionState nextAction, ComboState nextCombo) {
+        return new ActorState(actorId, version + 1L, nextAction, nextCombo);
     }
 }
 
@@ -1055,43 +933,34 @@ public record ComboState(
     public static ComboState empty() {
         return new ComboState(null, 0);
     }
+
+    public boolean matches(ActionId id) {
+        return actionId != null && actionId.equals(id);
+    }
+
+    public ComboState advance(ActionId id, int nextIndex) {
+        return new ComboState(id, nextIndex);
+    }
 }
 
-===== core\state\effect\ActiveMissile.java =====
+===== core\state\effect\EffectState.java =====
 package com.pgalaxyp.fragmento.rpg.core.state.effect;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
 
-public record ActiveMissile(
-        long missileId,
+public record EffectState(
         long actorId,
-        ActionId actionId,
-        int comboIndex,
-        EffectDef effect,
+        EffectId effect,
         Target target,
-        Vec3 spawnPos,
-        Vec3 targetPos,
-        long spawnedAt,
-        long impactAt,
-        long expiresAt
-) {
-    public boolean shouldImpact(long now) {
-        return now >= impactAt;
-    }
-
-    public boolean isExpired(long now) {
-        return now >= expiresAt;
-    }
-}
+        long createdAt
+) {}
 
 ===== core\state\snapshot\CombatSnapshot.java =====
 package com.pgalaxyp.fragmento.rpg.core.state.snapshot;
 
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
 
 import java.util.List;
 import java.util.Map;
@@ -1099,8 +968,13 @@ import java.util.Map;
 public record CombatSnapshot(
         long version,
         Map<Long, ActorState> actors,
-        List<RuleCommand> commands
-) {}
+        List<EffectState> effects
+) {
+    public CombatSnapshot {
+        actors = Map.copyOf(actors);
+        effects = List.copyOf(effects);
+    }
+}
 
 ===== engine\input\Intent.java =====
 package com.pgalaxyp.fragmento.rpg.engine.input;
@@ -1112,14 +986,34 @@ public record Intent(
         long actorId,
         IntentType type,
         ActionId actionId,
-        InterruptMask interrupt
+        InterruptMask interruptCause
 ) {
     public static Intent primary(long actorId, ActionId actionId) {
         return new Intent(actorId, IntentType.PRIMARY_ACTION, actionId, null);
     }
 
-    public static Intent interrupt(long actorId, InterruptMask interrupt) {
-        return new Intent(actorId, IntentType.INTERRUPT, null, interrupt);
+    public static Intent interrupt(long actorId, InterruptMask cause) {
+        return new Intent(actorId, IntentType.INTERRUPT, null, cause);
+    }
+}
+
+===== engine\input\IntentQueue.java =====
+package com.pgalaxyp.fragmento.rpg.engine.input;
+
+import java.util.ArrayDeque;
+import java.util.Optional;
+
+public final class IntentQueue {
+
+    private final ArrayDeque<Intent> queue = new ArrayDeque<>();
+
+    public void offer(Intent intent) {
+        if (intent == null) return;
+        queue.addLast(intent);
+    }
+
+    public Optional<Intent> poll() {
+        return Optional.ofNullable(queue.pollFirst());
     }
 }
 
@@ -1128,27 +1022,31 @@ package com.pgalaxyp.fragmento.rpg.engine.input;
 
 public enum IntentType {
     PRIMARY_ACTION,
-    INTERRUPT
+    INTERRUPT;
+
+    public boolean isPrimary() {
+        return this == PRIMARY_ACTION;
+    }
 }
 
 ===== engine\lifecycle\EngineLoop.java =====
 package com.pgalaxyp.fragmento.rpg.engine.lifecycle;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.RpgEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
 import com.pgalaxyp.fragmento.rpg.core.rule.RuleDispatcher;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
 import com.pgalaxyp.fragmento.rpg.core.rule.intent.ActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.rule.intent.InterruptIntent;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
 import com.pgalaxyp.fragmento.rpg.core.state.snapshot.CombatSnapshot;
 import com.pgalaxyp.fragmento.rpg.engine.input.Intent;
+import com.pgalaxyp.fragmento.rpg.engine.input.IntentQueue;
 import com.pgalaxyp.fragmento.rpg.engine.store.CombatStateStore;
 import com.pgalaxyp.fragmento.rpg.engine.store.SnapshotStore;
 import com.pgalaxyp.fragmento.rpg.engine.time.TimeSource;
 import com.pgalaxyp.fragmento.rpg.platform.api.content.ActionResolver;
 import com.pgalaxyp.fragmento.rpg.platform.api.events.WorldQueryGateway;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 public final class EngineLoop {
@@ -1157,113 +1055,95 @@ public final class EngineLoop {
     private final ActionResolver actions;
     private final RuleDispatcher dispatcher;
     private final WorldQueryGateway world;
-    private final CombatStateStore state = new CombatStateStore();
-    private final SnapshotStore snapshots = new SnapshotStore();
+    private final CombatStateStore state;
+    private final SnapshotStore snapshots;
+    private final IntentQueue intents;
 
     public EngineLoop(
             TimeSource time,
             ActionResolver actions,
             RuleDispatcher dispatcher,
-            WorldQueryGateway world
+            WorldQueryGateway world,
+            CombatStateStore state,
+            SnapshotStore snapshots,
+            IntentQueue intents
     ) {
         this.time = time;
         this.actions = actions;
         this.dispatcher = dispatcher;
         this.world = world;
+        this.state = state;
+        this.snapshots = snapshots;
+        this.intents = intents;
     }
 
-    public Optional<Frame> submit(Intent intent) {
-        var now = time.nowMillis();
-        return switch (intent.type()) {
-            case PRIMARY_ACTION -> onPrimary(intent, now);
-            case INTERRUPT -> onInterrupt(intent, now);
-        };
+    public void submit(Intent intent) {
+        intents.offer(intent);
     }
 
-    public Optional<Frame> tick() {
-        var now = time.nowMillis();
-        var events = new ArrayList<RpgEvent>();
-        var changed = state.tick(now, events);
-        if (!changed) return Optional.empty();
+    public Optional<CombatSnapshot> tick() {
+        long now = time.nowMillis();
 
-        return Optional.of(new Frame(
-                snapshots.nextSnapshot(state, List.of()),
-                events,
-                now
-        ));
-    }
+        boolean changed = false;
+        var effects = new ArrayList<EffectState>();
 
-    private Optional<Frame> onPrimary(Intent intent, long now) {
-        var current = state.getOrEmpty(intent.actorId());
+        while (true) {
+            var intentOpt = intents.poll();
+            if (intentOpt.isEmpty()) break;
 
-        var actionOpt = actions.resolve(intent.actorId(), intent.actionId());
-        if (actionOpt.isEmpty()) return Optional.empty();
-        ActionDef action = actionOpt.get();
+            var intent = intentOpt.get();
+            var current = state.getOrEmpty(intent.actorId());
 
-        var frame = dispatcher.applyPrimary(
-                new ActionIntent(intent.actorId(), intent.actionId()),
-                current,
-                action,
-                now
-        );
+            if (intent.type().isPrimary()) {
+                var actionOpt = actions.resolve(intent.actorId(), intent.actionId());
+                if (actionOpt.isEmpty()) continue;
 
-        if (!frame.consumed()) return Optional.empty();
+                ActionDef action = actionOpt.get();
 
-        for (var cmd : frame.commands()) {
-            if (cmd instanceof RequestTargeting rt) {
-                TargetingResolution resolution = world.collect(rt);
-
-                var resolved = dispatcher.applyTargetingResult(
-                        frame,
+                var frame = dispatcher.applyPrimary(
+                        new ActionIntent(intent.actorId(), intent.actionId()),
+                        current,
                         action,
-                        resolution,
                         now
                 );
 
-                state.put(intent.actorId(), resolved.nextState());
+                if (!frame.consumed()) continue;
 
-                return Optional.of(new Frame(
-                        snapshots.nextSnapshot(state, resolved.commands()),
-                        List.of(),
-                        now
-                ));
+                var acc = frame;
+                for (PendingTargeting pt : frame.targetings()) {
+                    var resolution = world.resolveTargeting(pt);
+                    acc = dispatcher.resolveTargeting(acc, action, pt, resolution, now);
+                }
+
+                state.put(acc.nextState());
+                effects.addAll(acc.effects());
+                changed = true;
+                continue;
             }
+
+            var frame = dispatcher.applyInterrupt(
+                    new InterruptIntent(intent.actorId(), intent.interruptCause()),
+                    current,
+                    now
+            );
+
+            if (!frame.consumed()) continue;
+
+            state.put(frame.nextState());
+            changed = true;
         }
 
-        return Optional.empty();
+        if (!changed) return Optional.empty();
+        return Optional.of(snapshots.nextSnapshot(state, effects));
     }
-
-    private Optional<Frame> onInterrupt(Intent intent, long now) {
-        var current = state.getOrEmpty(intent.actorId());
-        var frame = dispatcher.applyInterrupt(intent.actorId(), current, now);
-        if (!frame.consumed()) return Optional.empty();
-
-        state.put(intent.actorId(), frame.nextState());
-
-        return Optional.of(new Frame(
-                snapshots.nextSnapshot(state, List.of()),
-                List.of(),
-                now
-        ));
-    }
-
-    public record Frame(
-            CombatSnapshot snapshot,
-            List<RpgEvent> events,
-            long now
-    ) {}
 }
 
 ===== engine\store\CombatStateStore.java =====
 package com.pgalaxyp.fragmento.rpg.engine.store;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.event.EffectAppliedEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.RpgEvent;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.effect.ActiveMissile;
-import java.util.ArrayList;
+
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public final class CombatStateStore {
@@ -1274,59 +1154,12 @@ public final class CombatStateStore {
         return actors.getOrDefault(actorId, ActorState.empty(actorId));
     }
 
-    public void put(long actorId, ActorState state) {
-        actors.put(actorId, state);
+    public void put(ActorState state) {
+        if (state == null) return;
+        actors.put(state.actorId(), state);
     }
 
-    public boolean tick(long now, List<RpgEvent> outEvents) {
-        var anyChanged = false;
-
-        for (var entry : new ArrayList<>(actors.entrySet())) {
-            var actorId = entry.getKey();
-            var a = entry.getValue();
-            if (a == null) continue;
-
-            var missiles = a.missiles();
-            if (missiles.isEmpty()) {
-                if (a.currentAction() != null && !a.currentAction().isActiveAt(now)) {
-                    actors.put(actorId, new ActorState(actorId, null, a.combo(), List.of()));
-                    anyChanged = true;
-                }
-                continue;
-            }
-
-            var nextMissiles = new ArrayList<ActiveMissile>();
-            var changed = false;
-
-            for (var m : missiles) {
-                if (m.shouldImpact(now)) {
-                    outEvents.add(new EffectAppliedEvent(
-                            m.actorId(),
-                            m.effect(),
-                            m.target(),
-                            now
-                    ));
-                    changed = true;
-                    continue;
-                }
-                if (m.isExpired(now)) {
-                    changed = true;
-                    continue;
-                }
-                nextMissiles.add(m);
-            }
-
-            if (changed) {
-                var nextAction = (a.currentAction() != null && a.currentAction().isActiveAt(now)) ? a.currentAction() : null;
-                actors.put(actorId, new ActorState(actorId, nextAction, a.combo(), nextMissiles));
-                anyChanged = true;
-            }
-        }
-
-        return anyChanged;
-    }
-
-    Map<Long, ActorState> copyActors() {
+    public Map<Long, ActorState> snapshot() {
         return Map.copyOf(actors);
     }
 }
@@ -1334,7 +1167,7 @@ public final class CombatStateStore {
 ===== engine\store\SnapshotStore.java =====
 package com.pgalaxyp.fragmento.rpg.engine.store;
 
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
 import com.pgalaxyp.fragmento.rpg.core.state.snapshot.CombatSnapshot;
 
 import java.util.List;
@@ -1343,26 +1176,314 @@ public final class SnapshotStore {
 
     private long version;
 
-    public CombatSnapshot nextSnapshot(CombatStateStore state, List<RuleCommand> commands) {
+    public CombatSnapshot nextSnapshot(
+            CombatStateStore state,
+            List<EffectState> effects
+    ) {
         version++;
         return new CombatSnapshot(
                 version,
-                state.copyActors(),
-                List.copyOf(commands)
+                state.snapshot(),
+                List.copyOf(effects)
         );
     }
 }
-
-===== engine\time\TimeContext.java =====
-package com.pgalaxyp.fragmento.rpg.engine.time;
-
-public record TimeContext(long nowMillis) {}
 
 ===== engine\time\TimeSource.java =====
 package com.pgalaxyp.fragmento.rpg.engine.time;
 
 public interface TimeSource {
     long nowMillis();
+}
+
+===== host\minecraft\bootstrap\HostBootstrap.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.bootstrap;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.rule.BasicRuleDispatcher;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.ActionOrchestrator;
+import com.pgalaxyp.fragmento.rpg.core.rule.combo.BasicComboProgressionRule;
+import com.pgalaxyp.fragmento.rpg.core.rule.effect.BasicEffectRule;
+import com.pgalaxyp.fragmento.rpg.core.rule.interrupt.BasicInterruptRule;
+import com.pgalaxyp.fragmento.rpg.core.rule.priority.BasicPriorityRule;
+import com.pgalaxyp.fragmento.rpg.engine.input.IntentQueue;
+import com.pgalaxyp.fragmento.rpg.engine.lifecycle.EngineLoop;
+import com.pgalaxyp.fragmento.rpg.engine.store.CombatStateStore;
+import com.pgalaxyp.fragmento.rpg.engine.store.SnapshotStore;
+import com.pgalaxyp.fragmento.rpg.engine.time.TimeSource;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.effect.EffectRegistry;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.effect.MinecraftEffectExecutor;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.effect.impl.MagicMissileEffect;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.input.MinecraftInputAdapter;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.lifecycle.ServerCombatLoop;
+import com.pgalaxyp.fragmento.rpg.platform.api.content.ActionResolver;
+import com.pgalaxyp.fragmento.rpg.platform.api.events.WorldQueryGateway;
+import net.neoforged.bus.api.IEventBus;
+
+public final class HostBootstrap {
+
+    public static EngineLoop init(
+            IEventBus bus,
+            TimeSource time,
+            ActionResolver actions,
+            WorldQueryGateway world
+    ) {
+        var actionRules = new ActionOrchestrator(
+                new BasicPriorityRule(),
+                new BasicComboProgressionRule(),
+                (timeline, startedAt) -> startedAt + Math.max(timeline.totalMillis(), 0L)
+        );
+
+        var dispatcher = new BasicRuleDispatcher(
+                actionRules,
+                new BasicInterruptRule(),
+                new BasicEffectRule()
+        );
+
+        var engine = new EngineLoop(
+                time,
+                actions,
+                dispatcher,
+                world,
+                new CombatStateStore(),
+                new SnapshotStore(),
+                new IntentQueue()
+        );
+
+        var effects = new EffectRegistry();
+        effects.register(new EffectId("magic_missile"), new MagicMissileEffect());
+
+        var executor = new MinecraftEffectExecutor(effects);
+        var serverLoop = new ServerCombatLoop(engine, executor);
+
+        bus.register(new MinecraftInputAdapter(serverLoop));
+
+        return engine;
+    }
+}
+
+===== host\minecraft\bootstrap\ModInit.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.bootstrap;
+
+import com.pgalaxyp.fragmento.rpg.host.minecraft.events.VanillaEventBlocker;
+import net.neoforged.bus.api.IEventBus;
+
+public final class ModInit {
+
+    public static void init(IEventBus bus) {
+        bus.register(new VanillaEventBlocker());
+    }
+}
+
+===== host\minecraft\effect\EffectExecutor.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.effect;
+
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
+import net.minecraft.server.level.ServerLevel;
+
+@FunctionalInterface
+public interface EffectExecutor {
+    void execute(EffectState effect, ServerLevel level);
+}
+
+===== host\minecraft\effect\EffectRegistry.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.effect;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public final class EffectRegistry {
+
+    private final Map<String, EffectExecutor> executors = new HashMap<>();
+
+    public void register(EffectId id, EffectExecutor executor) {
+        executors.put(id.value(), executor);
+    }
+
+    public Optional<EffectExecutor> resolve(EffectId id) {
+        if (id == null) return Optional.empty();
+        return Optional.ofNullable(executors.get(id.value()));
+    }
+}
+
+===== host\minecraft\effect\impl\MagicMissileEffect.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.effect.impl;
+
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.effect.EffectExecutor;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+
+public final class MagicMissileEffect implements EffectExecutor {
+
+    @Override
+    public void execute(EffectState effect, ServerLevel level) {
+        if (!effect.target().isReal()) return;
+
+        var entity = level.getEntity((int) effect.target().actorIdOrZero());
+        if (!(entity instanceof LivingEntity living)) return;
+
+        living.hurt(
+                level.damageSources().magic(),
+                4.0f
+        );
+    }
+}
+
+===== host\minecraft\effect\MinecraftEffectExecutor.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.effect;
+
+import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
+import net.minecraft.server.level.ServerLevel;
+
+public final class MinecraftEffectExecutor {
+
+    private final EffectRegistry registry;
+
+    public MinecraftEffectExecutor(EffectRegistry registry) {
+        this.registry = registry;
+    }
+
+    public void execute(EffectState effect, ServerLevel level) {
+        if (effect == null || level == null) return;
+
+        registry.resolve(effect.effect())
+                .ifPresent(exec -> exec.execute(effect, level));
+    }
+}
+
+===== host\minecraft\events\VanillaEventBlocker.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.events;
+
+import com.pgalaxyp.fragmento.rpg.host.minecraft.items.RpgItemTags;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+
+public final class VanillaEventBlocker {
+
+    @SubscribeEvent
+    public void onAttack(AttackEntityEvent event) {
+        if (isRpgWeapon(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onRightClick(PlayerInteractEvent.RightClickItem event) {
+        if (isRpgWeapon(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    private boolean isRpgWeapon(Player player) {
+        if (player == null) return false;
+        ItemStack stack = player.getMainHandItem();
+        if (stack.isEmpty()) return false;
+        return stack.is(RpgItemTags.RPG_WEAPON);
+    }
+}
+
+===== host\minecraft\input\MinecraftInputAdapter.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.input;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
+import com.pgalaxyp.fragmento.rpg.engine.input.Intent;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.items.RpgItemTags;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.lifecycle.ServerCombatLoop;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+
+public final class MinecraftInputAdapter {
+
+    private final ServerCombatLoop combat;
+
+    public MinecraftInputAdapter(ServerCombatLoop combat) {
+        this.combat = combat;
+    }
+
+    @SubscribeEvent
+    public void onAttack(AttackEntityEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!isRpgWeapon(player)) return;
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        combat.submit(Intent.primary(player.getId(), new ActionId("bard_flute_combo")), level);
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onRightClick(PlayerInteractEvent.RightClickItem event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!isRpgWeapon(player)) return;
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        combat.submit(Intent.primary(player.getId(), new ActionId("bard_flute_combo")), level);
+        event.setCanceled(true);
+    }
+
+    private boolean isRpgWeapon(ServerPlayer player) {
+        var stack = player.getMainHandItem();
+        return !stack.isEmpty() && stack.is(RpgItemTags.RPG_WEAPON);
+    }
+}
+
+===== host\minecraft\items\RpgItemTags.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.items;
+
+import com.pgalaxyp.fragmento.bootstrap.FragmentoMod;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+
+public final class RpgItemTags {
+
+    public static final TagKey<Item> RPG_WEAPON = TagKey.create(
+            Registries.ITEM,
+            ResourceLocation.fromNamespaceAndPath(FragmentoMod.MODID, "rpg_weapon")
+    );
+
+    private RpgItemTags() {}
+}
+
+===== host\minecraft\lifecycle\ServerCombatLoop.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft.lifecycle;
+
+import com.pgalaxyp.fragmento.rpg.engine.input.Intent;
+import com.pgalaxyp.fragmento.rpg.engine.lifecycle.EngineLoop;
+import com.pgalaxyp.fragmento.rpg.host.minecraft.effect.MinecraftEffectExecutor;
+import net.minecraft.server.level.ServerLevel;
+
+public final class ServerCombatLoop {
+
+    private final EngineLoop engine;
+    private final MinecraftEffectExecutor effects;
+
+    public ServerCombatLoop(
+            EngineLoop engine,
+            MinecraftEffectExecutor effects
+    ) {
+        this.engine = engine;
+        this.effects = effects;
+    }
+
+    public void submit(Intent intent, ServerLevel level) {
+        engine.submit(intent);
+        engine.tick().ifPresent(snapshot ->
+                snapshot.effects().forEach(effect ->
+                        effects.execute(effect, level)
+                )
+        );
+    }
 }
 
 ===== platform\api\content\ActionResolver.java =====
@@ -1380,24 +1501,11 @@ public interface ActionResolver {
 package com.pgalaxyp.fragmento.rpg.platform.api.events;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
 
 public interface WorldQueryGateway {
-    TargetingResolution collect(RequestTargeting request);
+    TargetingResolution resolveTargeting(PendingTargeting request);
 }
-
-===== platform\api\lifecycle\PlatformFrame.java =====
-package com.pgalaxyp.fragmento.rpg.platform.api.lifecycle;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.event.RpgEvent;
-import com.pgalaxyp.fragmento.rpg.core.state.snapshot.CombatSnapshot;
-
-import java.util.List;
-
-public record PlatformFrame(
-        CombatSnapshot snapshot,
-        List<RpgEvent> events
-) {}
 
 ===== platform\api\world\EntityHit.java =====
 package com.pgalaxyp.fragmento.rpg.platform.api.world;
@@ -1405,8 +1513,7 @@ package com.pgalaxyp.fragmento.rpg.platform.api.world;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
 
 public record EntityHit(
-        Target target,
-        double distance
+        Target target
 ) {}
 
 ===== platform\api\world\TargetingQuery.java =====
@@ -1419,20 +1526,6 @@ public record TargetingQuery(
         TargetingRequest request,
         double maxEntityDistanceBlocks,
         double maxVirtualDistanceBlocks
-) {}
-
-===== platform\api\world\TargetingResult.java =====
-package com.pgalaxyp.fragmento.rpg.platform.api.world;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.Target;
-import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
-
-public record TargetingResult(
-        long actorId,
-        Vec3 casterPos,
-        Vec3 casterLook,
-        Target target,
-        boolean virtual
 ) {}
 
 ===== platform\api\world\WorldTarget.java =====
@@ -1475,7 +1568,7 @@ package com.pgalaxyp.fragmento.rpg.platform.impl.events;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.VirtualTarget;
 import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
 import com.pgalaxyp.fragmento.rpg.platform.api.events.WorldQueryGateway;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.TargetingQuery;
 import com.pgalaxyp.fragmento.rpg.platform.api.world.WorldTarget;
@@ -1490,43 +1583,50 @@ public final class WorldQueryAdapter implements WorldQueryGateway {
     }
 
     @Override
-    public TargetingResolution collect(RequestTargeting request) {
+    public TargetingResolution resolveTargeting(PendingTargeting request) {
         var vectors = world.casterVectors(request.actorId());
-        var casterPos = new Vec3(vectors.pos().x(), vectors.pos().y(), vectors.pos().z());
-        var casterLook = new Vec3(
+
+        var casterPos = new Vec3(
+                vectors.pos().x(),
+                vectors.pos().y(),
+                vectors.pos().z()
+        );
+
+        var casterDir = new Vec3(
                 vectors.look().x(),
                 vectors.look().y(),
                 vectors.look().z()
         ).normalized();
 
-        var hit = world.raycastLivingEntity(new TargetingQuery(
-                request.actorId(),
-                request.targeting(),
-                request.maxEntityDistanceBlocks(),
-                request.maxVirtualDistanceBlocks()
-        ));
+        var hit = world.raycastLivingEntity(
+                new TargetingQuery(
+                        request.actorId(),
+                        request.request(),
+                        request.maxEntityDistance(),
+                        request.maxVirtualDistance()
+                )
+        );
 
         if (hit.isPresent()) {
             var h = hit.get();
-            var real = new WorldTarget(
-                    h.target().position(),
-                    h.target().bounds(),
-                    h.target().actorIdOrZero()
-            );
             return new TargetingResolution(
                     request.actorId(),
                     casterPos,
-                    casterLook,
-                    real
+                    casterDir,
+                    new WorldTarget(
+                            h.target().position(),
+                            h.target().bounds(),
+                            h.target().actorIdOrZero()
+                    )
             );
         }
 
-        var vpos = casterPos.add(casterLook.mul(request.maxVirtualDistanceBlocks()));
+        var virtualPos = casterPos.add(casterDir.mul(request.maxVirtualDistance()));
         return new TargetingResolution(
                 request.actorId(),
                 casterPos,
-                casterLook,
-                new VirtualTarget(vpos)
+                casterDir,
+                new VirtualTarget(virtualPos)
         );
     }
 }

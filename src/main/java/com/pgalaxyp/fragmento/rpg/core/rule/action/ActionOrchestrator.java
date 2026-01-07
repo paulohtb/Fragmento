@@ -2,8 +2,6 @@ package com.pgalaxyp.fragmento.rpg.core.rule.action;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.rule.combo.ComboProgressionRule;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RuleCommand;
 import com.pgalaxyp.fragmento.rpg.core.rule.priority.PriorityRule;
 import com.pgalaxyp.fragmento.rpg.core.state.action.ActionState;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
@@ -28,47 +26,47 @@ public final class ActionOrchestrator implements ActionRuleSet {
 
     @Override
     public ActionResult applyPrimary(long actorId, ActorState current, ActionDef action, long now) {
-        var currentAction = current != null ? current.currentAction() : null;
+        var base = current == null ? ActorState.empty(actorId) : current;
 
-        if (currentAction != null && currentAction.isActiveAt(now)) {
-            if (!priorityRule.canInterrupt(currentAction, action)) {
-                return ActionResult.ignored();
+        var running = base.currentAction();
+        if (running != null && running.isActiveAt(now)) {
+            if (!priorityRule.canInterrupt(running, action)) {
+                return ActionResult.ignored(base);
             }
         }
 
-        var index = comboRule.nextIndex(current, action, now);
-        var step = action.combo().steps().get(index);
-        var endsAt = timingRule.computeEndsAt(step.timeline(), now);
+        if (!action.hasCombo()) {
+            return ActionResult.ignored(base);
+        }
+
+        int nextIndex = comboRule.nextIndex(base, action, now);
+        var step = action.combo().step(nextIndex);
+
+        long endsAt = timingRule.computeEndsAt(step.timeline(), now);
 
         var nextAction = new ActionState(
                 action.id(),
                 action.priority(),
                 now,
                 endsAt,
-                action.interruptMask()
+                step.interruptMask()
         );
 
-        var nextCombo = new ComboState(action.id(), index);
+        var nextCombo = new ComboState(action.id(), nextIndex);
 
-        var nextState = new ActorState(
-                actorId,
-                nextAction,
-                nextCombo,
-                current != null ? current.missiles() : null
-        );
+        var nextState = base.with(nextAction, nextCombo);
 
-        List<RuleCommand> commands = List.of(new RequestTargeting(
+        var targeting = new PendingTargeting(
                 actorId,
                 action.id(),
-                index,
-                step.id(),
+                nextIndex,
                 step.effect(),
                 step.targeting(),
                 20.0,
                 10.0,
                 now
-        ));
+        );
 
-        return new ActionResult(nextState, commands);
+        return ActionResult.applied(nextState, List.of(targeting));
     }
 }

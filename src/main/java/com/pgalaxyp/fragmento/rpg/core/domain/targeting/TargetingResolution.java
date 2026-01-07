@@ -4,7 +4,7 @@ import com.pgalaxyp.fragmento.rpg.core.math.Vec3;
 
 public record TargetingResolution(
         long actorId,
-        Vec3 casterPos,
-        Vec3 casterLook,
-        Target target
+        Vec3 casterPosition,
+        Vec3 casterDirection,
+        Target resolvedTarget
 ) {}

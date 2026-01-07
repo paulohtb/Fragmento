@@ -7,19 +7,10 @@ public final class BasicComboProgressionRule implements ComboProgressionRule {
 
     @Override
     public int nextIndex(ActorState current, ActionDef action, long now) {
-        var steps = action.combo().steps();
-        var size = steps.size();
-        if (size == 0) return 0;
+        if (action.combo() == null || action.combo().size() == 0) return 0;
+        if (current == null || !current.combo().matches(action.id())) return 0;
 
-        if (current == null) return 0;
-
-        var combo = current.combo();
-        if (combo == null || combo.actionId() == null) return 0;
-
-        if (!combo.actionId().equals(action.id())) return 0;
-
-        var candidate = combo.index() + 1;
-        if (candidate >= size) return 0;
-        return candidate;
+        int next = current.combo().index() + 1;
+        return Math.min(next, action.combo().size() - 1);
     }
 }

@@ -3,10 +3,13 @@ package com.pgalaxyp.fragmento.rpg.core.rule;
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingResolution;
 import com.pgalaxyp.fragmento.rpg.core.rule.action.ActionRuleSet;
-import com.pgalaxyp.fragmento.rpg.core.rule.command.RequestTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.action.PendingTargeting;
+import com.pgalaxyp.fragmento.rpg.core.rule.effect.EffectRule;
 import com.pgalaxyp.fragmento.rpg.core.rule.intent.ActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.rule.intent.InterruptIntent;
 import com.pgalaxyp.fragmento.rpg.core.rule.interrupt.InterruptRule;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class BasicRuleDispatcher implements RuleDispatcher {
@@ -35,44 +38,61 @@ public final class BasicRuleDispatcher implements RuleDispatcher {
         );
 
         return new RuleFrame(
-                result.nextState() != null ? result.nextState() : current,
-                result.commands(),
-                result.consumed()
-        );
-    }
-
-    @Override
-    public RuleFrame applyInterrupt(long actorId, ActorState current, long now) {
-        var result = interruptRule.apply(actorId, current, null, now);
-        return new RuleFrame(
-                result.nextState() != null ? result.nextState() : current,
+                result.nextState(),
+                result.targetings(),
                 List.of(),
                 result.consumed()
         );
     }
 
     @Override
-    public RuleFrame applyTargetingResult(
+    public RuleFrame applyInterrupt(InterruptIntent intent, ActorState current, long now) {
+        if (current == null) current = ActorState.empty(intent.actorId());
+
+        var next = interruptRule.apply(
+                intent.actorId(),
+                current,
+                intent.cause(),
+                now
+        );
+
+        if (next.equals(current)) {
+            return new RuleFrame(current, List.of(), List.of(), false);
+        }
+
+        return new RuleFrame(
+                next,
+                List.of(),
+                List.of(),
+                true
+        );
+    }
+
+    @Override
+    public RuleFrame resolveTargeting(
             RuleFrame previous,
             ActionDef action,
+            PendingTargeting targeting,
             TargetingResolution resolution,
             long now
     ) {
-        for (var cmd : previous.commands()) {
-            if (cmd instanceof RequestTargeting rt) {
-                var eff = effectRule.onTargetResolved(
-                        rt.actorId(),
-                        previous.nextState(),
-                        action,
-                        rt.comboIndex(),
-                        resolution,
-                        now
-                );
+        var eff = effectRule.onTargetResolved(
+                targeting.actorId(),
+                previous.nextState(),
+                action,
+                targeting.comboIndex(),
+                resolution,
+                now
+        );
 
-                return new RuleFrame(eff.nextState(), List.of(), eff.consumed());
-            }
-        }
+        var effects = new ArrayList<>(previous.effects());
+        if (eff.effect() != null) effects.add(eff.effect());
 
-        return previous;
+        return new RuleFrame(
+                eff.nextState(),
+                List.of(),
+                List.copyOf(effects),
+                eff.consumed()
+        );
     }
 }

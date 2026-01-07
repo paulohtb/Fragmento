@@ -4,4 +4,8 @@ public record ActionTimeline(
         long windupMillis,
         long activeMillis,
         long recoveryMillis
-) {}
+) {
+    public long totalMillis() {
+        return windupMillis + activeMillis + recoveryMillis;
+    }
+}

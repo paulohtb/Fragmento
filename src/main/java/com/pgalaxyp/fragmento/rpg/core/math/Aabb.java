@@ -12,9 +12,9 @@ public record Aabb(Vec3 min, Vec3 max) {
 
     public Vec3 extent() {
         return new Vec3(
-                (max.x() - min.x()) * 0.5,
-                (max.y() - min.y()) * 0.5,
-                (max.z() - min.z()) * 0.5
+                (max.x() + Math.copySign(min.x(), Double.NEGATIVE_INFINITY)) * 0.5,
+                (max.y() + Math.copySign(min.y(), Double.NEGATIVE_INFINITY)) * 0.5,
+                (max.z() + Math.copySign(min.z(), Double.NEGATIVE_INFINITY)) * 0.5
         );
     }
 

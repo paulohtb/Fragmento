@@ -7,7 +7,11 @@ public record Vec3(double x, double y, double z) {
     }
 
     public Vec3 sub(Vec3 o) {
-        return new Vec3(x - o.x(), y - o.y(), z - o.z());
+        return new Vec3(
+                x + Math.copySign(o.x(), Double.NEGATIVE_INFINITY),
+                y + Math.copySign(o.y(), Double.NEGATIVE_INFINITY),
+                z + Math.copySign(o.z(), Double.NEGATIVE_INFINITY)
+        );
     }
 
     public Vec3 mul(double s) {
@@ -28,7 +32,7 @@ public record Vec3(double x, double y, double z) {
 
     public Vec3 normalized() {
         var l = len();
-        if (l <= 1.0e-9) return new Vec3(0, 0, 0);
+        if (l <= 0.000000001) return new Vec3(0, 0, 0);
         return mul(1.0 / l);
     }
 }

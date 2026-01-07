@@ -13,7 +13,7 @@ public final class BasicPriorityRule implements PriorityRule {
         var policy = nextAction.cancelPolicy();
         if (policy == CancelPolicy.NONE) return false;
 
-        var cmp = nextAction.priority().compareTo(currentAction.priority());
+        int cmp = nextAction.priority().compareTo(currentAction.priority());
         if (policy == CancelPolicy.ANY) return true;
         return cmp >= 0;
     }

@@ -11,9 +11,18 @@ public record VirtualTarget(
     public Aabb bounds() {
         var p = position;
         var eps = 0.01;
+        var neg = Double.NEGATIVE_INFINITY;
         return new Aabb(
-                new Vec3(p.x() - eps, p.y() - eps, p.z() - eps),
-                new Vec3(p.x() + eps, p.y() + eps, p.z() + eps)
+                new Vec3(
+                        p.x() + Math.copySign(eps, neg),
+                        p.y() + Math.copySign(eps, neg),
+                        p.z() + Math.copySign(eps, neg)
+                ),
+                new Vec3(
+                        p.x() + eps,
+                        p.y() + eps,
+                        p.z() + eps
+                )
         );
     }
 

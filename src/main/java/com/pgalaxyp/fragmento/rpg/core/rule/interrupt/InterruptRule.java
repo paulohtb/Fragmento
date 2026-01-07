@@ -4,5 +4,5 @@ import com.pgalaxyp.fragmento.rpg.core.domain.action.InterruptMask;
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
 
 public interface InterruptRule {
-    InterruptResult apply(long actorId, ActorState current, InterruptMask cause, long now);
+    ActorState apply(long actorId, ActorState current, InterruptMask cause, long now);
 }
