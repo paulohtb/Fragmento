@@ -9,13 +9,12 @@ public final class CombatStateStore {
 
     private final Map<Long, ActorState> actors = new HashMap<>();
 
-    public ActorState getOrEmpty(long actorId) {
-        return actors.getOrDefault(actorId, ActorState.empty(actorId));
+    public ActorState getOrInitial(long actorId) {
+        return actors.getOrDefault(actorId, ActorState.initial(actorId));
     }
 
-    public void put(ActorState state) {
-        if (state == null) return;
-        actors.put(state.actorId(), state);
+    public void putAll(Map<Long, ActorState> updated) {
+        actors.putAll(updated);
     }
 
     public Map<Long, ActorState> snapshot() {

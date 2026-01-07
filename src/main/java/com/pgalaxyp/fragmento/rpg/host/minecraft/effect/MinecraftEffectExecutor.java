@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.host.minecraft.effect;
 
-import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.EffectTriggered;
 import net.minecraft.server.level.ServerLevel;
 
 public final class MinecraftEffectExecutor {
@@ -11,10 +11,10 @@ public final class MinecraftEffectExecutor {
         this.registry = registry;
     }
 
-    public void execute(EffectState effect, ServerLevel level) {
-        if (effect == null || level == null) return;
+    public void execute(EffectTriggered event, ServerLevel level) {
+        if (event == null || level == null) return;
 
-        registry.resolve(effect.effect())
-                .ifPresent(exec -> exec.execute(effect, level));
+        registry.resolve(event.effectId())
+                .ifPresent(exec -> exec.execute(event, level));
     }
 }

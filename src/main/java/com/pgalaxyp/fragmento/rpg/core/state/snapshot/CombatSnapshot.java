@@ -1,18 +1,18 @@
 package com.pgalaxyp.fragmento.rpg.core.state.snapshot;
 
 import com.pgalaxyp.fragmento.rpg.core.state.actor.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.effect.EffectState;
-
-import java.util.List;
 import java.util.Map;
 
 public record CombatSnapshot(
         long version,
-        Map<Long, ActorState> actors,
-        List<EffectState> effects
+        Map<Long, ActorState> actors
 ) {
     public CombatSnapshot {
-        actors = Map.copyOf(actors);
-        effects = List.copyOf(effects);
+        version = Math.max(0L, version);
+        actors = actors == null ? Map.of() : Map.copyOf(actors);
+    }
+
+    public static CombatSnapshot empty() {
+        return new CombatSnapshot(0L, Map.of());
     }
 }
