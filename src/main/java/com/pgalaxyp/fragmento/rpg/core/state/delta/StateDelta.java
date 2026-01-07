@@ -1,5 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.core.state.delta;
 
-public sealed interface StateDelta permits ActionStateDelta, ComboStateDelta {
-    long actorId();
-}
+import java.util.List;
+
+public record StateDelta(
+        List<ActionStateDelta> actionDeltas,
+        List<ComboStateDelta> comboDeltas
+) {}

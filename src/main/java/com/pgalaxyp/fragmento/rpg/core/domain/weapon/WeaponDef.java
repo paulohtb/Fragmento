@@ -1,13 +1,10 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.weapon;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboSequence;
 
 public record WeaponDef(
-        String id,
-        ActionDef primaryAction
-) {
-    public WeaponDef {
-        if (id == null || id.isBlank()) throw new IllegalArgumentException("WeaponDef.id");
-        if (primaryAction == null) throw new IllegalArgumentException("WeaponDef.primaryAction");
-    }
-}
+        WeaponId id,
+        ActionDef action,
+        ComboSequence combo
+) {}

@@ -1,8 +1,8 @@
-package com.pgalaxyp.fragmento.rpg.core.state.delta;
+package com.pgalaxyp.fragmento.rpg.core.state;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
 
-public record ActionStateDelta(
+public record ActionState(
         long actorId,
         ActionId actionId
 ) {}

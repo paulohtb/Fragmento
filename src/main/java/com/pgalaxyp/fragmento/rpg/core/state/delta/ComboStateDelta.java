@@ -1,12 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.core.state.delta;
 
-import com.pgalaxyp.fragmento.rpg.core.state.combo.ComboState;
+import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStepId;
 
 public record ComboStateDelta(
         long actorId,
-        ComboState nextCombo
-) implements StateDelta {
-    public ComboStateDelta {
-        if (nextCombo == null) throw new IllegalArgumentException("ComboStateDelta.nextCombo");
-    }
-}
+        ComboStepId stepId,
+        int index
+) {}
