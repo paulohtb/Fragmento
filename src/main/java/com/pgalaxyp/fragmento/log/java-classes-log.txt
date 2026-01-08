@@ -1,14 +1,12 @@
 ===== core\domain\action\ActionDef.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
 
-import java.util.List;
-
 public record ActionDef(
         ActionId id,
         ActionType type,
         ActionTimeline timeline,
         CancelPolicy cancelPolicy,
-        List<InterruptMask> interruptMask
+        InterruptMask interruptMask
 ) {}
 
 ===== core\domain\action\ActionId.java =====
@@ -47,18 +45,16 @@ public enum CancelPolicy {
 ===== core\domain\action\InterruptMask.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.action;
 
-public enum InterruptMask {
-    MOVEMENT,
-    DAMAGE,
-    CONTROL
-}
+public record InterruptMask(int value) {}
 
 ===== core\domain\combo\ComboSequence.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
 
-import java.util.List;
-
-public record ComboSequence(List<ComboStepDef> steps) {}
+public record ComboSequence(
+        ComboStepDef step0,
+        ComboStepDef step1,
+        ComboStepDef step2
+) {}
 
 ===== core\domain\combo\ComboStepDef.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
@@ -85,19 +81,14 @@ public record EffectId(String value) {}
 ===== core\domain\effect\EffectSpec.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.effect;
 
-import java.util.Map;
-
 public record EffectSpec(
-        EffectId id,
-        Map<String, String> params
+        EffectId id
 ) {}
 
 ===== core\domain\event\DomainEvent.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.event;
 
-public sealed interface DomainEvent
-        permits TargetingRequested, EffectTriggered {
-}
+public record DomainEvent() {}
 
 ===== core\domain\event\EffectTriggered.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.event;
@@ -107,7 +98,7 @@ import com.pgalaxyp.fragmento.rpg.core.domain.effect.EffectId;
 public record EffectTriggered(
         long actorId,
         EffectId effectId
-) implements DomainEvent {}
+) {}
 
 ===== core\domain\event\TargetingRequested.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.event;
@@ -117,7 +108,7 @@ import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingId;
 public record TargetingRequested(
         long actorId,
         TargetingId targetingId
-) implements DomainEvent {}
+) {}
 
 ===== core\domain\targeting\TargetingId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.targeting;
@@ -152,10 +143,10 @@ public record WeaponId(String value) {}
 ===== core\rule\ActionRule.java =====
 package com.pgalaxyp.fragmento.rpg.core.rule;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionId;
+import com.pgalaxyp.fragmento.rpg.core.domain.action.ActionType;
 import com.pgalaxyp.fragmento.rpg.core.domain.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.TargetingRequested;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingId;
+import com.pgalaxyp.fragmento.rpg.core.state.ActionState;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.ActionStateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.ComboStateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
@@ -165,23 +156,36 @@ public final class ActionRule {
 
     public RuleFrame evaluate(
             long actorId,
-            ActionDef actionDef,
-            TargetingId targetingId
+            ActionState currentAction,
+            ActionId requestedAction,
+            ActionType actionType
     ) {
+        if (currentAction != null) {
+            return new RuleFrame(
+                    new StateDelta(List.of(), List.of()),
+                    List.of()
+            );
+        }
+
         ActionStateDelta actionDelta =
-                new ActionStateDelta(actorId, actionDef.id());
+                new ActionStateDelta(actorId, requestedAction);
 
-        ComboStateDelta comboDelta =
-                new ComboStateDelta(actorId, null, 0);
+        ComboStateDelta comboInit =
+                actionType == ActionType.COMBO
+                        ? new ComboStateDelta(actorId, null, 0)
+                        : null;
 
-        DomainEvent event =
-                new TargetingRequested(actorId, targetingId);
-
-        return new RuleFrame(
+        StateDelta delta =
                 new StateDelta(
                         List.of(actionDelta),
-                        List.of(comboDelta)
-                ),
+                        comboInit == null ? List.of() : List.of(comboInit)
+                );
+
+        DomainEvent event =
+                new DomainEvent();
+
+        return new RuleFrame(
+                delta,
                 List.of(event)
         );
     }
@@ -192,8 +196,7 @@ package com.pgalaxyp.fragmento.rpg.core.rule;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStepId;
 import com.pgalaxyp.fragmento.rpg.core.domain.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.TargetingRequested;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingId;
+import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.ComboStateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
 import java.util.List;
@@ -202,21 +205,29 @@ public final class ComboRule {
 
     public RuleFrame evaluate(
             long actorId,
-            ComboStepId nextStep,
-            int nextIndex,
-            TargetingId targetingId
+            ComboState currentCombo,
+            List<ComboStepId> sequence
     ) {
-        ComboStateDelta comboDelta =
+        int nextIndex =
+                currentCombo == null ? 0 : currentCombo.index() + 1;
+
+        if (nextIndex >= sequence.size()) {
+            return new RuleFrame(
+                    new StateDelta(List.of(), List.of()),
+                    List.of()
+            );
+        }
+
+        ComboStepId nextStep = sequence.get(nextIndex);
+
+        ComboStateDelta delta =
                 new ComboStateDelta(actorId, nextStep, nextIndex);
 
         DomainEvent event =
-                new TargetingRequested(actorId, targetingId);
+                new DomainEvent();
 
         return new RuleFrame(
-                new StateDelta(
-                        List.of(),
-                        List.of(comboDelta)
-                ),
+                new StateDelta(List.of(), List.of(delta)),
                 List.of(event)
         );
     }
@@ -315,7 +326,9 @@ import com.pgalaxyp.fragmento.rpg.core.rule.ComboRule;
 import com.pgalaxyp.fragmento.rpg.core.rule.RuleFrame;
 import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.snapshot.CombatSnapshot;
+import com.pgalaxyp.fragmento.rpg.platform.TargetingResolved;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class EngineLoop {
@@ -336,10 +349,16 @@ public final class EngineLoop {
 
     public EngineTickResult tick(
             CombatSnapshot snapshot,
-            EngineTargetingInput targetingInput
+            List<TargetingResolved> targetingResolvedBatch
     ) {
+        List<TargetingResolved> resolved =
+                targetingResolvedBatch == null ? List.of() : targetingResolvedBatch;
+
         List<StateDelta> collectedDeltas = new ArrayList<>();
-        List<DomainEvent> collectedEvents = new ArrayList<>();
+        List<DomainEvent> emittedEvents = new ArrayList<>();
+
+        List<TargetingRequested> targetingRequestsPhase1 = new ArrayList<>();
+        List<TargetingRequested> targetingRequestsPhase2 = new ArrayList<>();
 
         List<Intent> intents = intentQueue.drain();
 
@@ -350,36 +369,50 @@ public final class EngineLoop {
                             intent.actionDef(),
                             intent.targetingId()
                     );
+
             collectedDeltas.add(frame.delta());
-            collectedEvents.addAll(frame.events());
+            emittedEvents.addAll(frame.events());
         }
 
-        List<TargetingRequested> targetingRequests = new ArrayList<>();
-        for (DomainEvent e : collectedEvents) {
-            if (e instanceof TargetingRequested tr) {
-                targetingRequests.add(tr);
+        for (DomainEvent event : emittedEvents) {
+            if (event instanceof TargetingRequested tr) {
+                targetingRequestsPhase1.add(tr);
             }
         }
 
-        if (targetingInput != null) {
+        int phase1EventsCount = emittedEvents.size();
+
+        for (TargetingResolved tr : resolved) {
             RuleFrame frame =
                     comboRule.evaluate(
-                            targetingInput.actorId(),
-                            targetingInput.nextStep(),
-                            targetingInput.nextIndex(),
-                            targetingInput.targetingId()
+                            tr.actorId(),
+                            tr.nextStep(),
+                            tr.nextIndex(),
+                            tr.targetingId()
                     );
+
             collectedDeltas.add(frame.delta());
-            collectedEvents.addAll(frame.events());
+            emittedEvents.addAll(frame.events());
+        }
+
+        for (int i = phase1EventsCount; i < emittedEvents.size(); i++) {
+            DomainEvent event = emittedEvents.get(i);
+            if (event instanceof TargetingRequested tr) {
+                targetingRequestsPhase2.add(tr);
+            }
         }
 
         CombatSnapshot nextSnapshot =
                 EngineSnapshotCommit.commit(snapshot, collectedDeltas);
 
+        List<TargetingRequested> allRequests = new ArrayList<>();
+        allRequests.addAll(targetingRequestsPhase1);
+        allRequests.addAll(targetingRequestsPhase2);
+
         return new EngineTickResult(
                 nextSnapshot,
-                collectedEvents,
-                targetingRequests
+                Collections.unmodifiableList(emittedEvents),
+                Collections.unmodifiableList(allRequests)
         );
     }
 }
@@ -442,19 +475,6 @@ final class EngineSnapshotCommit {
     }
 }
 
-===== engine\EngineTargetingInput.java =====
-package com.pgalaxyp.fragmento.rpg.engine;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStepId;
-import com.pgalaxyp.fragmento.rpg.core.domain.targeting.TargetingId;
-
-public record EngineTargetingInput(
-        long actorId,
-        ComboStepId nextStep,
-        int nextIndex,
-        TargetingId targetingId
-) {}
-
 ===== engine\EngineTickResult.java =====
 package com.pgalaxyp.fragmento.rpg.engine;
 
@@ -506,64 +526,6 @@ public final class IntentQueue {
     }
 }
 
-===== engine\SnapshotCommitter.java =====
-package com.pgalaxyp.fragmento.rpg.engine;
-
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.ActionState;
-import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
-import com.pgalaxyp.fragmento.rpg.core.state.delta.ActionStateDelta;
-import com.pgalaxyp.fragmento.rpg.core.state.delta.ComboStateDelta;
-import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.state.snapshot.CombatSnapshot;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-final class SnapshotCommitter {
-
-    static CombatSnapshot commit(
-            CombatSnapshot snapshot,
-            List<StateDelta> deltas
-    ) {
-        Map<Long, ActorState> base =
-                snapshot == null ? Map.of() : snapshot.actors();
-
-        Map<Long, ActorState> next = new HashMap<>(base);
-
-        for (StateDelta delta : deltas) {
-
-            for (ActionStateDelta a : delta.actionDeltas()) {
-                ActorState cur = next.get(a.actorId());
-                ComboState combo = cur == null ? null : cur.comboState();
-                next.put(
-                        a.actorId(),
-                        new ActorState(
-                                a.actorId(),
-                                new ActionState(a.actorId(), a.actionId()),
-                                combo
-                        )
-                );
-            }
-
-            for (ComboStateDelta c : delta.comboDeltas()) {
-                ActorState cur = next.get(c.actorId());
-                ActionState action = cur == null ? null : cur.actionState();
-                next.put(
-                        c.actorId(),
-                        new ActorState(
-                                c.actorId(),
-                                action,
-                                new ComboState(c.actorId(), c.stepId(), c.index())
-                        )
-                );
-            }
-        }
-
-        return new CombatSnapshot(next);
-    }
-}
-
 ===== platform\TargetingResolved.java =====
 package com.pgalaxyp.fragmento.rpg.platform;
 
@@ -576,3 +538,16 @@ public record TargetingResolved(
         int nextIndex,
         TargetingId targetingId
 ) {}
+
+===== platform\WorldQueryGateway.java =====
+package com.pgalaxyp.fragmento.rpg.platform;
+
+public interface WorldQueryGateway {
+    WorldView view();
+}
+
+===== platform\WorldView.java =====
+package com.pgalaxyp.fragmento.rpg.platform;
+
+public interface WorldView {}
+

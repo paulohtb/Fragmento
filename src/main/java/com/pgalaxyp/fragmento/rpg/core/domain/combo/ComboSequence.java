@@ -1,5 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.combo;
 
-import java.util.List;
-
-public record ComboSequence(List<ComboStepDef> steps) {}
+public record ComboSequence(
+        ComboStepDef step0,
+        ComboStepDef step1,
+        ComboStepDef step2
+) {}
