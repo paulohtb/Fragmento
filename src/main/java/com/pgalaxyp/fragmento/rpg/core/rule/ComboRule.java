@@ -1,122 +1,92 @@
 package com.pgalaxyp.fragmento.rpg.core.rule;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.domain.event.DomainEventType;
-import com.pgalaxyp.fragmento.rpg.core.domain.weapon.WeaponDef;
-import com.pgalaxyp.fragmento.rpg.core.spec.CycleSpec;
-import com.pgalaxyp.fragmento.rpg.core.state.ActionState;
-import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
-import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDeltaType;
 import java.util.ArrayList;
 import java.util.List;
+import com.pgalaxyp.fragmento.rpg.core.domain.WeaponByAction;
+import com.pgalaxyp.fragmento.rpg.core.domain.WeaponDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.ComboCompleted;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.ComboStepEmitted;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.domain.event.VisualEffectRequested;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.domain.intent.ComboAdvanceIntent;
+import com.pgalaxyp.fragmento.rpg.core.domain.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.spec.ComboSpec;
+import com.pgalaxyp.fragmento.rpg.core.spec.GameSpec;
+import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
+import com.pgalaxyp.fragmento.rpg.core.state.delta.ComboAdvanced;
+import com.pgalaxyp.fragmento.rpg.core.state.delta.ComboEnded;
+import com.pgalaxyp.fragmento.rpg.core.state.delta.StateDelta;
+import com.pgalaxyp.fragmento.rpg.core.state.snapshot.GameSnapshot;
 
-public final class ComboRule {
+public final class ComboRule implements FrameRule {
 
-    public RuleResult evaluate(
-            CycleSpec cycle,
-            RuleInput input,
-            ActionState action,
-            ComboState combo,
-            WeaponDef weapon
+    @Override
+    public RuleResult apply(
+            GameSpec spec,
+            GameSnapshot snapshot,
+            List<DomainIntent> intents,
+            WeaponByAction weapons
     ) {
-        if (input == null || action == null || combo == null || weapon == null) {
-            return new RuleResult(List.of(), List.of());
-        }
-
-        if (weapon.combo() == null || weapon.combo().steps() == null) {
-            return new RuleResult(List.of(), List.of());
-        }
-
-        int curIndex = combo.index();
-        if (curIndex < 0 || curIndex >= weapon.combo().steps().size()) {
-            return new RuleResult(List.of(), List.of());
-        }
-
-        var curStep = weapon.combo().steps().get(curIndex);
-        if (curStep == null) {
-            return new RuleResult(List.of(), List.of());
-        }
-
-        boolean wantsTargeting =
-                cycle != null
-                        && cycle.targeting() != null
-                        && cycle.targeting().targetingPerHit();
-
-        if (wantsTargeting) {
-            TargetingResolution tr = input.targetingResolution();
-            if (tr == null) {
-                return new RuleResult(List.of(), List.of());
-            }
-            if (tr.actorId() != input.actorId()) {
-                return new RuleResult(List.of(), List.of());
-            }
-            if (curStep.targetingId() != null) {
-                if (tr.targetingId() == null) {
-                    return new RuleResult(List.of(), List.of());
-                }
-                if (!curStep.targetingId().equals(tr.targetingId())) {
-                    return new RuleResult(List.of(), List.of());
-                }
-            }
-        }
-
-        List<DomainEvent> events = new ArrayList<>();
         List<StateDelta> deltas = new ArrayList<>();
+        List<DomainEvent> events = new ArrayList<>();
 
-        if (curStep.effect() != null && curStep.effect().id() != null) {
-            events.add(new DomainEvent(
-                    DomainEventType.EFFECT_TRIGGERED,
-                    input.actorId(),
-                    curStep.effect().id(),
-                    curIndex,
-                    null
-            ));
+        ComboSpec comboSpec = spec.combo();
+
+        for (DomainIntent di : intents) {
+            if (!(di instanceof ComboAdvanceIntent intent)) {
+                continue;
+            }
+
+            ActorId actorId = intent.actorId();
+            ActorState actor = snapshot.actors().get(actorId);
+            if (actor == null) {
+                continue;
+            }
+
+            ComboState combo = actor.combo();
+            if (combo == null) {
+                continue;
+            }
+
+            WeaponDef weapon = weapons.byAction().get(intent.actionId());
+            if (weapon == null) {
+                continue;
+            }
+
+            int rawStepsTotal = weapon.action().combo().stepsTotal();
+            int stepsTotal = clamp(rawStepsTotal, comboSpec.minStepsTotal(), comboSpec.maxStepsTotal());
+
+            int next = combo.stepIndex() + 1;
+
+            if (next >= stepsTotal) {
+                deltas.add(new ComboEnded(actorId));
+                events.add(new ComboCompleted(actorId, weapon.id()));
+                continue;
+            }
+
+            List<EffectId> effects = weapon.action().combo().effectsPerStep();
+            if (effects == null || effects.isEmpty()) {
+                deltas.add(new ComboEnded(actorId));
+                events.add(new ComboCompleted(actorId, weapon.id()));
+                continue;
+            }
+
+            EffectId effectId = effects.get(next % effects.size());
+
+            deltas.add(new ComboAdvanced(actorId, next));
+            events.add(new ComboStepEmitted(actorId, weapon.id(), next, effectId));
+            events.add(new VisualEffectRequested(actorId, effectId, next));
         }
 
-        int nextIndex = curIndex + 1;
+        return new RuleResult(List.copyOf(deltas), List.copyOf(events));
+    }
 
-        if (nextIndex >= weapon.combo().steps().size()) {
-            deltas.add(new StateDelta(
-                    StateDeltaType.COMBO_CLEAR,
-                    input.actorId(),
-                    null,
-                    null,
-                    0
-            ));
-            deltas.add(new StateDelta(
-                    StateDeltaType.ACTION_CLEAR,
-                    input.actorId(),
-                    null,
-                    null,
-                    0
-            ));
-            return new RuleResult(deltas, events);
-        }
-
-        var nextStep = weapon.combo().steps().get(nextIndex);
-        if (nextStep == null) {
-            return new RuleResult(deltas, events);
-        }
-
-        deltas.add(new StateDelta(
-                StateDeltaType.COMBO_SET,
-                input.actorId(),
-                null,
-                nextStep.stepId(),
-                nextIndex
-        ));
-
-        if (wantsTargeting && nextStep.targetingId() != null) {
-            events.add(new DomainEvent(
-                    DomainEventType.TARGETING_REQUESTED,
-                    input.actorId(),
-                    null,
-                    0,
-                    nextStep.targetingId()
-            ));
-        }
-
-        return new RuleResult(deltas, events);
+    private static int clamp(int v, int min, int max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
     }
 }

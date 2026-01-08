@@ -1,7 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.core.state;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+
 public record ActorState(
-        long actorId,
-        ActionState actionState,
-        ComboState comboState
+        ActorId actorId,
+        ComboState combo
 ) {}

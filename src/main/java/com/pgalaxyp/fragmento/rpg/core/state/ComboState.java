@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.core.state;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.combo.ComboStepId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 
 public record ComboState(
-        long actorId,
-        ComboStepId currentStep,
-        int index
+        ActionId actionId,
+        int stepIndex,
+        int stepsTotal
 ) {}

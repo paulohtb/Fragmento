@@ -4,17 +4,19 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import com.pgalaxyp.fragmento.rpg.core.domain.intent.DomainIntent;
 
-public final class IntentQueue {
+public final class IntentQueue implements IntentSource {
 
-    private final Deque<Intent> queue = new ArrayDeque<>();
+    private final Deque<DomainIntent> queue = new ArrayDeque<>();
 
-    public void push(Intent intent) {
+    public void push(DomainIntent intent) {
         queue.addLast(intent);
     }
 
-    public List<Intent> drain() {
-        List<Intent> out = new ArrayList<>();
+    @Override
+    public List<DomainIntent> drain() {
+        List<DomainIntent> out = new ArrayList<>();
         while (!queue.isEmpty()) {
             out.add(queue.removeFirst());
         }
