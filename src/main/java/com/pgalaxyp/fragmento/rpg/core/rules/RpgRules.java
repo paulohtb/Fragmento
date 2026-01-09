@@ -78,7 +78,7 @@ public final class RpgRules {
                 deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal));
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
                 queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
                 continue;
             }
@@ -99,7 +99,7 @@ public final class RpgRules {
                     continue;
                 }
 
-                int nextStepIndex = combo.stepIndex() + 1;
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
                 if (nextStepIndex >= combo.stepsTotal()) {
                     deltas.add(new ComboEnded(actorId, combo.actionId()));
                     continue;
@@ -109,7 +109,7 @@ public final class RpgRules {
 
                 ActionDef action = content.action(combo.actionId());
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
                 queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
             }
         }
@@ -168,14 +168,14 @@ public final class RpgRules {
                 ActionDef action = content.action(weapon.actionId());
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
 
                 TargetingQueryResolved resolved = targeting.get(qid);
                 if (resolved == null || resolved.targetActorId().isEmpty()) {
                     continue;
                 }
 
-                EffectId effectId = action.effectSequence().getFirst();
+                EffectId effectId = action.effectSequence().get(0);
                 EffectDef effect = content.effect(effectId);
 
                 ActorId targetId = resolved.targetActorId().get();
@@ -200,7 +200,7 @@ public final class RpgRules {
                     continue;
                 }
 
-                int nextStepIndex = combo.stepIndex() + 1;
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
                 if (nextStepIndex >= combo.stepsTotal()) {
                     continue;
                 }
@@ -208,7 +208,7 @@ public final class RpgRules {
                 ActionDef action = content.action(combo.actionId());
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
 
                 TargetingQueryResolved resolved = targeting.get(qid);
                 if (resolved == null || resolved.targetActorId().isEmpty()) {

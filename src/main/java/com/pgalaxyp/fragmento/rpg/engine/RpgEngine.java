@@ -55,13 +55,15 @@ public final class RpgEngine {
         FrameContext frame = new FrameContext(nextFrameId, tickIndex);
         nextFrameId = Math.addExact(nextFrameId, 1L);
 
+        long frameSeed = seedForFrame(frame.frameId());
+
         List<IntentEnvelope> drained = intents.drain();
         RuleResult a = RpgRules.passA(frame, state, content, drained);
 
         List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
         RuleResult b = RpgRules.passB(frame, state, content, drained, resolutions);
 
-        List<StateDelta> merged = StateDeltaMerger.mergeStableDistinct(a.deltas(), b.deltas());
+        List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
 
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
         state = committed;
@@ -73,8 +75,15 @@ public final class RpgEngine {
         events.addAll(a.events());
         events.addAll(b.events());
 
-        journal.append(new FrameJournalEntry(frame, drained, resolutions, merged, snapshot));
+        journal.append(new FrameJournalEntry(frame, frameSeed, drained, resolutions, merged, snapshot));
 
         return new EngineFrameOutput(frame, snapshot, events);
+    }
+
+    private static long seedForFrame(long frameId) {
+        long z = Math.addExact(frameId, 0x9e3779b97f4a7c15L);
+        z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L;
+        z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL;
+        return z ^ (z >>> 31);
     }
 }

@@ -12,11 +12,19 @@ public record ActorState(
         int maxHealthHearts
 ) {
     public ActorState {
-        if (classId == null || equippedWeaponId.isEmpty() || combo.isEmpty()) {
+        if (classId == null || equippedWeaponId == null || combo == null) {
             throw new IllegalArgumentException();
         }
         if (healthHearts < 0 || maxHealthHearts <= 0 || healthHearts > maxHealthHearts) {
             throw new IllegalArgumentException();
+        }
+        if (combo.isPresent()) {
+            if (equippedWeaponId.isEmpty()) {
+                throw new IllegalArgumentException();
+            }
+            if (!equippedWeaponId.get().equals(combo.get().weaponId())) {
+                throw new IllegalArgumentException();
+            }
         }
     }
 

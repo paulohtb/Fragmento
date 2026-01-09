@@ -9,6 +9,7 @@ import java.util.List;
 
 public record FrameJournalEntry(
         FrameContext frame,
+        long frameSeed,
         List<IntentEnvelope> intents,
         List<DomainResolution> resolutions,
         List<StateDelta> deltas,

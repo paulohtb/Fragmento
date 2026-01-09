@@ -809,7 +809,7 @@ public final class RpgRules {
                 deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal));
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
                 queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
                 continue;
             }
@@ -830,7 +830,7 @@ public final class RpgRules {
                     continue;
                 }
 
-                int nextStepIndex = combo.stepIndex() + 1;
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
                 if (nextStepIndex >= combo.stepsTotal()) {
                     deltas.add(new ComboEnded(actorId, combo.actionId()));
                     continue;
@@ -840,7 +840,7 @@ public final class RpgRules {
 
                 ActionDef action = content.action(combo.actionId());
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
                 queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
             }
         }
@@ -899,14 +899,14 @@ public final class RpgRules {
                 ActionDef action = content.action(weapon.actionId());
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
 
                 TargetingQueryResolved resolved = targeting.get(qid);
                 if (resolved == null || resolved.targetActorId().isEmpty()) {
                     continue;
                 }
 
-                EffectId effectId = action.effectSequence().getFirst();
+                EffectId effectId = action.effectSequence().get(0);
                 EffectDef effect = content.effect(effectId);
 
                 ActorId targetId = resolved.targetActorId().get();
@@ -931,7 +931,7 @@ public final class RpgRules {
                     continue;
                 }
 
-                int nextStepIndex = combo.stepIndex() + 1;
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
                 if (nextStepIndex >= combo.stepsTotal()) {
                     continue;
                 }
@@ -939,7 +939,7 @@ public final class RpgRules {
                 ActionDef action = content.action(combo.actionId());
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex += 1;
+                queryIndex = Math.addExact(queryIndex, 1);
 
                 TargetingQueryResolved resolved = targeting.get(qid);
                 if (resolved == null || resolved.targetActorId().isEmpty()) {
@@ -1007,11 +1007,19 @@ public record ActorState(
         int maxHealthHearts
 ) {
     public ActorState {
-        if (classId == null || equippedWeaponId.isEmpty() || combo.isEmpty()) {
+        if (classId == null || equippedWeaponId == null || combo == null) {
             throw new IllegalArgumentException();
         }
         if (healthHearts < 0 || maxHealthHearts <= 0 || healthHearts > maxHealthHearts) {
             throw new IllegalArgumentException();
+        }
+        if (combo.isPresent()) {
+            if (equippedWeaponId.isEmpty()) {
+                throw new IllegalArgumentException();
+            }
+            if (!equippedWeaponId.get().equals(combo.get().weaponId())) {
+                throw new IllegalArgumentException();
+            }
         }
     }
 
@@ -1193,19 +1201,18 @@ package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class StateDeltaMerger {
 
-    public static List<StateDelta> mergeStableDistinct(List<StateDelta> first, List<StateDelta> second) {
+    public static List<StateDelta> mergeStable(List<StateDelta> first, List<StateDelta> second) {
         if (first == null || second == null) {
             throw new IllegalArgumentException();
         }
-        LinkedHashSet<StateDelta> set = new LinkedHashSet<>();
-        set.addAll(first);
-        set.addAll(second);
-        return List.copyOf(new ArrayList<>(set));
+        ArrayList<StateDelta> out = new ArrayList<>(Math.addExact(first.size(), second.size()));
+        out.addAll(first);
+        out.addAll(second);
+        return List.copyOf(out);
     }
 
     private StateDeltaMerger() {}
@@ -1284,6 +1291,7 @@ import java.util.List;
 
 public record FrameJournalEntry(
         FrameContext frame,
+        long frameSeed,
         List<IntentEnvelope> intents,
         List<DomainResolution> resolutions,
         List<StateDelta> deltas,
@@ -1357,13 +1365,15 @@ public final class RpgEngine {
         FrameContext frame = new FrameContext(nextFrameId, tickIndex);
         nextFrameId = Math.addExact(nextFrameId, 1L);
 
+        long frameSeed = seedForFrame(frame.frameId());
+
         List<IntentEnvelope> drained = intents.drain();
         RuleResult a = RpgRules.passA(frame, state, content, drained);
 
         List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
         RuleResult b = RpgRules.passB(frame, state, content, drained, resolutions);
 
-        List<StateDelta> merged = StateDeltaMerger.mergeStableDistinct(a.deltas(), b.deltas());
+        List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
 
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
         state = committed;
@@ -1375,9 +1385,16 @@ public final class RpgEngine {
         events.addAll(a.events());
         events.addAll(b.events());
 
-        journal.append(new FrameJournalEntry(frame, drained, resolutions, merged, snapshot));
+        journal.append(new FrameJournalEntry(frame, frameSeed, drained, resolutions, merged, snapshot));
 
         return new EngineFrameOutput(frame, snapshot, events);
+    }
+
+    private static long seedForFrame(long frameId) {
+        long z = Math.addExact(frameId, 0x9e3779b97f4a7c15L);
+        z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L;
+        z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL;
+        return z ^ (z >>> 31);
     }
 }
 
