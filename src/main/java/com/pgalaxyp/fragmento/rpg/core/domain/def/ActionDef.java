@@ -2,13 +2,13 @@ package com.pgalaxyp.fragmento.rpg.core.domain.def;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.CycleSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
 import java.util.List;
 
 public record ActionDef(
         ActionId id,
         ActionKind kind,
-        CycleSpec cycle,
+        ActionCycleSpec cycle,
         List<EffectId> effectSequence
 ) {
     public ActionDef {

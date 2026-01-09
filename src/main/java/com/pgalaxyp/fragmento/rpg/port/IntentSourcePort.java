@@ -1,8 +1,8 @@
-package com.pgalaxyp.fragmento.rpg.engine.intent;
+package com.pgalaxyp.fragmento.rpg.port;
 
 import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
 import java.util.List;
 
-public interface IntentSource {
+public interface IntentSourcePort {
     List<IntentEnvelope> drain();
 }

@@ -2,12 +2,14 @@ package com.pgalaxyp.fragmento.rpg.core.state;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import java.util.Map;
+import java.util.Collections;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public record GameState(
         FrameContext frame,
-        Map<ActorId, ActorState> actors
+        NavigableMap<ActorId, ActorState> actors
 ) {
     public GameState {
         if (frame == null || actors == null) {
@@ -18,7 +20,7 @@ public record GameState(
                 throw new IllegalArgumentException();
             }
         }
-        actors = Map.copyOf(actors);
+        actors = Collections.unmodifiableNavigableMap(new TreeMap<>(actors));
     }
 
     public Optional<ActorState> findActor(ActorId actorId) {

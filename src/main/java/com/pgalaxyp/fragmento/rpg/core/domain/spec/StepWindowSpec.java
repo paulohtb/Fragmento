@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
-public record FrameWindowSpec(
+public record StepWindowSpec(
         int framesPerStep
 ) {
-    public FrameWindowSpec {
+    public StepWindowSpec {
         if (framesPerStep <= 0) {
             throw new IllegalArgumentException();
         }

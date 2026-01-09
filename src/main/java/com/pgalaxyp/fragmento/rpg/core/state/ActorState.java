@@ -18,6 +18,14 @@ public record ActorState(
         if (healthHearts < 0 || maxHealthHearts <= 0 || healthHearts > maxHealthHearts) {
             throw new IllegalArgumentException();
         }
+
+        if (equippedWeaponId.isPresent() && equippedWeaponId.get() == null) {
+            throw new IllegalArgumentException();
+        }
+        if (combo.isPresent() && combo.get() == null) {
+            throw new IllegalArgumentException();
+        }
+
         if (combo.isPresent()) {
             if (equippedWeaponId.isEmpty()) {
                 throw new IllegalArgumentException();
@@ -26,6 +34,9 @@ public record ActorState(
                 throw new IllegalArgumentException();
             }
         }
+
+        equippedWeaponId = equippedWeaponId.isPresent() ? Optional.of(equippedWeaponId.get()) : Optional.empty();
+        combo = combo.isPresent() ? Optional.of(combo.get()) : Optional.empty();
     }
 
     public static ActorState idleWithHealth(ClassId classId, int healthHearts, int maxHealthHearts) {

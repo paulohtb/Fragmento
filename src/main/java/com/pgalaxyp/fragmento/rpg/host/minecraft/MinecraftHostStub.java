@@ -7,13 +7,12 @@ import java.util.List;
 public final class MinecraftHostStub {
 
     public List<IntentEnvelope> captureIntents() {
-        throw new UnsupportedOperationException();
+        return List.of();
     }
 
     public void applyEvents(List<DomainEvent> events) {
         if (events == null) {
             throw new IllegalArgumentException();
         }
-        throw new UnsupportedOperationException();
     }
 }

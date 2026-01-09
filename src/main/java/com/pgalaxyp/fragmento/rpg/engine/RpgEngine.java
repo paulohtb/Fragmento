@@ -11,9 +11,9 @@ import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
-import com.pgalaxyp.fragmento.rpg.engine.intent.IntentSource;
 import com.pgalaxyp.fragmento.rpg.engine.journal.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.port.IntentSourcePort;
 import com.pgalaxyp.fragmento.rpg.port.JournalPort;
 import com.pgalaxyp.fragmento.rpg.port.SnapshotPort;
 import com.pgalaxyp.fragmento.rpg.port.WorldQueryPort;
@@ -22,7 +22,7 @@ import java.util.List;
 
 public final class RpgEngine {
 
-    private final IntentSource intents;
+    private final IntentSourcePort intents;
     private final WorldQueryPort worldQueries;
     private final JournalPort journal;
     private final SnapshotPort snapshots;
@@ -32,7 +32,7 @@ public final class RpgEngine {
     private long nextFrameId;
 
     public RpgEngine(
-            IntentSource intents,
+            IntentSourcePort intents,
             WorldQueryPort worldQueries,
             JournalPort journal,
             SnapshotPort snapshots,
@@ -61,7 +61,7 @@ public final class RpgEngine {
         RuleResult a = RpgRules.passA(frame, state, content, drained);
 
         List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
-        RuleResult b = RpgRules.passB(frame, state, content, drained, resolutions);
+        RuleResult b = RpgRules.passB(frame, state, content, a.queries(), resolutions);
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
 

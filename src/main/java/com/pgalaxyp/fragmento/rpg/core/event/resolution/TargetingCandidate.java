@@ -1,16 +1,16 @@
-package com.pgalaxyp.fragmento.rpg.core.event.delta;
+package com.pgalaxyp.fragmento.rpg.core.event.resolution;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 
-public record ComboAdvanced(
+public record TargetingCandidate(
         ActorId actorId,
-        long stepFrameId
-) implements StateDelta {
-    public ComboAdvanced {
+        int distanceSquared
+) {
+    public TargetingCandidate {
         if (actorId == null) {
             throw new IllegalArgumentException();
         }
-        if (stepFrameId < 0) {
+        if (distanceSquared < 0) {
             throw new IllegalArgumentException();
         }
     }

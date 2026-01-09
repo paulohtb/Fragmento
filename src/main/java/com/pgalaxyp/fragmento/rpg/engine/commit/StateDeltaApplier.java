@@ -11,9 +11,10 @@ import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class StateDeltaApplier {
 
@@ -21,7 +22,7 @@ public final class StateDeltaApplier {
         if (base == null || deltas == null) {
             throw new IllegalArgumentException();
         }
-        Map<ActorId, ActorState> actors = new LinkedHashMap<>(base.actors());
+        NavigableMap<ActorId, ActorState> actors = new TreeMap<>(base.actors());
         for (StateDelta delta : deltas) {
             if (delta == null) {
                 throw new IllegalArgumentException();
@@ -32,40 +33,59 @@ public final class StateDeltaApplier {
     }
 
     private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
-        if (delta instanceof ComboStarted(ActorId actorId, ActionId actionId, WeaponId weaponId, int stepsTotal)) {
-            ActorState prev = actors.get(actorId);
+        if (delta instanceof ComboStarted(ActorId id, ActionId actionId, WeaponId weaponId, int stepsTotal, long frameId)) {
+            ActorState prev = actors.get(id);
             if (prev == null) {
                 return;
             }
-            ComboState combo = new ComboState(actionId, weaponId, 0, stepsTotal);
+            if (prev.combo().isPresent()) {
+                return;
+            }
+            if (prev.equippedWeaponId().isEmpty()) {
+                return;
+            }
+            if (!prev.equippedWeaponId().get().equals(weaponId)) {
+                return;
+            }
+            ComboState combo = new ComboState(actionId, weaponId, 0, stepsTotal, frameId);
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(combo), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(actorId, next);
+            actors.put(id, next);
             return;
         }
 
-        if (delta instanceof ComboAdvanced(ActorId actorId)) {
+        if (delta instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
             }
+            if (prev.equippedWeaponId().isEmpty()) {
+                return;
+            }
             ComboState current = prev.combo().get();
-            int nextIndex = current.stepIndex() + 1;
+            if (!prev.equippedWeaponId().get().equals(current.weaponId())) {
+                return;
+            }
+            int nextIndex = Math.addExact(current.stepIndex(), 1);
             if (nextIndex >= current.stepsTotal()) {
                 return;
             }
-            ComboState nextCombo = new ComboState(current.actionId(), current.weaponId(), nextIndex, current.stepsTotal());
+            ComboState nextCombo = new ComboState(current.actionId(), current.weaponId(), nextIndex, current.stepsTotal(), stepFrameId);
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(nextCombo), prev.healthHearts(), prev.maxHealthHearts());
             actors.put(actorId, next);
             return;
         }
 
-        if (delta instanceof ComboEnded d) {
-            ActorState prev = actors.get(d.actorId());
-            if (prev == null) {
+        if (delta instanceof ComboEnded(ActorId actorId, ActionId actionId)) {
+            ActorState prev = actors.get(actorId);
+            if (prev == null || prev.combo().isEmpty()) {
+                return;
+            }
+            ComboState current = prev.combo().get();
+            if (!current.actionId().equals(actionId)) {
                 return;
             }
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.empty(), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(d.actorId(), next);
+            actors.put(actorId, next);
             return;
         }
 

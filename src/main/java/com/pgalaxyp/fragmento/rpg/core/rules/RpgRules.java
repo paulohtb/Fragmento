@@ -7,6 +7,8 @@ import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
@@ -20,18 +22,18 @@ import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboStartIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.DomainIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.rpg.core.event.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.query.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.event.query.TargetingQueryRequested;
 import com.pgalaxyp.fragmento.rpg.core.event.resolution.DomainResolution;
+import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingCandidate;
 import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingQueryResolved;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class RpgRules {
 
@@ -49,6 +51,15 @@ public final class RpgRules {
         List<DomainEvent> events = new ArrayList<>();
         List<ExternalQueryEvent> queries = new ArrayList<>();
 
+        Map<ActorId, ComboState> comboByActor = new TreeMap<>();
+        for (var e : state.actors().entrySet()) {
+            ActorId actorId = e.getKey();
+            ActorState actor = e.getValue();
+            if (actor.combo().isPresent()) {
+                comboByActor.put(actorId, actor.combo().get());
+            }
+        }
+
         int queryIndex = 0;
 
         for (IntentEnvelope env : intents) {
@@ -60,57 +71,99 @@ public final class RpgRules {
             DomainIntent intent = env.intent();
 
             if (intent instanceof ComboStartIntent) {
+                if (comboByActor.containsKey(actorId)) {
+                    continue;
+                }
+
                 Optional<ActorState> actorOpt = state.findActor(actorId);
                 if (actorOpt.isEmpty()) {
                     continue;
                 }
                 ActorState actor = actorOpt.get();
-                if (actor.combo().isPresent()) {
-                    continue;
-                }
                 if (actor.equippedWeaponId().isEmpty()) {
                     continue;
                 }
-                WeaponDef weapon = content.weapon(actor.equippedWeaponId().get());
-                ActionDef action = content.action(weapon.actionId());
-                int stepsTotal = action.cycle().combo().maxStepsTotal();
 
-                deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal));
+                Optional<WeaponDef> weaponOpt = content.findWeapon(actor.equippedWeaponId().get());
+                if (weaponOpt.isEmpty()) {
+                    continue;
+                }
+                WeaponDef weapon = weaponOpt.get();
+
+                Optional<ActionDef> actionOpt = content.findAction(weapon.actionId());
+                if (actionOpt.isEmpty()) {
+                    continue;
+                }
+                ActionDef action = actionOpt.get();
+                if (action.kind() == null) {
+                    continue;
+                }
+
+                int stepsTotal = action.effectSequence().size();
+                deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal, frame.frameId()));
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
                 queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
+                queries.add(new TargetingQueryRequested(qid, actorId, weapon.actionId(), 0, action.cycle().targeting()));
+
+                if (stepsTotal <= 1) {
+                    deltas.add(new ComboEnded(actorId, weapon.actionId()));
+                    continue;
+                }
+
+                comboByActor.put(actorId, new ComboState(weapon.actionId(), weapon.id(), 0, stepsTotal, frame.frameId()));
                 continue;
             }
 
-            if (intent instanceof ComboAdvanceIntent advance) {
-                ActionId actionId = advance.actionId();
-
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
+            if (intent instanceof ComboAdvanceIntent(ActionId actionId)) {
+                ComboState combo = comboByActor.get(actorId);
+                if (combo == null) {
                     continue;
                 }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isEmpty()) {
-                    continue;
-                }
-                ComboState combo = actor.combo().get();
                 if (!combo.actionId().equals(actionId)) {
                     continue;
                 }
 
-                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
-                if (nextStepIndex >= combo.stepsTotal()) {
+                int stepsTotal = combo.stepsTotal();
+                int lastStepIndex = Math.subtractExact(stepsTotal, 1);
+
+                if (combo.stepIndex() >= lastStepIndex) {
                     deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
                     continue;
                 }
 
-                deltas.add(new ComboAdvanced(actorId));
+                Optional<ActionDef> actionOpt = content.findAction(combo.actionId());
+                if (actionOpt.isEmpty()) {
+                    continue;
+                }
+                ActionDef action = actionOpt.get();
 
-                ActionDef action = content.action(combo.actionId());
+                long diffFrames = Math.subtractExact(frame.frameId(), combo.lastStepFrameId());
+                long framesPerStep = action.cycle().stepWindow().framesPerStep();
+                if (diffFrames < framesPerStep) {
+                    continue;
+                }
+
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
+                if (nextStepIndex > lastStepIndex) {
+                    deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
+                    continue;
+                }
+
+                deltas.add(new ComboAdvanced(actorId, frame.frameId()));
+
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
                 queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
+                queries.add(new TargetingQueryRequested(qid, actorId, combo.actionId(), nextStepIndex, action.cycle().targeting()));
+
+                if (nextStepIndex >= lastStepIndex) {
+                    deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
+                } else {
+                    comboByActor.put(actorId, new ComboState(combo.actionId(), combo.weaponId(), nextStepIndex, combo.stepsTotal(), frame.frameId()));
+                }
             }
         }
 
@@ -121,14 +174,14 @@ public final class RpgRules {
             FrameContext frame,
             GameState state,
             RpgContent content,
-            List<IntentEnvelope> intents,
+            List<ExternalQueryEvent> queries,
             List<DomainResolution> resolutions
     ) {
-        if (frame == null || state == null || content == null || intents == null || resolutions == null) {
+        if (frame == null || state == null || content == null || queries == null || resolutions == null) {
             throw new IllegalArgumentException();
         }
 
-        Map<QueryId, TargetingQueryResolved> targeting = new LinkedHashMap<>();
+        Map<QueryId, TargetingQueryResolved> targeting = new TreeMap<>();
         for (DomainResolution res : resolutions) {
             if (res == null) {
                 throw new IllegalArgumentException();
@@ -140,95 +193,95 @@ public final class RpgRules {
 
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
-        List<ExternalQueryEvent> queries = List.of();
 
-        int queryIndex = 0;
-
-        for (IntentEnvelope env : intents) {
-            if (env == null) {
+        for (ExternalQueryEvent q : queries) {
+            if (q == null) {
                 throw new IllegalArgumentException();
             }
-
-            ActorId actorId = env.actorId();
-            DomainIntent intent = env.intent();
-
-            if (intent instanceof ComboStartIntent) {
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
-                }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isPresent()) {
-                    continue;
-                }
-                if (actor.equippedWeaponId().isEmpty()) {
-                    continue;
-                }
-                WeaponDef weapon = content.weapon(actor.equippedWeaponId().get());
-                ActionDef action = content.action(weapon.actionId());
-
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-
-                TargetingQueryResolved resolved = targeting.get(qid);
-                if (resolved == null || resolved.targetActorId().isEmpty()) {
-                    continue;
-                }
-
-                EffectId effectId = action.effectSequence().get(0);
-                EffectDef effect = content.effect(effectId);
-
-                ActorId targetId = resolved.targetActorId().get();
-                deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
-                events.add(new HomingMagicVisualEvent(actorId, targetId));
+            if (!(q instanceof TargetingQueryRequested tr)) {
                 continue;
             }
 
-            if (intent instanceof ComboAdvanceIntent advance) {
-                ActionId actionId = advance.actionId();
+            TargetingQueryResolved resolved = targeting.get(tr.queryId());
+            if (resolved == null) {
+                resolved = TargetingQueryResolved.empty(tr.queryId());
+            }
 
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
+            Optional<ActorId> targetOpt = pickTarget(tr.sourceActorId(), resolved);
+            if (targetOpt.isEmpty()) {
+                continue;
+            }
+
+            Optional<ActionDef> actionOpt = content.findAction(tr.actionId());
+            if (actionOpt.isEmpty()) {
+                continue;
+            }
+            ActionDef action = actionOpt.get();
+
+            int stepIndex = tr.stepIndex();
+            if (stepIndex < 0 || stepIndex >= action.effectSequence().size()) {
+                continue;
+            }
+
+            EffectId effectId = action.effectSequence().get(stepIndex);
+            Optional<EffectDef> effectOpt = content.findEffect(effectId);
+            if (effectOpt.isEmpty()) {
+                continue;
+            }
+            EffectDef effect = effectOpt.get();
+
+            ActorId targetId = targetOpt.get();
+            deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
+
+            if (effect.visual().isPresent()) {
+                if (effect.visual().get() instanceof HomingMagicSpec(int lifetimeFrames)) {
+                    events.add(new HomingMagicVisualEvent(tr.sourceActorId(), targetId, lifetimeFrames));
                 }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isEmpty()) {
-                    continue;
-                }
-                ComboState combo = actor.combo().get();
-                if (!combo.actionId().equals(actionId)) {
-                    continue;
-                }
-
-                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
-                if (nextStepIndex >= combo.stepsTotal()) {
-                    continue;
-                }
-
-                ActionDef action = content.action(combo.actionId());
-
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-
-                TargetingQueryResolved resolved = targeting.get(qid);
-                if (resolved == null || resolved.targetActorId().isEmpty()) {
-                    continue;
-                }
-
-                if (nextStepIndex >= action.effectSequence().size()) {
-                    continue;
-                }
-
-                EffectId effectId = action.effectSequence().get(nextStepIndex);
-                EffectDef effect = content.effect(effectId);
-
-                ActorId targetId = resolved.targetActorId().get();
-                deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
-                events.add(new HomingMagicVisualEvent(actorId, targetId));
             }
         }
 
-        return new RuleResult(deltas, events, queries);
+        return new RuleResult(deltas, events, List.of());
+    }
+
+    private static Optional<ActorId> pickTarget(ActorId sourceActorId, TargetingQueryResolved resolved) {
+        if (sourceActorId == null || resolved == null) {
+            return Optional.empty();
+        }
+
+        TargetingCandidate best = null;
+
+        for (TargetingCandidate c : resolved.candidates()) {
+            if (c == null || c.actorId() == null) {
+                continue;
+            }
+            if (c.actorId().equals(sourceActorId)) {
+                continue;
+            }
+
+            if (best == null) {
+                best = c;
+                continue;
+            }
+
+            int distCmp = Integer.compare(c.distanceSquared(), best.distanceSquared());
+            if (distCmp < 0) {
+                best = c;
+                continue;
+            }
+            if (distCmp > 0) {
+                continue;
+            }
+
+            int idCmp = c.actorId().compareTo(best.actorId());
+            if (idCmp < 0) {
+                best = c;
+            }
+        }
+
+        if (best == null) {
+            return Optional.empty();
+        }
+        return Optional.of(best.actorId());
     }
 
     private RpgRules() {}

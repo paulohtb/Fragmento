@@ -9,15 +9,16 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.CycleSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.FrameWindowSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 public final class DefaultRpgContent {
 
@@ -30,15 +31,16 @@ public final class DefaultRpgContent {
     public static final EffectId HIT_3 = new EffectId("effect.bard.flute.hit3");
 
     public static RpgContent create() {
-        Map<EffectId, EffectDef> effects = new LinkedHashMap<>();
-        effects.put(HIT_1, new EffectDef(HIT_1, new DamageSpec(1)));
-        effects.put(HIT_2, new EffectDef(HIT_2, new DamageSpec(1)));
-        effects.put(HIT_3, new EffectDef(HIT_3, new DamageSpec(1)));
+        NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
+        HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
+        effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1), homing));
+        effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1), homing));
+        effects.put(HIT_3, EffectDef.withVisual(HIT_3, new DamageSpec(1), homing));
 
-        CycleSpec cycle = new CycleSpec(
+        ActionCycleSpec cycle = new ActionCycleSpec(
                 new ComboSpec(3, 3),
                 new TargetingSpec(true),
-                new FrameWindowSpec(1)
+                new StepWindowSpec(1)
         );
 
         ActionDef action = new ActionDef(
@@ -48,14 +50,14 @@ public final class DefaultRpgContent {
                 List.of(HIT_1, HIT_2, HIT_3)
         );
 
-        Map<ActionId, ActionDef> actions = new LinkedHashMap<>();
+        NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
         actions.put(FLUTE_BASIC_COMBO, action);
 
         WeaponDef weapon = new WeaponDef(FLUTE, WeaponSpec.empty(), FLUTE_BASIC_COMBO);
-        Map<WeaponId, WeaponDef> weapons = new LinkedHashMap<>();
+        NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
         weapons.put(FLUTE, weapon);
 
-        Map<ClassId, ClassDef> classes = new LinkedHashMap<>();
+        NavigableMap<ClassId, ClassDef> classes = new TreeMap<>();
         classes.put(BARD, new ClassDef(BARD, FLUTE));
 
         return new RpgContent(classes, actions, weapons, effects);

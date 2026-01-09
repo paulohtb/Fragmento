@@ -1,12 +1,12 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
-public record CycleSpec(
+public record ActionCycleSpec(
         ComboSpec combo,
         TargetingSpec targeting,
-        FrameWindowSpec frameWindow
+        StepWindowSpec stepWindow
 ) {
-    public CycleSpec {
-        if (combo == null || targeting == null || frameWindow == null) {
+    public ActionCycleSpec {
+        if (combo == null || targeting == null || stepWindow == null) {
             throw new IllegalArgumentException();
         }
     }

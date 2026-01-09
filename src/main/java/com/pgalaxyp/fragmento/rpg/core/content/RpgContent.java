@@ -8,32 +8,35 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.Map;
+import java.util.Collections;
+import java.util.NavigableMap;
+import java.util.Optional;
+import java.util.TreeMap;
 
 public record RpgContent(
-        Map<ClassId, ClassDef> classes,
-        Map<ActionId, ActionDef> actions,
-        Map<WeaponId, WeaponDef> weapons,
-        Map<EffectId, EffectDef> effects
+        NavigableMap<ClassId, ClassDef> classes,
+        NavigableMap<ActionId, ActionDef> actions,
+        NavigableMap<WeaponId, WeaponDef> weapons,
+        NavigableMap<EffectId, EffectDef> effects
 ) {
     public RpgContent {
         if (classes == null || actions == null || weapons == null || effects == null) {
             throw new IllegalArgumentException();
         }
 
-        classes = Map.copyOf(classes);
-        actions = Map.copyOf(actions);
-        weapons = Map.copyOf(weapons);
-        effects = Map.copyOf(effects);
+        classes = Collections.unmodifiableNavigableMap(new TreeMap<>(classes));
+        actions = Collections.unmodifiableNavigableMap(new TreeMap<>(actions));
+        weapons = Collections.unmodifiableNavigableMap(new TreeMap<>(weapons));
+        effects = Collections.unmodifiableNavigableMap(new TreeMap<>(effects));
 
         validate(classes, actions, weapons, effects);
     }
 
     private static void validate(
-            Map<ClassId, ClassDef> classes,
-            Map<ActionId, ActionDef> actions,
-            Map<WeaponId, WeaponDef> weapons,
-            Map<EffectId, EffectDef> effects
+            NavigableMap<ClassId, ClassDef> classes,
+            NavigableMap<ActionId, ActionDef> actions,
+            NavigableMap<WeaponId, WeaponDef> weapons,
+            NavigableMap<EffectId, EffectDef> effects
     ) {
         for (var e : classes.entrySet()) {
             if (e.getKey() == null || e.getValue() == null) {
@@ -84,6 +87,34 @@ public record RpgContent(
                 throw new IllegalArgumentException();
             }
         }
+    }
+
+    public Optional<ClassDef> findClazz(ClassId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(classes.get(id));
+    }
+
+    public Optional<WeaponDef> findWeapon(WeaponId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(weapons.get(id));
+    }
+
+    public Optional<ActionDef> findAction(ActionId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(actions.get(id));
+    }
+
+    public Optional<EffectDef> findEffect(EffectId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(effects.get(id));
     }
 
     public ClassDef clazz(ClassId id) {

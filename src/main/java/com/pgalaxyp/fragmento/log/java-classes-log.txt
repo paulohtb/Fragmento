@@ -10,15 +10,16 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.CycleSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.FrameWindowSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 public final class DefaultRpgContent {
 
@@ -31,15 +32,16 @@ public final class DefaultRpgContent {
     public static final EffectId HIT_3 = new EffectId("effect.bard.flute.hit3");
 
     public static RpgContent create() {
-        Map<EffectId, EffectDef> effects = new LinkedHashMap<>();
-        effects.put(HIT_1, new EffectDef(HIT_1, new DamageSpec(1)));
-        effects.put(HIT_2, new EffectDef(HIT_2, new DamageSpec(1)));
-        effects.put(HIT_3, new EffectDef(HIT_3, new DamageSpec(1)));
+        NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
+        HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
+        effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1), homing));
+        effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1), homing));
+        effects.put(HIT_3, EffectDef.withVisual(HIT_3, new DamageSpec(1), homing));
 
-        CycleSpec cycle = new CycleSpec(
+        ActionCycleSpec cycle = new ActionCycleSpec(
                 new ComboSpec(3, 3),
                 new TargetingSpec(true),
-                new FrameWindowSpec(1)
+                new StepWindowSpec(1)
         );
 
         ActionDef action = new ActionDef(
@@ -49,14 +51,14 @@ public final class DefaultRpgContent {
                 List.of(HIT_1, HIT_2, HIT_3)
         );
 
-        Map<ActionId, ActionDef> actions = new LinkedHashMap<>();
+        NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
         actions.put(FLUTE_BASIC_COMBO, action);
 
         WeaponDef weapon = new WeaponDef(FLUTE, WeaponSpec.empty(), FLUTE_BASIC_COMBO);
-        Map<WeaponId, WeaponDef> weapons = new LinkedHashMap<>();
+        NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
         weapons.put(FLUTE, weapon);
 
-        Map<ClassId, ClassDef> classes = new LinkedHashMap<>();
+        NavigableMap<ClassId, ClassDef> classes = new TreeMap<>();
         classes.put(BARD, new ClassDef(BARD, FLUTE));
 
         return new RpgContent(classes, actions, weapons, effects);
@@ -76,32 +78,35 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.Map;
+import java.util.Collections;
+import java.util.NavigableMap;
+import java.util.Optional;
+import java.util.TreeMap;
 
 public record RpgContent(
-        Map<ClassId, ClassDef> classes,
-        Map<ActionId, ActionDef> actions,
-        Map<WeaponId, WeaponDef> weapons,
-        Map<EffectId, EffectDef> effects
+        NavigableMap<ClassId, ClassDef> classes,
+        NavigableMap<ActionId, ActionDef> actions,
+        NavigableMap<WeaponId, WeaponDef> weapons,
+        NavigableMap<EffectId, EffectDef> effects
 ) {
     public RpgContent {
         if (classes == null || actions == null || weapons == null || effects == null) {
             throw new IllegalArgumentException();
         }
 
-        classes = Map.copyOf(classes);
-        actions = Map.copyOf(actions);
-        weapons = Map.copyOf(weapons);
-        effects = Map.copyOf(effects);
+        classes = Collections.unmodifiableNavigableMap(new TreeMap<>(classes));
+        actions = Collections.unmodifiableNavigableMap(new TreeMap<>(actions));
+        weapons = Collections.unmodifiableNavigableMap(new TreeMap<>(weapons));
+        effects = Collections.unmodifiableNavigableMap(new TreeMap<>(effects));
 
         validate(classes, actions, weapons, effects);
     }
 
     private static void validate(
-            Map<ClassId, ClassDef> classes,
-            Map<ActionId, ActionDef> actions,
-            Map<WeaponId, WeaponDef> weapons,
-            Map<EffectId, EffectDef> effects
+            NavigableMap<ClassId, ClassDef> classes,
+            NavigableMap<ActionId, ActionDef> actions,
+            NavigableMap<WeaponId, WeaponDef> weapons,
+            NavigableMap<EffectId, EffectDef> effects
     ) {
         for (var e : classes.entrySet()) {
             if (e.getKey() == null || e.getValue() == null) {
@@ -154,6 +159,34 @@ public record RpgContent(
         }
     }
 
+    public Optional<ClassDef> findClazz(ClassId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(classes.get(id));
+    }
+
+    public Optional<WeaponDef> findWeapon(WeaponId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(weapons.get(id));
+    }
+
+    public Optional<ActionDef> findAction(ActionId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(actions.get(id));
+    }
+
+    public Optional<EffectDef> findEffect(EffectId id) {
+        if (id == null) {
+            throw new IllegalArgumentException();
+        }
+        return Optional.ofNullable(effects.get(id));
+    }
+
     public ClassDef clazz(ClassId id) {
         ClassDef def = classes.get(id);
         if (def == null) {
@@ -192,13 +225,13 @@ package com.pgalaxyp.fragmento.rpg.core.domain.def;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.CycleSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
 import java.util.List;
 
 public record ActionDef(
         ActionId id,
         ActionKind kind,
-        CycleSpec cycle,
+        ActionCycleSpec cycle,
         List<EffectId> effectSequence
 ) {
     public ActionDef {
@@ -256,15 +289,33 @@ package com.pgalaxyp.fragmento.rpg.core.domain.def;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.EffectVisualSpec;
+import java.util.Optional;
 
 public record EffectDef(
         EffectId id,
-        DamageSpec damage
+        DamageSpec damage,
+        Optional<EffectVisualSpec> visual
 ) {
     public EffectDef {
-        if (id == null || damage == null) {
+        if (id == null || damage == null || visual == null) {
             throw new IllegalArgumentException();
         }
+        if (visual.isPresent() && visual.get() == null) {
+            throw new IllegalArgumentException();
+        }
+        visual = visual.isPresent() ? Optional.of(visual.get()) : Optional.empty();
+    }
+
+    public EffectDef(EffectId id, DamageSpec damage) {
+        this(id, damage, Optional.empty());
+    }
+
+    public static EffectDef withVisual(EffectId id, DamageSpec damage, EffectVisualSpec visual) {
+        if (visual == null) {
+            throw new IllegalArgumentException();
+        }
+        return new EffectDef(id, damage, Optional.of(visual));
     }
 }
 
@@ -290,38 +341,70 @@ public record WeaponDef(
 ===== core\domain\ids\ActionId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record ActionId(String value) {
+public record ActionId(String value) implements Comparable<ActionId> {
     public ActionId {
         value = IdValidation.normalizedKey(value);
+    }
+
+    @Override
+    public int compareTo(ActionId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return value.compareTo(other.value);
     }
 }
 
 ===== core\domain\ids\ActorId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record ActorId(long value) {
+public record ActorId(long value) implements Comparable<ActorId> {
     public ActorId {
         if (value <= 0) {
             throw new IllegalArgumentException();
         }
+    }
+
+    @Override
+    public int compareTo(ActorId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return Long.compare(value, other.value);
     }
 }
 
 ===== core\domain\ids\ClassId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record ClassId(String value) {
+public record ClassId(String value) implements Comparable<ClassId> {
     public ClassId {
         value = IdValidation.normalizedKey(value);
+    }
+
+    @Override
+    public int compareTo(ClassId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return value.compareTo(other.value);
     }
 }
 
 ===== core\domain\ids\EffectId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record EffectId(String value) {
+public record EffectId(String value) implements Comparable<EffectId> {
     public EffectId {
         value = IdValidation.normalizedKey(value);
+    }
+
+    @Override
+    public int compareTo(EffectId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return value.compareTo(other.value);
     }
 }
 
@@ -365,12 +448,63 @@ public final class IdValidation {
     private IdValidation() {}
 }
 
+===== core\domain\ids\QueryId.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.ids;
+
+public record QueryId(long value) implements Comparable<QueryId> {
+    public QueryId {
+        if (value <= 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public static QueryId fromFrame(long frameId, int localIndex) {
+        if (frameId < 0 || localIndex < 0) {
+            throw new IllegalArgumentException();
+        }
+        long base = Math.multiplyExact(Math.addExact(frameId, 1L), 1_000_000L);
+        long v = Math.addExact(base, Math.addExact(localIndex, 1L));
+        return new QueryId(v);
+    }
+
+    @Override
+    public int compareTo(QueryId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return Long.compare(value, other.value);
+    }
+}
+
 ===== core\domain\ids\WeaponId.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record WeaponId(String value) {
+public record WeaponId(String value) implements Comparable<WeaponId> {
     public WeaponId {
         value = IdValidation.normalizedKey(value);
+    }
+
+    @Override
+    public int compareTo(WeaponId other) {
+        if (other == null) {
+            throw new IllegalArgumentException();
+        }
+        return value.compareTo(other.value);
+    }
+}
+
+===== core\domain\spec\ActionCycleSpec.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.spec;
+
+public record ActionCycleSpec(
+        ComboSpec combo,
+        TargetingSpec targeting,
+        StepWindowSpec stepWindow
+) {
+    public ActionCycleSpec {
+        if (combo == null || targeting == null || stepWindow == null) {
+            throw new IllegalArgumentException();
+        }
     }
 }
 
@@ -401,21 +535,6 @@ public record CooldownSpec(
     }
 }
 
-===== core\domain\spec\CycleSpec.java =====
-package com.pgalaxyp.fragmento.rpg.core.domain.spec;
-
-public record CycleSpec(
-        ComboSpec combo,
-        TargetingSpec targeting,
-        FrameWindowSpec frameWindow
-) {
-    public CycleSpec {
-        if (combo == null || targeting == null || frameWindow == null) {
-            throw new IllegalArgumentException();
-        }
-    }
-}
-
 ===== core\domain\spec\DamageSpec.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
@@ -429,13 +548,35 @@ public record DamageSpec(
     }
 }
 
-===== core\domain\spec\FrameWindowSpec.java =====
+===== core\domain\spec\EffectVisualSpec.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
-public record FrameWindowSpec(
+public sealed interface EffectVisualSpec permits HomingMagicSpec {}
+
+===== core\domain\spec\HomingMagicSpec.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.spec;
+
+public record HomingMagicSpec(
+        int lifetimeFrames
+) implements EffectVisualSpec {
+    public HomingMagicSpec {
+        if (lifetimeFrames <= 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public static HomingMagicSpec defaultSpec() {
+        return new HomingMagicSpec(20);
+    }
+}
+
+===== core\domain\spec\StepWindowSpec.java =====
+package com.pgalaxyp.fragmento.rpg.core.domain.spec;
+
+public record StepWindowSpec(
         int framesPerStep
 ) {
-    public FrameWindowSpec {
+    public StepWindowSpec {
         if (framesPerStep <= 0) {
             throw new IllegalArgumentException();
         }
@@ -492,10 +633,14 @@ package com.pgalaxyp.fragmento.rpg.core.event.delta;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 
 public record ComboAdvanced(
-        ActorId actorId
+        ActorId actorId,
+        long stepFrameId
 ) implements StateDelta {
     public ComboAdvanced {
         if (actorId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (stepFrameId < 0) {
             throw new IllegalArgumentException();
         }
     }
@@ -529,13 +674,17 @@ public record ComboStarted(
         ActorId actorId,
         ActionId actionId,
         WeaponId weaponId,
-        int stepsTotal
+        int stepsTotal,
+        long stepFrameId
 ) implements StateDelta {
     public ComboStarted {
         if (actorId == null || actionId == null || weaponId == null) {
             throw new IllegalArgumentException();
         }
         if (stepsTotal <= 0) {
+            throw new IllegalArgumentException();
+        }
+        if (stepFrameId < 0) {
             throw new IllegalArgumentException();
         }
     }
@@ -592,10 +741,14 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 
 public record HomingMagicVisualEvent(
         ActorId sourceActorId,
-        ActorId targetActorId
+        ActorId targetActorId,
+        int lifetimeFrames
 ) implements VisualEvent {
     public HomingMagicVisualEvent {
         if (sourceActorId == null || targetActorId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (lifetimeFrames <= 0) {
             throw new IllegalArgumentException();
         }
     }
@@ -656,42 +809,32 @@ public record IntentEnvelope(
 ===== core\event\query\ExternalQueryEvent.java =====
 package com.pgalaxyp.fragmento.rpg.core.event.query;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+
 public sealed interface ExternalQueryEvent permits TargetingQueryRequested {
     QueryId queryId();
-}
-
-===== core\event\query\QueryId.java =====
-package com.pgalaxyp.fragmento.rpg.core.event.query;
-
-public record QueryId(long value) {
-    public QueryId {
-        if (value <= 0) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    public static QueryId fromFrame(long frameId, int localIndex) {
-        if (frameId < 0 || localIndex < 0) {
-            throw new IllegalArgumentException();
-        }
-        long v = (frameId + 1L) * 1_000_000L + (long) localIndex + 1L;
-        return new QueryId(v);
-    }
 }
 
 ===== core\event\query\TargetingQueryRequested.java =====
 package com.pgalaxyp.fragmento.rpg.core.event.query;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
 
 public record TargetingQueryRequested(
         QueryId queryId,
         ActorId sourceActorId,
+        ActionId actionId,
+        int stepIndex,
         TargetingSpec spec
 ) implements ExternalQueryEvent {
     public TargetingQueryRequested {
-        if (queryId == null || sourceActorId == null || spec == null) {
+        if (queryId == null || sourceActorId == null || actionId == null || spec == null) {
+            throw new IllegalArgumentException();
+        }
+        if (stepIndex < 0) {
             throw new IllegalArgumentException();
         }
     }
@@ -700,31 +843,55 @@ public record TargetingQueryRequested(
 ===== core\event\resolution\DomainResolution.java =====
 package com.pgalaxyp.fragmento.rpg.core.event.resolution;
 
-import com.pgalaxyp.fragmento.rpg.core.event.query.QueryId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
 
 public sealed interface DomainResolution permits TargetingQueryResolved {
     QueryId queryId();
 }
 
-===== core\event\resolution\TargetingQueryResolved.java =====
+===== core\event\resolution\TargetingCandidate.java =====
 package com.pgalaxyp.fragmento.rpg.core.event.resolution;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.event.query.QueryId;
-import java.util.Optional;
 
-public record TargetingQueryResolved(
-        QueryId queryId,
-        Optional<ActorId> targetActorId
-) implements DomainResolution {
-    public TargetingQueryResolved {
-        if (queryId == null || targetActorId == null) {
+public record TargetingCandidate(
+        ActorId actorId,
+        int distanceSquared
+) {
+    public TargetingCandidate {
+        if (actorId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (distanceSquared < 0) {
             throw new IllegalArgumentException();
         }
     }
+}
+
+===== core\event\resolution\TargetingQueryResolved.java =====
+package com.pgalaxyp.fragmento.rpg.core.event.resolution;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import java.util.List;
+
+public record TargetingQueryResolved(
+        QueryId queryId,
+        List<TargetingCandidate> candidates
+) implements DomainResolution {
+    public TargetingQueryResolved {
+        if (queryId == null || candidates == null) {
+            throw new IllegalArgumentException();
+        }
+        for (TargetingCandidate c : candidates) {
+            if (c == null) {
+                throw new IllegalArgumentException();
+            }
+        }
+        candidates = List.copyOf(candidates);
+    }
 
     public static TargetingQueryResolved empty(QueryId queryId) {
-        return new TargetingQueryResolved(queryId, Optional.empty());
+        return new TargetingQueryResolved(queryId, List.of());
     }
 }
 
@@ -738,6 +905,8 @@ import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
@@ -751,18 +920,18 @@ import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboStartIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.DomainIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.rpg.core.event.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.query.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.event.query.TargetingQueryRequested;
 import com.pgalaxyp.fragmento.rpg.core.event.resolution.DomainResolution;
+import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingCandidate;
 import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingQueryResolved;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class RpgRules {
 
@@ -780,6 +949,15 @@ public final class RpgRules {
         List<DomainEvent> events = new ArrayList<>();
         List<ExternalQueryEvent> queries = new ArrayList<>();
 
+        Map<ActorId, ComboState> comboByActor = new TreeMap<>();
+        for (var e : state.actors().entrySet()) {
+            ActorId actorId = e.getKey();
+            ActorState actor = e.getValue();
+            if (actor.combo().isPresent()) {
+                comboByActor.put(actorId, actor.combo().get());
+            }
+        }
+
         int queryIndex = 0;
 
         for (IntentEnvelope env : intents) {
@@ -791,57 +969,99 @@ public final class RpgRules {
             DomainIntent intent = env.intent();
 
             if (intent instanceof ComboStartIntent) {
+                if (comboByActor.containsKey(actorId)) {
+                    continue;
+                }
+
                 Optional<ActorState> actorOpt = state.findActor(actorId);
                 if (actorOpt.isEmpty()) {
                     continue;
                 }
                 ActorState actor = actorOpt.get();
-                if (actor.combo().isPresent()) {
-                    continue;
-                }
                 if (actor.equippedWeaponId().isEmpty()) {
                     continue;
                 }
-                WeaponDef weapon = content.weapon(actor.equippedWeaponId().get());
-                ActionDef action = content.action(weapon.actionId());
-                int stepsTotal = action.cycle().combo().maxStepsTotal();
 
-                deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal));
+                Optional<WeaponDef> weaponOpt = content.findWeapon(actor.equippedWeaponId().get());
+                if (weaponOpt.isEmpty()) {
+                    continue;
+                }
+                WeaponDef weapon = weaponOpt.get();
+
+                Optional<ActionDef> actionOpt = content.findAction(weapon.actionId());
+                if (actionOpt.isEmpty()) {
+                    continue;
+                }
+                ActionDef action = actionOpt.get();
+                if (action.kind() == null) {
+                    continue;
+                }
+
+                int stepsTotal = action.effectSequence().size();
+                deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal, frame.frameId()));
 
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
                 queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
+                queries.add(new TargetingQueryRequested(qid, actorId, weapon.actionId(), 0, action.cycle().targeting()));
+
+                if (stepsTotal <= 1) {
+                    deltas.add(new ComboEnded(actorId, weapon.actionId()));
+                    continue;
+                }
+
+                comboByActor.put(actorId, new ComboState(weapon.actionId(), weapon.id(), 0, stepsTotal, frame.frameId()));
                 continue;
             }
 
-            if (intent instanceof ComboAdvanceIntent advance) {
-                ActionId actionId = advance.actionId();
-
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
+            if (intent instanceof ComboAdvanceIntent(ActionId actionId)) {
+                ComboState combo = comboByActor.get(actorId);
+                if (combo == null) {
                     continue;
                 }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isEmpty()) {
-                    continue;
-                }
-                ComboState combo = actor.combo().get();
                 if (!combo.actionId().equals(actionId)) {
                     continue;
                 }
 
-                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
-                if (nextStepIndex >= combo.stepsTotal()) {
+                int stepsTotal = combo.stepsTotal();
+                int lastStepIndex = Math.subtractExact(stepsTotal, 1);
+
+                if (combo.stepIndex() >= lastStepIndex) {
                     deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
                     continue;
                 }
 
-                deltas.add(new ComboAdvanced(actorId));
+                Optional<ActionDef> actionOpt = content.findAction(combo.actionId());
+                if (actionOpt.isEmpty()) {
+                    continue;
+                }
+                ActionDef action = actionOpt.get();
 
-                ActionDef action = content.action(combo.actionId());
+                long diffFrames = Math.subtractExact(frame.frameId(), combo.lastStepFrameId());
+                long framesPerStep = action.cycle().stepWindow().framesPerStep();
+                if (diffFrames < framesPerStep) {
+                    continue;
+                }
+
+                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
+                if (nextStepIndex > lastStepIndex) {
+                    deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
+                    continue;
+                }
+
+                deltas.add(new ComboAdvanced(actorId, frame.frameId()));
+
                 QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
                 queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, action.cycle().targeting()));
+                queries.add(new TargetingQueryRequested(qid, actorId, combo.actionId(), nextStepIndex, action.cycle().targeting()));
+
+                if (nextStepIndex >= lastStepIndex) {
+                    deltas.add(new ComboEnded(actorId, combo.actionId()));
+                    comboByActor.remove(actorId);
+                } else {
+                    comboByActor.put(actorId, new ComboState(combo.actionId(), combo.weaponId(), nextStepIndex, combo.stepsTotal(), frame.frameId()));
+                }
             }
         }
 
@@ -852,14 +1072,14 @@ public final class RpgRules {
             FrameContext frame,
             GameState state,
             RpgContent content,
-            List<IntentEnvelope> intents,
+            List<ExternalQueryEvent> queries,
             List<DomainResolution> resolutions
     ) {
-        if (frame == null || state == null || content == null || intents == null || resolutions == null) {
+        if (frame == null || state == null || content == null || queries == null || resolutions == null) {
             throw new IllegalArgumentException();
         }
 
-        Map<QueryId, TargetingQueryResolved> targeting = new LinkedHashMap<>();
+        Map<QueryId, TargetingQueryResolved> targeting = new TreeMap<>();
         for (DomainResolution res : resolutions) {
             if (res == null) {
                 throw new IllegalArgumentException();
@@ -871,95 +1091,95 @@ public final class RpgRules {
 
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
-        List<ExternalQueryEvent> queries = List.of();
 
-        int queryIndex = 0;
-
-        for (IntentEnvelope env : intents) {
-            if (env == null) {
+        for (ExternalQueryEvent q : queries) {
+            if (q == null) {
                 throw new IllegalArgumentException();
             }
-
-            ActorId actorId = env.actorId();
-            DomainIntent intent = env.intent();
-
-            if (intent instanceof ComboStartIntent) {
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
-                }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isPresent()) {
-                    continue;
-                }
-                if (actor.equippedWeaponId().isEmpty()) {
-                    continue;
-                }
-                WeaponDef weapon = content.weapon(actor.equippedWeaponId().get());
-                ActionDef action = content.action(weapon.actionId());
-
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-
-                TargetingQueryResolved resolved = targeting.get(qid);
-                if (resolved == null || resolved.targetActorId().isEmpty()) {
-                    continue;
-                }
-
-                EffectId effectId = action.effectSequence().get(0);
-                EffectDef effect = content.effect(effectId);
-
-                ActorId targetId = resolved.targetActorId().get();
-                deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
-                events.add(new HomingMagicVisualEvent(actorId, targetId));
+            if (!(q instanceof TargetingQueryRequested tr)) {
                 continue;
             }
 
-            if (intent instanceof ComboAdvanceIntent advance) {
-                ActionId actionId = advance.actionId();
+            TargetingQueryResolved resolved = targeting.get(tr.queryId());
+            if (resolved == null) {
+                resolved = TargetingQueryResolved.empty(tr.queryId());
+            }
 
-                Optional<ActorState> actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
+            Optional<ActorId> targetOpt = pickTarget(tr.sourceActorId(), resolved);
+            if (targetOpt.isEmpty()) {
+                continue;
+            }
+
+            Optional<ActionDef> actionOpt = content.findAction(tr.actionId());
+            if (actionOpt.isEmpty()) {
+                continue;
+            }
+            ActionDef action = actionOpt.get();
+
+            int stepIndex = tr.stepIndex();
+            if (stepIndex < 0 || stepIndex >= action.effectSequence().size()) {
+                continue;
+            }
+
+            EffectId effectId = action.effectSequence().get(stepIndex);
+            Optional<EffectDef> effectOpt = content.findEffect(effectId);
+            if (effectOpt.isEmpty()) {
+                continue;
+            }
+            EffectDef effect = effectOpt.get();
+
+            ActorId targetId = targetOpt.get();
+            deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
+
+            if (effect.visual().isPresent()) {
+                if (effect.visual().get() instanceof HomingMagicSpec(int lifetimeFrames)) {
+                    events.add(new HomingMagicVisualEvent(tr.sourceActorId(), targetId, lifetimeFrames));
                 }
-                ActorState actor = actorOpt.get();
-                if (actor.combo().isEmpty()) {
-                    continue;
-                }
-                ComboState combo = actor.combo().get();
-                if (!combo.actionId().equals(actionId)) {
-                    continue;
-                }
-
-                int nextStepIndex = Math.addExact(combo.stepIndex(), 1);
-                if (nextStepIndex >= combo.stepsTotal()) {
-                    continue;
-                }
-
-                ActionDef action = content.action(combo.actionId());
-
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-
-                TargetingQueryResolved resolved = targeting.get(qid);
-                if (resolved == null || resolved.targetActorId().isEmpty()) {
-                    continue;
-                }
-
-                if (nextStepIndex >= action.effectSequence().size()) {
-                    continue;
-                }
-
-                EffectId effectId = action.effectSequence().get(nextStepIndex);
-                EffectDef effect = content.effect(effectId);
-
-                ActorId targetId = resolved.targetActorId().get();
-                deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
-                events.add(new HomingMagicVisualEvent(actorId, targetId));
             }
         }
 
-        return new RuleResult(deltas, events, queries);
+        return new RuleResult(deltas, events, List.of());
+    }
+
+    private static Optional<ActorId> pickTarget(ActorId sourceActorId, TargetingQueryResolved resolved) {
+        if (sourceActorId == null || resolved == null) {
+            return Optional.empty();
+        }
+
+        TargetingCandidate best = null;
+
+        for (TargetingCandidate c : resolved.candidates()) {
+            if (c == null || c.actorId() == null) {
+                continue;
+            }
+            if (c.actorId().equals(sourceActorId)) {
+                continue;
+            }
+
+            if (best == null) {
+                best = c;
+                continue;
+            }
+
+            int distCmp = Integer.compare(c.distanceSquared(), best.distanceSquared());
+            if (distCmp < 0) {
+                best = c;
+                continue;
+            }
+            if (distCmp > 0) {
+                continue;
+            }
+
+            int idCmp = c.actorId().compareTo(best.actorId());
+            if (idCmp < 0) {
+                best = c;
+            }
+        }
+
+        if (best == null) {
+            return Optional.empty();
+        }
+        return Optional.of(best.actorId());
     }
 
     private RpgRules() {}
@@ -1013,6 +1233,14 @@ public record ActorState(
         if (healthHearts < 0 || maxHealthHearts <= 0 || healthHearts > maxHealthHearts) {
             throw new IllegalArgumentException();
         }
+
+        if (equippedWeaponId.isPresent() && equippedWeaponId.get() == null) {
+            throw new IllegalArgumentException();
+        }
+        if (combo.isPresent() && combo.get() == null) {
+            throw new IllegalArgumentException();
+        }
+
         if (combo.isPresent()) {
             if (equippedWeaponId.isEmpty()) {
                 throw new IllegalArgumentException();
@@ -1021,6 +1249,9 @@ public record ActorState(
                 throw new IllegalArgumentException();
             }
         }
+
+        equippedWeaponId = equippedWeaponId.isPresent() ? Optional.of(equippedWeaponId.get()) : Optional.empty();
+        combo = combo.isPresent() ? Optional.of(combo.get()) : Optional.empty();
     }
 
     public static ActorState idleWithHealth(ClassId classId, int healthHearts, int maxHealthHearts) {
@@ -1048,7 +1279,8 @@ public record ComboState(
         ActionId actionId,
         WeaponId weaponId,
         int stepIndex,
-        int stepsTotal
+        int stepsTotal,
+        long lastStepFrameId
 ) {
     public ComboState {
         if (actionId == null || weaponId == null) {
@@ -1060,10 +1292,23 @@ public record ComboState(
         if (stepIndex < 0 || stepIndex >= stepsTotal) {
             throw new IllegalArgumentException();
         }
+        if (lastStepFrameId < 0) {
+            throw new IllegalArgumentException();
+        }
     }
 
-    public ComboState advance() {
-        return new ComboState(actionId, weaponId, stepIndex + 1, stepsTotal);
+    public ComboState advance(long frameId) {
+        if (frameId < 0) {
+            throw new IllegalArgumentException();
+        }
+        if (frameId < lastStepFrameId) {
+            throw new IllegalArgumentException();
+        }
+        int nextIndex = Math.addExact(stepIndex, 1);
+        if (nextIndex >= stepsTotal) {
+            throw new IllegalArgumentException();
+        }
+        return new ComboState(actionId, weaponId, nextIndex, stepsTotal, frameId);
     }
 }
 
@@ -1072,12 +1317,14 @@ package com.pgalaxyp.fragmento.rpg.core.state;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import java.util.Map;
+import java.util.Collections;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public record GameState(
         FrameContext frame,
-        Map<ActorId, ActorState> actors
+        NavigableMap<ActorId, ActorState> actors
 ) {
     public GameState {
         if (frame == null || actors == null) {
@@ -1088,7 +1335,7 @@ public record GameState(
                 throw new IllegalArgumentException();
             }
         }
-        actors = Map.copyOf(actors);
+        actors = Collections.unmodifiableNavigableMap(new TreeMap<>(actors));
     }
 
     public Optional<ActorState> findActor(ActorId actorId) {
@@ -1121,9 +1368,10 @@ import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class StateDeltaApplier {
 
@@ -1131,7 +1379,7 @@ public final class StateDeltaApplier {
         if (base == null || deltas == null) {
             throw new IllegalArgumentException();
         }
-        Map<ActorId, ActorState> actors = new LinkedHashMap<>(base.actors());
+        NavigableMap<ActorId, ActorState> actors = new TreeMap<>(base.actors());
         for (StateDelta delta : deltas) {
             if (delta == null) {
                 throw new IllegalArgumentException();
@@ -1142,40 +1390,59 @@ public final class StateDeltaApplier {
     }
 
     private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
-        if (delta instanceof ComboStarted(ActorId actorId, ActionId actionId, WeaponId weaponId, int stepsTotal)) {
-            ActorState prev = actors.get(actorId);
+        if (delta instanceof ComboStarted(ActorId id, ActionId actionId, WeaponId weaponId, int stepsTotal, long frameId)) {
+            ActorState prev = actors.get(id);
             if (prev == null) {
                 return;
             }
-            ComboState combo = new ComboState(actionId, weaponId, 0, stepsTotal);
+            if (prev.combo().isPresent()) {
+                return;
+            }
+            if (prev.equippedWeaponId().isEmpty()) {
+                return;
+            }
+            if (!prev.equippedWeaponId().get().equals(weaponId)) {
+                return;
+            }
+            ComboState combo = new ComboState(actionId, weaponId, 0, stepsTotal, frameId);
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(combo), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(actorId, next);
+            actors.put(id, next);
             return;
         }
 
-        if (delta instanceof ComboAdvanced(ActorId actorId)) {
+        if (delta instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
             }
+            if (prev.equippedWeaponId().isEmpty()) {
+                return;
+            }
             ComboState current = prev.combo().get();
-            int nextIndex = current.stepIndex() + 1;
+            if (!prev.equippedWeaponId().get().equals(current.weaponId())) {
+                return;
+            }
+            int nextIndex = Math.addExact(current.stepIndex(), 1);
             if (nextIndex >= current.stepsTotal()) {
                 return;
             }
-            ComboState nextCombo = new ComboState(current.actionId(), current.weaponId(), nextIndex, current.stepsTotal());
+            ComboState nextCombo = new ComboState(current.actionId(), current.weaponId(), nextIndex, current.stepsTotal(), stepFrameId);
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(nextCombo), prev.healthHearts(), prev.maxHealthHearts());
             actors.put(actorId, next);
             return;
         }
 
-        if (delta instanceof ComboEnded d) {
-            ActorState prev = actors.get(d.actorId());
-            if (prev == null) {
+        if (delta instanceof ComboEnded(ActorId actorId, ActionId actionId)) {
+            ActorState prev = actors.get(actorId);
+            if (prev == null || prev.combo().isEmpty()) {
+                return;
+            }
+            ComboState current = prev.combo().get();
+            if (!current.actionId().equals(actionId)) {
                 return;
             }
             ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.empty(), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(d.actorId(), next);
+            actors.put(actorId, next);
             return;
         }
 
@@ -1199,9 +1466,15 @@ public final class StateDeltaApplier {
 ===== engine\commit\StateDeltaMerger.java =====
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboStarted;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.DamageApplied;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 public final class StateDeltaMerger {
 
@@ -1209,10 +1482,110 @@ public final class StateDeltaMerger {
         if (first == null || second == null) {
             throw new IllegalArgumentException();
         }
-        ArrayList<StateDelta> out = new ArrayList<>(Math.addExact(first.size(), second.size()));
-        out.addAll(first);
-        out.addAll(second);
+
+        List<StateDelta> all = new ArrayList<>(Math.addExact(first.size(), second.size()));
+        for (StateDelta d : first) {
+            if (d == null) {
+                throw new IllegalArgumentException();
+            }
+            all.add(d);
+        }
+        for (StateDelta d : second) {
+            if (d == null) {
+                throw new IllegalArgumentException();
+            }
+            all.add(d);
+        }
+
+        TreeMap<ActorId, Integer> damageByTarget = new TreeMap<>();
+        TreeMap<ActorId, ComboAgg> comboByActor = new TreeMap<>();
+
+        for (StateDelta d : all) {
+            if (d instanceof DamageApplied(ActorId targetActorId, int hearts)) {
+                Integer prev = damageByTarget.get(targetActorId);
+                int base = prev == null ? 0 : prev;
+                int next = Math.addExact(base, hearts);
+                damageByTarget.put(targetActorId, next);
+                continue;
+            }
+
+            if (d instanceof ComboStarted cs) {
+                ComboAgg agg = comboByActor.computeIfAbsent(cs.actorId(), k -> new ComboAgg());
+                agg.acceptStart(cs);
+                continue;
+            }
+
+            if (d instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
+                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
+                agg.acceptAdvance(stepFrameId);
+                continue;
+            }
+
+            if (d instanceof ComboEnded ce) {
+                ComboAgg agg = comboByActor.computeIfAbsent(ce.actorId(), k -> new ComboAgg());
+                agg.acceptEnd(ce);
+            }
+        }
+
+        List<StateDelta> out = new ArrayList<>();
+
+        for (var e : comboByActor.entrySet()) {
+            ActorId actorId = e.getKey();
+            ComboAgg agg = e.getValue();
+
+            if (agg.start != null) {
+                out.add(agg.start);
+            }
+
+            int advances = agg.advances;
+            long advanceFrameId = agg.advanceFrameId;
+            for (int i = 0; i < advances; i++) {
+                out.add(new ComboAdvanced(actorId, advanceFrameId));
+            }
+
+            if (agg.end != null) {
+                out.add(agg.end);
+            }
+        }
+
+        for (var e : damageByTarget.entrySet()) {
+            ActorId targetId = e.getKey();
+            int hearts = e.getValue();
+            if (hearts > 0) {
+                out.add(new DamageApplied(targetId, hearts));
+            }
+        }
+
         return List.copyOf(out);
+    }
+
+    private static final class ComboAgg {
+
+        private ComboStarted start;
+        private int advances;
+        private long advanceFrameId;
+        private ComboEnded end;
+
+        private void acceptStart(ComboStarted s) {
+            if (end != null) {
+                return;
+            }
+            if (start == null) {
+                start = s;
+            }
+        }
+
+        private void acceptAdvance(long frameId) {
+            if (end != null) {
+                return;
+            }
+            advances = Math.addExact(advances, 1);
+            advanceFrameId = frameId;
+        }
+
+        private void acceptEnd(ComboEnded e) {
+            end = e;
+        }
     }
 
     private StateDeltaMerger() {}
@@ -1243,12 +1616,13 @@ public record EngineFrameOutput(
 package com.pgalaxyp.fragmento.rpg.engine.intent;
 
 import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.port.IntentSourcePort;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
-public final class IntentQueue implements IntentSource {
+public final class IntentQueue implements IntentSourcePort {
 
     private final Deque<IntentEnvelope> queue = new ArrayDeque<>();
 
@@ -1267,16 +1641,6 @@ public final class IntentQueue implements IntentSource {
         }
         return out;
     }
-}
-
-===== engine\intent\IntentSource.java =====
-package com.pgalaxyp.fragmento.rpg.engine.intent;
-
-import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
-import java.util.List;
-
-public interface IntentSource {
-    List<IntentEnvelope> drain();
 }
 
 ===== engine\journal\FrameJournalEntry.java =====
@@ -1321,9 +1685,9 @@ import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
-import com.pgalaxyp.fragmento.rpg.engine.intent.IntentSource;
 import com.pgalaxyp.fragmento.rpg.engine.journal.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.port.IntentSourcePort;
 import com.pgalaxyp.fragmento.rpg.port.JournalPort;
 import com.pgalaxyp.fragmento.rpg.port.SnapshotPort;
 import com.pgalaxyp.fragmento.rpg.port.WorldQueryPort;
@@ -1332,7 +1696,7 @@ import java.util.List;
 
 public final class RpgEngine {
 
-    private final IntentSource intents;
+    private final IntentSourcePort intents;
     private final WorldQueryPort worldQueries;
     private final JournalPort journal;
     private final SnapshotPort snapshots;
@@ -1342,7 +1706,7 @@ public final class RpgEngine {
     private long nextFrameId;
 
     public RpgEngine(
-            IntentSource intents,
+            IntentSourcePort intents,
             WorldQueryPort worldQueries,
             JournalPort journal,
             SnapshotPort snapshots,
@@ -1371,7 +1735,7 @@ public final class RpgEngine {
         RuleResult a = RpgRules.passA(frame, state, content, drained);
 
         List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
-        RuleResult b = RpgRules.passB(frame, state, content, drained, resolutions);
+        RuleResult b = RpgRules.passB(frame, state, content, a.queries(), resolutions);
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
 
@@ -1404,17 +1768,19 @@ package com.pgalaxyp.fragmento.rpg.engine.snapshot;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import java.util.Map;
+import java.util.Collections;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 public record GameSnapshot(
         FrameContext frame,
-        Map<ActorId, ActorState> actors
+        NavigableMap<ActorId, ActorState> actors
 ) {
     public GameSnapshot {
         if (frame == null || actors == null) {
             throw new IllegalArgumentException();
         }
-        actors = Map.copyOf(actors);
+        actors = Collections.unmodifiableNavigableMap(new TreeMap<>(actors));
     }
 }
 
@@ -1428,14 +1794,56 @@ import java.util.List;
 public final class MinecraftHostStub {
 
     public List<IntentEnvelope> captureIntents() {
-        throw new UnsupportedOperationException();
+        return List.of();
     }
 
     public void applyEvents(List<DomainEvent> events) {
         if (events == null) {
             throw new IllegalArgumentException();
         }
-        throw new UnsupportedOperationException();
+    }
+}
+
+===== host\minecraft\MinecraftRpgServerStub.java =====
+package com.pgalaxyp.fragmento.rpg.host.minecraft;
+
+import com.pgalaxyp.fragmento.rpg.core.event.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.engine.EngineFrameOutput;
+import com.pgalaxyp.fragmento.rpg.engine.RpgEngine;
+import com.pgalaxyp.fragmento.rpg.engine.intent.IntentQueue;
+import java.util.List;
+
+public final class MinecraftRpgServerStub {
+
+    private final MinecraftHostStub host;
+    private final IntentQueue queue;
+    private final RpgEngine engine;
+
+    public MinecraftRpgServerStub(MinecraftHostStub host, IntentQueue queue, RpgEngine engine) {
+        if (host == null || queue == null || engine == null) {
+            throw new IllegalArgumentException();
+        }
+        this.host = host;
+        this.queue = queue;
+        this.engine = engine;
+    }
+
+    public EngineFrameOutput tick(int tickIndex) {
+        List<IntentEnvelope> captured = host.captureIntents();
+        for (IntentEnvelope env : captured) {
+            if (env == null) {
+                throw new IllegalArgumentException();
+            }
+            queue.push(env);
+        }
+
+        EngineFrameOutput out = engine.step(tickIndex);
+
+        List<DomainEvent> events = out.events();
+        host.applyEvents(events);
+
+        return out;
     }
 }
 
@@ -1444,15 +1852,23 @@ package com.pgalaxyp.fragmento.rpg.platform.minecraft;
 
 import com.pgalaxyp.fragmento.rpg.engine.journal.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.port.JournalPort;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class MinecraftJournalPortStub implements JournalPort {
+
+    private final List<FrameJournalEntry> entries = new ArrayList<>();
 
     @Override
     public void append(FrameJournalEntry entry) {
         if (entry == null) {
             throw new IllegalArgumentException();
         }
-        throw new UnsupportedOperationException();
+        entries.add(entry);
+    }
+
+    public List<FrameJournalEntry> entries() {
+        return List.copyOf(entries);
     }
 }
 
@@ -1461,15 +1877,30 @@ package com.pgalaxyp.fragmento.rpg.platform.minecraft;
 
 import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
 import com.pgalaxyp.fragmento.rpg.port.SnapshotPort;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public final class MinecraftSnapshotPortStub implements SnapshotPort {
+
+    private final List<GameSnapshot> published = new ArrayList<>();
+    private GameSnapshot last;
 
     @Override
     public void publish(GameSnapshot snapshot) {
         if (snapshot == null) {
             throw new IllegalArgumentException();
         }
-        throw new UnsupportedOperationException();
+        published.add(snapshot);
+        last = snapshot;
+    }
+
+    public Optional<GameSnapshot> lastSnapshot() {
+        return Optional.ofNullable(last);
+    }
+
+    public List<GameSnapshot> allSnapshots() {
+        return List.copyOf(published);
     }
 }
 
@@ -1477,11 +1908,17 @@ public final class MinecraftSnapshotPortStub implements SnapshotPort {
 package com.pgalaxyp.fragmento.rpg.platform.minecraft;
 
 import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.event.query.ExternalQueryEvent;
+import com.pgalaxyp.fragmento.rpg.core.event.query.TargetingQueryRequested;
 import com.pgalaxyp.fragmento.rpg.core.event.resolution.DomainResolution;
+import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingCandidate;
+import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingQueryResolved;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import com.pgalaxyp.fragmento.rpg.port.WorldQueryPort;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public final class MinecraftWorldQueryPortStub implements WorldQueryPort {
@@ -1491,8 +1928,44 @@ public final class MinecraftWorldQueryPortStub implements WorldQueryPort {
         if (frame == null || state == null || content == null || queries == null) {
             throw new IllegalArgumentException();
         }
-        throw new UnsupportedOperationException();
+
+        List<DomainResolution> out = new ArrayList<>();
+
+        Comparator<TargetingCandidate> byActorId = Comparator.comparing(
+                TargetingCandidate::actorId,
+                Comparator.nullsFirst(Comparator.naturalOrder())
+        );
+
+        for (ExternalQueryEvent q : queries) {
+            if (q == null) {
+                throw new IllegalArgumentException();
+            }
+            if (q instanceof TargetingQueryRequested tr) {
+                List<TargetingCandidate> candidates = new ArrayList<>();
+                ActorId source = tr.sourceActorId();
+                for (ActorId id : state.actors().keySet()) {
+                    if (id == null || id.equals(source)) {
+                        continue;
+                    }
+                    candidates.add(new TargetingCandidate(id, 0));
+                }
+                candidates.sort(byActorId);
+                out.add(new TargetingQueryResolved(tr.queryId(), candidates));
+            }
+        }
+
+        return List.copyOf(out);
     }
+}
+
+===== port\IntentSourcePort.java =====
+package com.pgalaxyp.fragmento.rpg.port;
+
+import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
+import java.util.List;
+
+public interface IntentSourcePort {
+    List<IntentEnvelope> drain();
 }
 
 ===== port\JournalPort.java =====
