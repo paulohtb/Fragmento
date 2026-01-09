@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record WeaponId(String value) {
-    public WeaponId {
+public record ClassId(String value) {
+    public ClassId {
         value = IdValidation.normalizedKey(value);
     }
 }
