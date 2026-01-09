@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ActorSpawned;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboStarted;
@@ -31,10 +32,16 @@ public final class StateDeltaMerger {
             all.add(d);
         }
 
+        TreeMap<ActorId, ActorSpawned> spawnByActor = new TreeMap<>();
         TreeMap<ActorId, Integer> damageByTarget = new TreeMap<>();
         TreeMap<ActorId, ComboAgg> comboByActor = new TreeMap<>();
 
         for (StateDelta d : all) {
+            if (d instanceof ActorSpawned s) {
+                spawnByActor.putIfAbsent(s.actorId(), s);
+                continue;
+            }
+
             if (d instanceof DamageApplied(ActorId targetActorId, int hearts)) {
                 Integer prev = damageByTarget.get(targetActorId);
                 int base = prev == null ? 0 : prev;
@@ -62,6 +69,10 @@ public final class StateDeltaMerger {
         }
 
         List<StateDelta> out = new ArrayList<>();
+
+        for (var e : spawnByActor.entrySet()) {
+            out.add(e.getValue());
+        }
 
         for (var e : comboByActor.entrySet()) {
             ActorId actorId = e.getKey();

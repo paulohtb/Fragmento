@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.rpg.platform.minecraft;
+package com.pgalaxyp.fragmento.rpg.platform.minecraft.port;
 
 import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;

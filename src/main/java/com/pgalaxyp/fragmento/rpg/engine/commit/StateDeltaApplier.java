@@ -2,7 +2,9 @@ package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ActorSpawned;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboStarted;
@@ -33,6 +35,15 @@ public final class StateDeltaApplier {
     }
 
     private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
+        if (delta instanceof ActorSpawned(ActorId actorId, ClassId classId, WeaponId weaponId, int healthHearts, int maxHealthHearts)) {
+            if (actors.containsKey(actorId)) {
+                return;
+            }
+            ActorState next = ActorState.withEquippedWeapon(classId, weaponId, healthHearts, maxHealthHearts);
+            actors.put(actorId, next);
+            return;
+        }
+
         if (delta instanceof ComboStarted(ActorId id, ActionId actionId, WeaponId weaponId, int stepsTotal, long frameId)) {
             ActorState prev = actors.get(id);
             if (prev == null) {

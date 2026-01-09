@@ -2,14 +2,17 @@ package com.pgalaxyp.fragmento.rpg.core.rules;
 
 import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
 import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.ClassDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.event.delta.ActorSpawned;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboStarted;
@@ -17,6 +20,7 @@ import com.pgalaxyp.fragmento.rpg.core.event.delta.DamageApplied;
 import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.event.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.core.event.event.HomingMagicVisualEvent;
+import com.pgalaxyp.fragmento.rpg.core.event.intent.ActorJoinIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboAdvanceIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboStartIntent;
 import com.pgalaxyp.fragmento.rpg.core.event.intent.DomainIntent;
@@ -69,6 +73,20 @@ public final class RpgRules {
 
             ActorId actorId = env.actorId();
             DomainIntent intent = env.intent();
+
+            if (intent instanceof ActorJoinIntent) {
+                if (state.findActor(actorId).isPresent()) {
+                    continue;
+                }
+                var first = content.classes().firstEntry();
+                if (first == null) {
+                    continue;
+                }
+                ClassDef clazz = first.getValue();
+                WeaponId weaponId = clazz.startingWeaponId();
+                deltas.add(new ActorSpawned(actorId, clazz.id(), weaponId, 10, 10));
+                continue;
+            }
 
             if (intent instanceof ComboStartIntent) {
                 if (comboByActor.containsKey(actorId)) {

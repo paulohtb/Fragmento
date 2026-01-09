@@ -13,9 +13,11 @@ import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
 import com.pgalaxyp.fragmento.rpg.engine.journal.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.port.EventSinkPort;
 import com.pgalaxyp.fragmento.rpg.port.IntentSourcePort;
 import com.pgalaxyp.fragmento.rpg.port.JournalPort;
 import com.pgalaxyp.fragmento.rpg.port.SnapshotPort;
+import com.pgalaxyp.fragmento.rpg.port.WorldCommandPort;
 import com.pgalaxyp.fragmento.rpg.port.WorldQueryPort;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +26,8 @@ public final class RpgEngine {
 
     private final IntentSourcePort intents;
     private final WorldQueryPort worldQueries;
+    private final WorldCommandPort worldCommands;
+    private final EventSinkPort eventSink;
     private final JournalPort journal;
     private final SnapshotPort snapshots;
     private final RpgContent content;
@@ -34,16 +38,20 @@ public final class RpgEngine {
     public RpgEngine(
             IntentSourcePort intents,
             WorldQueryPort worldQueries,
+            WorldCommandPort worldCommands,
+            EventSinkPort eventSink,
             JournalPort journal,
             SnapshotPort snapshots,
             RpgContent content,
             GameState initialState
     ) {
-        if (intents == null || worldQueries == null || journal == null || snapshots == null || content == null || initialState == null) {
+        if (intents == null || worldQueries == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
         this.worldQueries = worldQueries;
+        this.worldCommands = worldCommands;
+        this.eventSink = eventSink;
         this.journal = journal;
         this.snapshots = snapshots;
         this.content = content;
@@ -68,12 +76,16 @@ public final class RpgEngine {
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
         state = committed;
 
+        worldCommands.apply(frame, committed, content, merged);
+
         GameSnapshot snapshot = new GameSnapshot(frame, committed.actors());
         snapshots.publish(snapshot);
 
         List<DomainEvent> events = new ArrayList<>();
         events.addAll(a.events());
         events.addAll(b.events());
+
+        eventSink.publish(frame, events);
 
         journal.append(new FrameJournalEntry(frame, frameSeed, drained, resolutions, merged, snapshot));
 

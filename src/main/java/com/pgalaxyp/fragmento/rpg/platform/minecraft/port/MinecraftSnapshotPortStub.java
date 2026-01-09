@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.rpg.platform.minecraft;
+package com.pgalaxyp.fragmento.rpg.platform.minecraft.port;
 
 import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
 import com.pgalaxyp.fragmento.rpg.port.SnapshotPort;
