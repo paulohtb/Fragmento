@@ -1,8 +1,10 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.ids;
 
-public record ActorId(long value) implements Comparable<ActorId> {
+import java.util.UUID;
+
+public record ActorId(UUID uuid) implements Comparable<ActorId> {
     public ActorId {
-        if (value <= 0) {
+        if (uuid == null) {
             throw new IllegalArgumentException();
         }
     }
@@ -12,6 +14,10 @@ public record ActorId(long value) implements Comparable<ActorId> {
         if (other == null) {
             throw new IllegalArgumentException();
         }
-        return Long.compare(value, other.value);
+        int a = Long.compare(uuid.getMostSignificantBits(), other.uuid.getMostSignificantBits());
+        if (a != 0) {
+            return a;
+        }
+        return Long.compare(uuid.getLeastSignificantBits(), other.uuid.getLeastSignificantBits());
     }
 }

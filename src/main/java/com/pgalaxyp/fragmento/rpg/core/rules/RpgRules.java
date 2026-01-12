@@ -12,24 +12,24 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.ActorSpawned;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboAdvanced;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboEnded;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.ComboStarted;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.DamageApplied;
-import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.event.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.event.HomingMagicVisualEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboAdvanceIntent;
-import com.pgalaxyp.fragmento.rpg.core.event.intent.ComboStartIntent;
-import com.pgalaxyp.fragmento.rpg.core.event.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.event.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.query.TargetingQueryRequested;
-import com.pgalaxyp.fragmento.rpg.core.event.resolution.DomainResolution;
-import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingCandidate;
-import com.pgalaxyp.fragmento.rpg.core.event.resolution.TargetingQueryResolved;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboAdvanced;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboEnded;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboStarted;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
+import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboAdvanceIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboStartIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.query.TargetingQueryRequested;
+import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
+import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingCandidate;
+import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingQueryResolved;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
@@ -113,9 +113,6 @@ public final class RpgRules {
                     continue;
                 }
                 ActionDef action = actionOpt.get();
-                if (action.kind() == null) {
-                    continue;
-                }
 
                 int stepsTotal = action.effectSequence().size();
                 deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal, frame.frameId()));
@@ -212,6 +209,8 @@ public final class RpgRules {
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
 
+        int eventIndex = 0;
+
         for (ExternalQueryEvent q : queries) {
             if (q == null) {
                 throw new IllegalArgumentException();
@@ -253,7 +252,9 @@ public final class RpgRules {
 
             if (effect.visual().isPresent()) {
                 if (effect.visual().get() instanceof HomingMagicSpec(int lifetimeFrames)) {
-                    events.add(new HomingMagicVisualEvent(tr.sourceActorId(), targetId, lifetimeFrames));
+                    int localIndex = eventIndex;
+                    eventIndex = Math.addExact(eventIndex, 1);
+                    events.add(new HomingMagicVisualEvent(frame.frameId(), localIndex, tr.queryId(), tr.sourceActorId(), targetId, lifetimeFrames));
                 }
             }
         }

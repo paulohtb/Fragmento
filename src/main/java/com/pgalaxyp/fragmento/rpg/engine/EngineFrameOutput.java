@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.engine;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.event.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.engine.snapshot.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
 import java.util.List;
 
 public record EngineFrameOutput(

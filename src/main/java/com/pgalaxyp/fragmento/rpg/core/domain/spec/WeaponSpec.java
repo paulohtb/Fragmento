@@ -9,6 +9,10 @@ public record WeaponSpec(
         if (cooldown == null) {
             throw new IllegalArgumentException();
         }
+        if (cooldown.isPresent() && cooldown.get() == null) {
+            throw new IllegalArgumentException();
+        }
+        cooldown = cooldown.isPresent() ? Optional.of(cooldown.get()) : Optional.empty();
     }
 
     public static WeaponSpec empty() {

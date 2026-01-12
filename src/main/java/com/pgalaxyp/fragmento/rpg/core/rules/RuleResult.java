@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.core.rules;
 
-import com.pgalaxyp.fragmento.rpg.core.event.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.event.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.event.query.ExternalQueryEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
+import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
 import java.util.List;
 
 public record RuleResult(

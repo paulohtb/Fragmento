@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.engine.intent;
 
-import com.pgalaxyp.fragmento.rpg.core.event.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.port.IntentSourcePort;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.ports.IntentSourcePort;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
