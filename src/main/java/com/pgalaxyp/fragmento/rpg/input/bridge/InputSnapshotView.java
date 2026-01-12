@@ -5,25 +5,25 @@ import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
 import java.util.Optional;
 
-public final class SnapshotView {
+public final class InputSnapshotView {
 
-    private static final SnapshotView EMPTY = new SnapshotView(null);
+    private static final InputSnapshotView EMPTY = new InputSnapshotView(null);
 
     private final GameSnapshot snapshot;
 
-    private SnapshotView(GameSnapshot snapshot) {
+    private InputSnapshotView(GameSnapshot snapshot) {
         this.snapshot = snapshot;
     }
 
-    public static SnapshotView empty() {
+    public static InputSnapshotView empty() {
         return EMPTY;
     }
 
-    public static SnapshotView of(GameSnapshot snapshot) {
+    public static InputSnapshotView of(GameSnapshot snapshot) {
         if (snapshot == null) {
             throw new IllegalArgumentException();
         }
-        return new SnapshotView(snapshot);
+        return new InputSnapshotView(snapshot);
     }
 
     public boolean isPresent() {

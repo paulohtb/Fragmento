@@ -1,5 +1,5 @@
 package com.pgalaxyp.fragmento.rpg.input.api;
 
-public enum ModInputIntent {
+public enum SemanticInput {
     PRIMARY_ACTION,
 }

@@ -1,9 +1,14 @@
 package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.clientfx.ModVfx;
+import com.pgalaxyp.fragmento.rpg.host.neoforge.items.FragmentoItems;
+import com.pgalaxyp.fragmento.rpg.input.minecraft.ItemWeaponBinding;
+import com.pgalaxyp.fragmento.rpg.input.minecraft.NeoForgeInputBootstrap;
 import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -16,12 +21,21 @@ import net.neoforged.fml.common.EventBusSubscriber.Bus;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.common.NeoForge;
 
 @EventBusSubscriber(modid = FragmentoMod.MOD_ID, bus = Bus.GAME, value = Dist.CLIENT)
 public final class ClientEvents {
 
     static {
         ClientRpgRuntime.install();
+
+        ItemWeaponBinding mapping = new ItemWeaponBinding();
+        mapping.register(FragmentoItems.FLUTE.get(), DefaultRpgContent.FLUTE);
+
+        LocalActorProvider provider = ClientRpgRuntime::localActorId;
+
+        NeoForgeInputBootstrap.ClientModule input = NeoForgeInputBootstrap.createClient(mapping, 2, provider);
+        input.register(NeoForge.EVENT_BUS);
     }
 
     @SubscribeEvent

@@ -5,7 +5,7 @@ import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
 import java.util.OptionalLong;
 
-public interface IntentEmitter {
+public interface InputIntentSink {
     void emit(IntentEnvelope envelope);
 
     default void emit(ActorId actorId, DomainIntent intent, OptionalLong clientFrameHint) {

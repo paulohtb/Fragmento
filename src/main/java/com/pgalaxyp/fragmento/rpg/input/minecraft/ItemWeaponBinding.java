@@ -9,7 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-public final class WeaponItemMapping {
+public final class ItemWeaponBinding {
 
     private final NavigableMap<ResourceLocation, WeaponId> byItemId = new TreeMap<>();
 

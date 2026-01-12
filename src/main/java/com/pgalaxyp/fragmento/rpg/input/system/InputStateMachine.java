@@ -6,7 +6,7 @@ import java.util.TreeMap;
 
 public final class InputStateMachine {
 
-    private final NavigableMap<ActorId, ActorInputState> byActor = new TreeMap<>();
+    private final NavigableMap<ActorId, ActorState> byActor = new TreeMap<>();
     private final int primaryDebounceFrames;
 
     public InputStateMachine(int primaryDebounceFrames) {
@@ -16,7 +16,7 @@ public final class InputStateMachine {
         this.primaryDebounceFrames = primaryDebounceFrames;
     }
 
-    public boolean allowPrimaryAction(ActorId actorId, long frameId) {
+    public Decision decidePrimaryAction(ActorId actorId, long frameId) {
         if (actorId == null) {
             throw new IllegalArgumentException();
         }
@@ -24,33 +24,34 @@ public final class InputStateMachine {
             throw new IllegalArgumentException();
         }
 
-        ActorInputState st = byActor.get(actorId);
+        ActorState st = byActor.get(actorId);
         if (st == null) {
-            st = new ActorInputState(0L);
+            st = new ActorState();
             byActor.put(actorId, st);
         }
 
+        if (st.lastDecisionFrameId == frameId) {
+            return Decision.ALREADY_DECIDED_THIS_FRAME;
+        }
+
         if (frameId < st.nextAllowedPrimaryFrameId) {
-            return false;
+            st.lastDecisionFrameId = frameId;
+            return Decision.BLOCKED_BY_DEBOUNCE;
         }
 
-        long next = Math.addExact(frameId, (long) primaryDebounceFrames);
-        st.nextAllowedPrimaryFrameId = next;
-        return true;
+        st.lastDecisionFrameId = frameId;
+        st.nextAllowedPrimaryFrameId = frameId + primaryDebounceFrames;
+        return Decision.ALLOWED;
     }
 
-    public void clearActor(ActorId actorId) {
-        if (actorId == null) {
-            throw new IllegalArgumentException();
-        }
-        byActor.remove(actorId);
+    public enum Decision {
+        ALLOWED,
+        BLOCKED_BY_DEBOUNCE,
+        ALREADY_DECIDED_THIS_FRAME
     }
 
-    private static final class ActorInputState {
+    private static final class ActorState {
         private long nextAllowedPrimaryFrameId;
-
-        private ActorInputState(long nextAllowedPrimaryFrameId) {
-            this.nextAllowedPrimaryFrameId = nextAllowedPrimaryFrameId;
-        }
+        private long lastDecisionFrameId = Long.MIN_VALUE;
     }
 }

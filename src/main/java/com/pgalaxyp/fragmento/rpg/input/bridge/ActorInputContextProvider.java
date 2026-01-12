@@ -4,7 +4,7 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
 import java.util.Optional;
 
-public interface ActorContextProvider {
+public interface ActorInputContextProvider {
     Optional<ActorId> localActorId();
-    Optional<WeaponId> weaponInHandId(ActorId actorId, SnapshotView snapshot);
+    Optional<WeaponId> weaponInHandId(ActorId actorId, InputSnapshotView snapshot);
 }
