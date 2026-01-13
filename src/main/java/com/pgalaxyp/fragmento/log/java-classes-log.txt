@@ -1,3 +1,274 @@
+package com.pgalaxyp.fragmento.rpg.action.id;
+
+import java.util.*;
+
+public record ActionId(String value) implements Comparable<ActionId> {
+
+    public ActionId {
+        Objects.requireNonNull(value);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    @Override
+    public int compareTo(ActionId other) {
+        return value.compareTo(other.value);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+import com.pgalaxyp.fragmento.rpg.action.id.*;
+import java.util.*;
+
+public record ActionDef(ActionId id, ActionKind kind, ActionSpec spec) {
+
+    public ActionDef {
+        Objects.requireNonNull(id);
+        Objects.requireNonNull(kind);
+        Objects.requireNonNull(spec);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+import java.util.*;
+
+public record ActionEffectRef(String effectKey) {
+
+    public ActionEffectRef {
+        Objects.requireNonNull(effectKey);
+        if (effectKey.isBlank()) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+public enum ActionKind {
+    COMBO,
+    INSTANT,
+    CAST,
+    CHANNEL
+}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+public sealed interface ActionSpec permits SequenceActionSpec, SingleActionSpec {}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+import java.util.*;
+
+public record SequenceActionSpec(List<ActionEffectRef> effects) implements ActionSpec {
+
+    public SequenceActionSpec {
+        Objects.requireNonNull(effects);
+        if (effects.isEmpty()) {
+            throw new IllegalArgumentException();
+        }
+
+        effects = List.copyOf(effects);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.model;
+
+import java.util.*;
+
+public record SingleActionSpec(ActionEffectRef effect) implements ActionSpec {
+
+    public SingleActionSpec {
+        Objects.requireNonNull(effect);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+public sealed interface ActionCommand permits StartAction, AdvanceAction, CancelAction {}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import java.util.*;
+
+public record ActionContext(Object actorId, long frameId) {
+
+    public ActionContext {
+        Objects.requireNonNull(actorId);
+        if (frameId < 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import java.util.*;
+
+public record ActionExecutionId(UUID value) {
+
+    public ActionExecutionId {
+        if (value == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public static ActionExecutionId create() {
+        return new ActionExecutionId(UUID.randomUUID());
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.model.*;
+
+public interface ActionExecutor {
+
+    boolean supports(ActionDef def);
+    ActionRuntime create(ActionDef def);
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.model.*;
+import java.util.*;
+
+public final class ActionRegistry {
+
+    private final List<ActionExecutor> executors = new ArrayList<>();
+
+    public void register(ActionExecutor executor) {
+        executors.add(Objects.requireNonNull(executor));
+    }
+
+    public ActionRuntime createRuntime(ActionDef def) {
+        for (var e : executors) {
+            if (e.supports(def)) {
+                return e.create(def);
+            }
+        }
+        throw new IllegalStateException();
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import java.util.*;
+
+public record ActionResult(List<Object> emittedEffects, boolean finished) {
+
+    public ActionResult {
+        Objects.requireNonNull(emittedEffects);
+        emittedEffects = List.copyOf(emittedEffects);
+    }
+
+    public static ActionResult none() {
+        return new ActionResult(List.of(), false);
+    }
+
+    public static ActionResult finished(List<Object> effects) {
+        return new ActionResult(effects, true);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.model.*;
+
+public sealed interface ActionRuntime permits StatelessActionRuntime {
+
+    ActionExecutionId executionId();
+    ActionDef definition();
+    ActionResult handle(ActionContext context, ActionCommand command);
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+public record AdvanceAction(int stepIndex) implements ActionCommand {
+
+    public AdvanceAction {
+        if (stepIndex < 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+public record CancelAction() implements ActionCommand {}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.model.*;
+
+public final class DefaultActionExecutor implements ActionExecutor {
+
+    @Override
+    public boolean supports(ActionDef def) {
+        return def.kind() == ActionKind.INSTANT;
+    }
+
+    @Override
+    public ActionRuntime create(ActionDef def) {
+        return new StatelessActionRuntime(def);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.id.*;
+import java.util.*;
+
+public record StartAction(ActionId actionId) implements ActionCommand {
+
+    public StartAction {
+        Objects.requireNonNull(actionId);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.model.*;
+import java.util.*;
+
+public final class StatelessActionRuntime implements ActionRuntime {
+
+    private final ActionExecutionId executionId;
+    private final ActionDef definition;
+    private boolean consumed;
+
+    public StatelessActionRuntime(ActionDef definition) {
+        this.executionId = ActionExecutionId.create();
+        this.definition = Objects.requireNonNull(definition);
+    }
+
+    @Override
+    public ActionExecutionId executionId() {
+        return executionId;
+    }
+
+    @Override
+    public ActionDef definition() {
+        return definition;
+    }
+
+    @Override
+    public ActionResult handle(ActionContext context, ActionCommand command) {
+        if (consumed) {
+            return ActionResult.none();
+        }
+
+        if (command instanceof StartAction && definition.spec() instanceof SingleActionSpec(ActionEffectRef effect)) {
+            consumed = true;
+            return ActionResult.finished(List.of(effect));
+        }
+
+        return ActionResult.none();
+    }
+}
+
 package com.pgalaxyp.fragmento.rpg.core.content;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
