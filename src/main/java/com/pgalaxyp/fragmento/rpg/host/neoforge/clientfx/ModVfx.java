@@ -3,7 +3,6 @@ package com.pgalaxyp.fragmento.rpg.host.neoforge.clientfx;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
 import java.util.ArrayList;
@@ -12,6 +11,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class ModVfx {
 
@@ -22,8 +22,8 @@ public final class ModVfx {
             throw new IllegalArgumentException();
         }
         for (DomainEvent e : events) {
-            if (e instanceof HomingMagicVisualEvent(long frameId, int localIndex, QueryId queryId, ActorId sourceActorId, ActorId targetActorId, int lifetimeFrames)) {
-                active.add(new LineFx(sourceActorId, targetActorId, lifetimeFrames));
+            if (e instanceof HomingMagicVisualEvent hm) {
+                active.add(new LineFx(hm.sourceActorId(), hm.targetActorId(), hm.lifetimeFrames()));
             }
         }
     }
@@ -45,6 +45,8 @@ public final class ModVfx {
             return;
         }
 
+        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer vc = buffers.getBuffer(ModRenderTypes.HOMING_MAGIC);
 
@@ -63,16 +65,28 @@ public final class ModVfx {
             double ty = dst.getY() + (double) dst.getEyeHeight();
             double tz = dst.getZ();
 
-            float alpha = 1.0f;
+            double rsx = sx - camPos.x;
+            double rsy = sy - camPos.y;
+            double rsz = sz - camPos.z;
+
+            double rtx = tx - camPos.x;
+            double rty = ty - camPos.y;
+            double rtz = tz - camPos.z;
+
+            float t = (fx.age + partialTick) / (float) fx.lifetime;
+            if (t < 0f) t = 0f;
+            if (t > 1f) t = 1f;
+            float alpha = 1.0f - t;
+
             int r = 120;
             int g = 200;
             int b = 255;
-
             int a = (int) (alpha * 255f);
+
             var pose = poseStack.last();
 
-            vc.addVertex(pose, (float) sx, (float) sy, (float) sz).setColor(r, g, b, a);
-            vc.addVertex(pose, (float) tx, (float) ty, (float) tz).setColor(r, g, b, a);
+            vc.addVertex(pose, (float) rsx, (float) rsy, (float) rsz).setColor(r, g, b, a);
+            vc.addVertex(pose, (float) rtx, (float) rty, (float) rtz).setColor(r, g, b, a);
         }
 
         buffers.endBatch(ModRenderTypes.HOMING_MAGIC);

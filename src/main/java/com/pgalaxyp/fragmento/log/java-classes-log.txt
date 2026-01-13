@@ -15,8 +15,10 @@ import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallbackPolicy;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -27,12 +29,14 @@ public final class DefaultRpgContent {
 
     public static final WeaponId FLUTE = new WeaponId("weapon.flute");
     public static final ActionId FLUTE_BASIC_COMBO = new ActionId("action.bard.flute.basic");
+
     public static final EffectId HIT_1 = new EffectId("effect.bard.flute.hit1");
     public static final EffectId HIT_2 = new EffectId("effect.bard.flute.hit2");
     public static final EffectId HIT_3 = new EffectId("effect.bard.flute.hit3");
 
     public static RpgContent create() {
         NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
+
         HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
         effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1), homing));
         effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1), homing));
@@ -40,7 +44,7 @@ public final class DefaultRpgContent {
 
         ActionCycleSpec cycle = new ActionCycleSpec(
                 new ComboSpec(3, 3),
-                new TargetingSpec(true),
+                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 20, TargetingFallbackPolicy.IMAGINARY_POINT),
                 new StepWindowSpec(1)
         );
 
@@ -54,7 +58,12 @@ public final class DefaultRpgContent {
         NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
         actions.put(FLUTE_BASIC_COMBO, action);
 
-        WeaponDef weapon = new WeaponDef(FLUTE, WeaponSpec.empty(), FLUTE_BASIC_COMBO);
+        WeaponDef weapon = new WeaponDef(
+                FLUTE,
+                WeaponSpec.empty(),
+                FLUTE_BASIC_COMBO
+        );
+
         NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
         weapons.put(FLUTE, weapon);
 
@@ -502,6 +511,8 @@ public record WeaponId(String value) implements Comparable<WeaponId> {
 ===== core\domain\spec\ActionCycleSpec.java =====
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
+
 public record ActionCycleSpec(
         ComboSpec combo,
         TargetingSpec targeting,
@@ -858,95 +869,6 @@ public record IntentEnvelope(
     }
 }
 
-===== core\events\query\ExternalQueryEvent.java =====
-package com.pgalaxyp.fragmento.rpg.core.events.query;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-
-public sealed interface ExternalQueryEvent permits TargetingQueryRequested {
-    QueryId queryId();
-}
-
-===== core\events\query\TargetingQueryRequested.java =====
-package com.pgalaxyp.fragmento.rpg.core.events.query;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
-
-public record TargetingQueryRequested(
-        QueryId queryId,
-        ActorId sourceActorId,
-        ActionId actionId,
-        int stepIndex,
-        TargetingSpec spec
-) implements ExternalQueryEvent {
-    public TargetingQueryRequested {
-        if (queryId == null || sourceActorId == null || actionId == null || spec == null) {
-            throw new IllegalArgumentException();
-        }
-        if (stepIndex < 0) {
-            throw new IllegalArgumentException();
-        }
-    }
-}
-
-===== core\events\resolution\DomainResolution.java =====
-package com.pgalaxyp.fragmento.rpg.core.events.resolution;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-
-public sealed interface DomainResolution permits TargetingQueryResolved {
-    QueryId queryId();
-}
-
-===== core\events\resolution\TargetingCandidate.java =====
-package com.pgalaxyp.fragmento.rpg.core.events.resolution;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-
-public record TargetingCandidate(
-        ActorId actorId,
-        int distanceSquared
-) {
-    public TargetingCandidate {
-        if (actorId == null) {
-            throw new IllegalArgumentException();
-        }
-        if (distanceSquared < 0) {
-            throw new IllegalArgumentException();
-        }
-    }
-}
-
-===== core\events\resolution\TargetingQueryResolved.java =====
-package com.pgalaxyp.fragmento.rpg.core.events.resolution;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import java.util.List;
-
-public record TargetingQueryResolved(
-        QueryId queryId,
-        List<TargetingCandidate> candidates
-) implements DomainResolution {
-    public TargetingQueryResolved {
-        if (queryId == null || candidates == null) {
-            throw new IllegalArgumentException();
-        }
-        for (TargetingCandidate c : candidates) {
-            if (c == null) {
-                throw new IllegalArgumentException();
-            }
-        }
-        candidates = List.copyOf(candidates);
-    }
-
-    public static TargetingQueryResolved empty(QueryId queryId) {
-        return new TargetingQueryResolved(queryId, List.of());
-    }
-}
-
 ===== core\rules\RpgRules.java =====
 package com.pgalaxyp.fragmento.rpg.core.rules;
 
@@ -975,14 +897,16 @@ import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboAdvanceIntent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboStartIntent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.query.TargetingQueryRequested;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingCandidate;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingQueryResolved;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
 import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
+import com.pgalaxyp.fragmento.rpg.targeting.api.ActorTarget;
+import com.pgalaxyp.fragmento.rpg.targeting.api.Target;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
+import com.pgalaxyp.fragmento.rpg.targeting.system.TargetingContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -991,19 +915,20 @@ import java.util.TreeMap;
 
 public final class RpgRules {
 
-    public static RuleResult passA(
+    public static RuleResult pass(
             FrameContext frame,
             GameState state,
             RpgContent content,
-            List<IntentEnvelope> intents
+            List<IntentEnvelope> intents,
+            TargetingService targetingService,
+            WorldRaycastAccess world
     ) {
-        if (frame == null || state == null || content == null || intents == null) {
+        if (frame == null || state == null || content == null || intents == null || targetingService == null || world == null) {
             throw new IllegalArgumentException();
         }
 
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
-        List<ExternalQueryEvent> queries = new ArrayList<>();
 
         Map<ActorId, ComboState> comboByActor = new TreeMap<>();
         for (var e : state.actors().entrySet()) {
@@ -1015,6 +940,7 @@ public final class RpgRules {
         }
 
         int queryIndex = 0;
+        int eventIndex = 0;
 
         for (IntentEnvelope env : intents) {
             if (env == null) {
@@ -1067,9 +993,22 @@ public final class RpgRules {
                 int stepsTotal = action.effectSequence().size();
                 deltas.add(new ComboStarted(actorId, weapon.actionId(), weapon.id(), stepsTotal, frame.frameId()));
 
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, weapon.actionId(), 0, action.cycle().targeting()));
+                var applied = applyStep(
+                        frame,
+                        state,
+                        content,
+                        targetingService,
+                        world,
+                        actorId,
+                        action,
+                        0,
+                        deltas,
+                        events,
+                        queryIndex,
+                        eventIndex
+                );
+                queryIndex = applied.queryIndex;
+                eventIndex = applied.eventIndex;
 
                 if (stepsTotal <= 1) {
                     deltas.add(new ComboEnded(actorId, weapon.actionId()));
@@ -1080,7 +1019,9 @@ public final class RpgRules {
                 continue;
             }
 
-            if (intent instanceof ComboAdvanceIntent(ActionId actionId)) {
+            if (intent instanceof ComboAdvanceIntent ca) {
+                ActionId actionId = ca.actionId();
+
                 ComboState combo = comboByActor.get(actorId);
                 if (combo == null) {
                     continue;
@@ -1119,139 +1060,122 @@ public final class RpgRules {
 
                 deltas.add(new ComboAdvanced(actorId, frame.frameId()));
 
-                QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
-                queryIndex = Math.addExact(queryIndex, 1);
-                queries.add(new TargetingQueryRequested(qid, actorId, combo.actionId(), nextStepIndex, action.cycle().targeting()));
+                var applied = applyStep(
+                        frame,
+                        state,
+                        content,
+                        targetingService,
+                        world,
+                        actorId,
+                        action,
+                        nextStepIndex,
+                        deltas,
+                        events,
+                        queryIndex,
+                        eventIndex
+                );
+                queryIndex = applied.queryIndex;
+                eventIndex = applied.eventIndex;
 
                 if (nextStepIndex >= lastStepIndex) {
                     deltas.add(new ComboEnded(actorId, combo.actionId()));
                     comboByActor.remove(actorId);
                 } else {
-                    comboByActor.put(actorId, new ComboState(combo.actionId(), combo.weaponId(), nextStepIndex, combo.stepsTotal(), frame.frameId()));
+                    comboByActor.put(
+                            actorId,
+                            new ComboState(combo.actionId(), combo.weaponId(), nextStepIndex, combo.stepsTotal(), frame.frameId())
+                    );
                 }
             }
         }
 
-        return new RuleResult(deltas, events, queries);
+        return new RuleResult(deltas, events);
     }
 
-    public static RuleResult passB(
+    private static ApplyResult applyStep(
             FrameContext frame,
             GameState state,
             RpgContent content,
-            List<ExternalQueryEvent> queries,
-            List<DomainResolution> resolutions
+            TargetingService targetingService,
+            WorldRaycastAccess world,
+            ActorId sourceActorId,
+            ActionDef action,
+            int stepIndex,
+            List<StateDelta> deltas,
+            List<DomainEvent> events,
+            int queryIndex,
+            int eventIndex
     ) {
-        if (frame == null || state == null || content == null || queries == null || resolutions == null) {
-            throw new IllegalArgumentException();
+        if (frame == null || state == null || content == null || targetingService == null || world == null || sourceActorId == null || action == null) {
+            return new ApplyResult(queryIndex, eventIndex);
+        }
+        if (stepIndex < 0 || stepIndex >= action.effectSequence().size()) {
+            return new ApplyResult(queryIndex, eventIndex);
         }
 
-        Map<QueryId, TargetingQueryResolved> targeting = new TreeMap<>();
-        for (DomainResolution res : resolutions) {
-            if (res == null) {
-                throw new IllegalArgumentException();
-            }
-            if (res instanceof TargetingQueryResolved tr) {
-                targeting.put(tr.queryId(), tr);
-            }
+        Optional<ActorId> targetOpt = resolveTargetActorId(targetingService, world, sourceActorId, action.cycle().targeting());
+        if (targetOpt.isEmpty()) {
+            return new ApplyResult(queryIndex, eventIndex);
+        }
+        ActorId targetId = targetOpt.get();
+
+        EffectId effectId = action.effectSequence().get(stepIndex);
+        Optional<EffectDef> effectOpt = content.findEffect(effectId);
+        if (effectOpt.isEmpty()) {
+            return new ApplyResult(queryIndex, eventIndex);
+        }
+        EffectDef effect = effectOpt.get();
+
+        deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
+
+        if (effect.visual().isPresent() && effect.visual().get() instanceof HomingMagicSpec hm) {
+            QueryId qid = QueryId.fromFrame(frame.frameId(), queryIndex);
+            queryIndex = Math.addExact(queryIndex, 1);
+
+            int localIndex = eventIndex;
+            eventIndex = Math.addExact(eventIndex, 1);
+
+            events.add(new HomingMagicVisualEvent(
+                    frame.frameId(),
+                    localIndex,
+                    qid,
+                    sourceActorId,
+                    targetId,
+                    hm.lifetimeFrames()
+            ));
         }
 
-        List<StateDelta> deltas = new ArrayList<>();
-        List<DomainEvent> events = new ArrayList<>();
-
-        int eventIndex = 0;
-
-        for (ExternalQueryEvent q : queries) {
-            if (q == null) {
-                throw new IllegalArgumentException();
-            }
-            if (!(q instanceof TargetingQueryRequested tr)) {
-                continue;
-            }
-
-            TargetingQueryResolved resolved = targeting.get(tr.queryId());
-            if (resolved == null) {
-                resolved = TargetingQueryResolved.empty(tr.queryId());
-            }
-
-            Optional<ActorId> targetOpt = pickTarget(tr.sourceActorId(), resolved);
-            if (targetOpt.isEmpty()) {
-                continue;
-            }
-
-            Optional<ActionDef> actionOpt = content.findAction(tr.actionId());
-            if (actionOpt.isEmpty()) {
-                continue;
-            }
-            ActionDef action = actionOpt.get();
-
-            int stepIndex = tr.stepIndex();
-            if (stepIndex < 0 || stepIndex >= action.effectSequence().size()) {
-                continue;
-            }
-
-            EffectId effectId = action.effectSequence().get(stepIndex);
-            Optional<EffectDef> effectOpt = content.findEffect(effectId);
-            if (effectOpt.isEmpty()) {
-                continue;
-            }
-            EffectDef effect = effectOpt.get();
-
-            ActorId targetId = targetOpt.get();
-            deltas.add(new DamageApplied(targetId, effect.damage().hearts()));
-
-            if (effect.visual().isPresent()) {
-                if (effect.visual().get() instanceof HomingMagicSpec(int lifetimeFrames)) {
-                    int localIndex = eventIndex;
-                    eventIndex = Math.addExact(eventIndex, 1);
-                    events.add(new HomingMagicVisualEvent(frame.frameId(), localIndex, tr.queryId(), tr.sourceActorId(), targetId, lifetimeFrames));
-                }
-            }
-        }
-
-        return new RuleResult(deltas, events, List.of());
+        return new ApplyResult(queryIndex, eventIndex);
     }
 
-    private static Optional<ActorId> pickTarget(ActorId sourceActorId, TargetingQueryResolved resolved) {
-        if (sourceActorId == null || resolved == null) {
+    private static Optional<ActorId> resolveTargetActorId(
+            TargetingService targetingService,
+            WorldRaycastAccess world,
+            ActorId sourceActorId,
+            TargetingSpec spec
+    ) {
+        if (targetingService == null || world == null || sourceActorId == null || spec == null) {
             return Optional.empty();
         }
 
-        TargetingCandidate best = null;
-
-        for (TargetingCandidate c : resolved.candidates()) {
-            if (c == null || c.actorId() == null) {
-                continue;
-            }
-            if (c.actorId().equals(sourceActorId)) {
-                continue;
-            }
-
-            if (best == null) {
-                best = c;
-                continue;
-            }
-
-            int distCmp = Integer.compare(c.distanceSquared(), best.distanceSquared());
-            if (distCmp < 0) {
-                best = c;
-                continue;
-            }
-            if (distCmp > 0) {
-                continue;
-            }
-
-            int idCmp = c.actorId().compareTo(best.actorId());
-            if (idCmp < 0) {
-                best = c;
-            }
-        }
-
-        if (best == null) {
+        TargetResult res = targetingService.resolve(new TargetingContext(sourceActorId, spec, world));
+        if (res == null) {
             return Optional.empty();
         }
-        return Optional.of(best.actorId());
+
+        Target t = res.target();
+        if (t instanceof ActorTarget at) {
+            ActorId targetId = at.actorId();
+            if (targetId.equals(sourceActorId)) {
+                return Optional.empty();
+            }
+            return Optional.of(targetId);
+        }
+
+        return Optional.empty();
     }
+
+    private record ApplyResult(int queryIndex, int eventIndex) {}
 
     private RpgRules() {}
 }
@@ -1261,25 +1185,22 @@ package com.pgalaxyp.fragmento.rpg.core.rules;
 
 import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
 import java.util.List;
 
 public record RuleResult(
         List<StateDelta> deltas,
-        List<DomainEvent> events,
-        List<ExternalQueryEvent> queries
+        List<DomainEvent> events
 ) {
     public RuleResult {
-        if (deltas == null || events == null || queries == null) {
+        if (deltas == null || events == null) {
             throw new IllegalArgumentException();
         }
         deltas = List.copyOf(deltas);
         events = List.copyOf(events);
-        queries = List.copyOf(queries);
     }
 
     public static RuleResult empty() {
-        return new RuleResult(List.of(), List.of(), List.of());
+        return new RuleResult(List.of(), List.of());
     }
 }
 
@@ -1463,7 +1384,14 @@ public final class StateDeltaApplier {
     }
 
     private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
-        if (delta instanceof ActorSpawned(ActorId actorId, ClassId classId, WeaponId weaponId, int healthHearts, int maxHealthHearts)) {
+        if (delta instanceof ActorSpawned s) {
+
+            ActorId actorId = s.actorId();
+            ClassId classId = s.classId();
+            WeaponId weaponId = s.equippedWeaponId();
+            int healthHearts = s.healthHearts();
+            int maxHealthHearts = s.maxHealthHearts();
+
             if (actors.containsKey(actorId)) {
                 return;
             }
@@ -1472,7 +1400,14 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboStarted(ActorId id, ActionId actionId, WeaponId weaponId, int stepsTotal, long frameId)) {
+        if (delta instanceof ComboStarted cs) {
+
+            ActorId id = cs.actorId();
+            ActionId actionId = cs.actionId();
+            WeaponId weaponId = cs.weaponId();
+            int stepsTotal = cs.stepsTotal();
+            long frameId = cs.stepFrameId();
+
             ActorState prev = actors.get(id);
             if (prev == null) {
                 return;
@@ -1492,7 +1427,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
+        if (delta instanceof ComboAdvanced ca) {
+
+            ActorId actorId = ca.actorId();
+            long stepFrameId = ca.stepFrameId();
+
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
@@ -1514,7 +1453,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboEnded(ActorId actorId, ActionId actionId)) {
+        if (delta instanceof ComboEnded ce) {
+
+            ActorId actorId = ce.actorId();
+            ActionId actionId = ce.actionId();
+
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
@@ -1528,7 +1471,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof DamageApplied(ActorId targetActorId, int hearts)) {
+        if (delta instanceof DamageApplied da) {
+
+            ActorId targetActorId = da.targetActorId();
+            int hearts = da.hearts();
+
             ActorState prev = actors.get(targetActorId);
             if (prev == null) {
                 return;
@@ -1590,7 +1537,10 @@ public final class StateDeltaMerger {
                 continue;
             }
 
-            if (d instanceof DamageApplied(ActorId targetActorId, int hearts)) {
+            if (d instanceof DamageApplied da) {
+                ActorId targetActorId = da.targetActorId();
+                int hearts = da.hearts();
+
                 Integer prev = damageByTarget.get(targetActorId);
                 int base = prev == null ? 0 : prev;
                 int next = Math.addExact(base, hearts);
@@ -1599,19 +1549,26 @@ public final class StateDeltaMerger {
             }
 
             if (d instanceof ComboStarted cs) {
-                ComboAgg agg = comboByActor.computeIfAbsent(cs.actorId(), k -> new ComboAgg());
+                ActorId actorId = cs.actorId();
+
+                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptStart(cs);
                 continue;
             }
 
-            if (d instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
+            if (d instanceof ComboAdvanced ca) {
+                ActorId actorId = ca.actorId();
+                long stepFrameId = ca.stepFrameId();
+
                 ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptAdvance(stepFrameId);
                 continue;
             }
 
             if (d instanceof ComboEnded ce) {
-                ComboAgg agg = comboByActor.computeIfAbsent(ce.actorId(), k -> new ComboAgg());
+                ActorId actorId = ce.actorId();
+
+                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptEnd(ce);
             }
         }
@@ -1744,7 +1701,6 @@ import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
 import com.pgalaxyp.fragmento.rpg.core.rules.RpgRules;
 import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
@@ -1755,16 +1711,18 @@ import com.pgalaxyp.fragmento.rpg.ports.IntentSourcePort;
 import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
 import com.pgalaxyp.fragmento.rpg.ports.SnapshotPort;
 import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldQueryPort;
 import com.pgalaxyp.fragmento.rpg.ports.dto.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class RpgEngine {
 
     private final IntentSourcePort intents;
-    private final WorldQueryPort worldQueries;
+    private final TargetingService targetingService;
+    private final WorldRaycastAccess worldRaycast;
     private final WorldCommandPort worldCommands;
     private final EventSinkPort eventSink;
     private final JournalPort journal;
@@ -1776,7 +1734,8 @@ public final class RpgEngine {
 
     public RpgEngine(
             IntentSourcePort intents,
-            WorldQueryPort worldQueries,
+            TargetingService targetingService,
+            WorldRaycastAccess worldRaycast,
             WorldCommandPort worldCommands,
             EventSinkPort eventSink,
             JournalPort journal,
@@ -1784,11 +1743,12 @@ public final class RpgEngine {
             RpgContent content,
             GameState initialState
     ) {
-        if (intents == null || worldQueries == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
+        if (intents == null || targetingService == null || worldRaycast == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
-        this.worldQueries = worldQueries;
+        this.targetingService = targetingService;
+        this.worldRaycast = worldRaycast;
         this.worldCommands = worldCommands;
         this.eventSink = eventSink;
         this.journal = journal;
@@ -1805,12 +1765,10 @@ public final class RpgEngine {
         long frameSeed = seedForFrame(frame.frameId());
 
         List<IntentEnvelope> drained = intents.drain();
-        RuleResult a = RpgRules.passA(frame, state, content, drained);
 
-        List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
-        RuleResult b = RpgRules.passB(frame, state, content, a.queries(), resolutions);
+        RuleResult r = RpgRules.pass(frame, state, content, drained, targetingService, worldRaycast);
 
-        List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
+        List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
 
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
         state = committed;
@@ -1820,13 +1778,11 @@ public final class RpgEngine {
         GameSnapshot snapshot = new GameSnapshot(frame, committed.actors());
         snapshots.publish(snapshot);
 
-        List<DomainEvent> events = new ArrayList<>();
-        events.addAll(a.events());
-        events.addAll(b.events());
+        List<DomainEvent> events = new ArrayList<>(r.events());
 
         eventSink.publish(frame, events);
 
-        journal.append(new FrameJournalEntry(frame, frameSeed, drained, resolutions, merged, snapshot));
+        journal.append(new FrameJournalEntry(frame, frameSeed, drained, merged, snapshot));
 
         return new EngineFrameOutput(frame, snapshot, events);
     }
@@ -1849,18 +1805,13 @@ public interface LocalActorProvider {
     Optional<ActorId> localActorId();
 }
 
-===== host\neoforge\bootstrap\client\ClientEvents.java =====
+===== host\neoforge\bootstrap\client\ClientGameEvents.java =====
 package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.clientfx.ModVfx;
-import com.pgalaxyp.fragmento.rpg.host.neoforge.items.FragmentoItems;
-import com.pgalaxyp.fragmento.rpg.input.minecraft.ItemWeaponBinding;
-import com.pgalaxyp.fragmento.rpg.input.minecraft.NeoForgeInputBootstrap;
 import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -1873,22 +1824,9 @@ import net.neoforged.fml.common.EventBusSubscriber.Bus;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.common.NeoForge;
 
 @EventBusSubscriber(modid = FragmentoMod.MOD_ID, bus = Bus.GAME, value = Dist.CLIENT)
-public final class ClientEvents {
-
-    static {
-        ClientRpgRuntime.install();
-
-        ItemWeaponBinding mapping = new ItemWeaponBinding();
-        mapping.register(FragmentoItems.FLUTE.get(), DefaultRpgContent.FLUTE);
-
-        LocalActorProvider provider = ClientRpgRuntime::localActorId;
-
-        NeoForgeInputBootstrap.ClientModule input = NeoForgeInputBootstrap.createClient(mapping, 2, provider);
-        input.register(NeoForge.EVENT_BUS);
-    }
+public final class ClientGameEvents {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -1923,7 +1861,46 @@ public final class ClientEvents {
         gg.drawString(font, text, 8, 8, 0xFFFFFF, false);
     }
 
-    private ClientEvents() {}
+    private ClientGameEvents() {}
+}
+
+===== host\neoforge\bootstrap\client\ClientModEvents.java =====
+package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.client;
+
+import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
+import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
+import com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.FragmentoMod;
+import com.pgalaxyp.fragmento.rpg.host.neoforge.items.FragmentoItems;
+import com.pgalaxyp.fragmento.rpg.input.minecraft.ItemWeaponBinding;
+import com.pgalaxyp.fragmento.rpg.input.minecraft.NeoForgeInputBootstrap;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.EventBusSubscriber.Bus;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.common.NeoForge;
+
+@EventBusSubscriber(modid = FragmentoMod.MOD_ID, bus = Bus.MOD, value = Dist.CLIENT)
+public final class ClientModEvents {
+
+    @SubscribeEvent
+    public static void onClientSetup(FMLClientSetupEvent event) {
+        ClientRpgRuntime.install();
+
+        event.enqueueWork(() -> {
+            ItemWeaponBinding mapping = new ItemWeaponBinding();
+            mapping.register(FragmentoItems.FLUTE.get(), DefaultRpgContent.FLUTE);
+
+            LocalActorProvider provider = ClientRpgRuntime::localActorId;
+
+            NeoForgeInputBootstrap.ClientModule input =
+                    NeoForgeInputBootstrap.createClient(mapping, 2, provider);
+
+            input.register(NeoForge.EVENT_BUS);
+        });
+    }
+
+    private ClientModEvents() {}
 }
 
 ===== host\neoforge\bootstrap\client\ClientRpgRuntime.java =====
@@ -2007,6 +1984,58 @@ public final class FragmentoMod {
     }
 }
 
+===== host\neoforge\bootstrap\server\ServerEvents.java =====
+package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.server;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.FragmentoMod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.EventBusSubscriber.Bus;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+
+@EventBusSubscriber(modid = FragmentoMod.MOD_ID, bus = Bus.GAME)
+public final class ServerEvents {
+
+    @SubscribeEvent
+    public static void onServerStarting(ServerStartingEvent event) {
+        var server = event.getServer();
+        ServerRpgRuntime rt = new ServerRpgRuntime(server);
+        ServerRpgRuntime.activate(rt);
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        ServerRpgRuntime.deactivate();
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        ServerRpgRuntime rt = ServerRpgRuntime.getActive();
+        if (rt == null) {
+            return;
+        }
+        rt.tick();
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) {
+            return;
+        }
+        ServerRpgRuntime rt = ServerRpgRuntime.getActive();
+        if (rt == null) {
+            return;
+        }
+        rt.onPlayerJoin(new ActorId(sp.getUUID()));
+    }
+
+    private ServerEvents() {}
+}
+
 ===== host\neoforge\bootstrap\server\ServerRpgRuntime.java =====
 package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.server;
 
@@ -2024,11 +2053,10 @@ import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeNetRuntimeR
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeSnapshotPort;
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.NeoForgeJournalPortStub;
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.NeoForgeWorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.query.NeoForgeWorldQueryPort;
 import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
 import com.pgalaxyp.fragmento.rpg.ports.ServerIntentReceiverPort;
 import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldQueryPort;
+import com.pgalaxyp.fragmento.rpg.targeting.minecraft.NeoForgeTargetingBootstrap;
 import java.util.TreeMap;
 import net.minecraft.server.MinecraftServer;
 
@@ -2048,13 +2076,15 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
         this.queue = new IntentQueue();
         RpgContent content = DefaultRpgContent.create();
 
-        WorldQueryPort worldQueries = new NeoForgeWorldQueryPort(server);
+        var targeting = NeoForgeTargetingBootstrap.createServer(server);
+
         WorldCommandPort worldCommands = new NeoForgeWorldCommandPort(server);
         JournalPort journal = new NeoForgeJournalPortStub();
 
         this.engine = new RpgEngine(
                 queue,
-                worldQueries,
+                targeting.service(),
+                targeting.world(),
                 worldCommands,
                 new NeoForgeEventSinkPort(),
                 journal,
@@ -2134,7 +2164,6 @@ package com.pgalaxyp.fragmento.rpg.host.neoforge.clientfx;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
 import java.util.ArrayList;
@@ -2143,6 +2172,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class ModVfx {
 
@@ -2153,8 +2183,8 @@ public final class ModVfx {
             throw new IllegalArgumentException();
         }
         for (DomainEvent e : events) {
-            if (e instanceof HomingMagicVisualEvent(long frameId, int localIndex, QueryId queryId, ActorId sourceActorId, ActorId targetActorId, int lifetimeFrames)) {
-                active.add(new LineFx(sourceActorId, targetActorId, lifetimeFrames));
+            if (e instanceof HomingMagicVisualEvent hm) {
+                active.add(new LineFx(hm.sourceActorId(), hm.targetActorId(), hm.lifetimeFrames()));
             }
         }
     }
@@ -2176,6 +2206,8 @@ public final class ModVfx {
             return;
         }
 
+        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer vc = buffers.getBuffer(ModRenderTypes.HOMING_MAGIC);
 
@@ -2194,16 +2226,28 @@ public final class ModVfx {
             double ty = dst.getY() + (double) dst.getEyeHeight();
             double tz = dst.getZ();
 
-            float alpha = 1.0f;
+            double rsx = sx - camPos.x;
+            double rsy = sy - camPos.y;
+            double rsz = sz - camPos.z;
+
+            double rtx = tx - camPos.x;
+            double rty = ty - camPos.y;
+            double rtz = tz - camPos.z;
+
+            float t = (fx.age + partialTick) / (float) fx.lifetime;
+            if (t < 0f) t = 0f;
+            if (t > 1f) t = 1f;
+            float alpha = 1.0f - t;
+
             int r = 120;
             int g = 200;
             int b = 255;
-
             int a = (int) (alpha * 255f);
+
             var pose = poseStack.last();
 
-            vc.addVertex(pose, (float) sx, (float) sy, (float) sz).setColor(r, g, b, a);
-            vc.addVertex(pose, (float) tx, (float) ty, (float) tz).setColor(r, g, b, a);
+            vc.addVertex(pose, (float) rsx, (float) rsy, (float) rsz).setColor(r, g, b, a);
+            vc.addVertex(pose, (float) rtx, (float) rty, (float) rtz).setColor(r, g, b, a);
         }
 
         buffers.endBatch(ModRenderTypes.HOMING_MAGIC);
@@ -2239,31 +2283,6 @@ public final class ModVfx {
     }
 
     private ModVfx() {}
-}
-
-===== host\neoforge\client\ClientRpgRuntime.java =====
-package com.pgalaxyp.fragmento.rpg.host.neoforge.client;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
-import java.util.Optional;
-
-public final class ClientRpgRuntime implements LocalActorProvider {
-
-    private Optional<ActorId> localActorId = Optional.empty();
-
-    @Override
-    public Optional<ActorId> localActorId() {
-        return localActorId;
-    }
-
-    public void setLocalActorId(ActorId actorId) {
-        this.localActorId = Optional.ofNullable(actorId);
-    }
-
-    public void clearLocalActorId() {
-        this.localActorId = Optional.empty();
-    }
 }
 
 ===== host\neoforge\items\FluteItem.java =====
@@ -3730,120 +3749,6 @@ public final class NeoForgeWorldCommandPort implements WorldCommandPort {
     }
 }
 
-===== platform\neoforge\world\query\NeoForgeWorldQueryPort.java =====
-package com.pgalaxyp.fragmento.rpg.platform.neoforge.world.query;
-
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.query.TargetingQueryRequested;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingCandidate;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.TargetingQueryResolved;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.ports.WorldQueryPort;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.AABB;
-
-public final class NeoForgeWorldQueryPort implements WorldQueryPort {
-
-    private final MinecraftServer server;
-
-    public NeoForgeWorldQueryPort(MinecraftServer server) {
-        if (server == null) {
-            throw new IllegalArgumentException();
-        }
-        this.server = server;
-    }
-
-    @Override
-    public List<DomainResolution> resolve(FrameContext frame, GameState state, RpgContent content, List<ExternalQueryEvent> queries) {
-        if (frame == null || state == null || content == null || queries == null) {
-            throw new IllegalArgumentException();
-        }
-
-        List<DomainResolution> out = new ArrayList<>();
-
-        Comparator<TargetingCandidate> cmp = Comparator.comparingInt(TargetingCandidate::distanceSquared).thenComparing(TargetingCandidate::actorId);
-
-        for (ExternalQueryEvent q : queries) {
-            if (q == null) {
-                throw new IllegalArgumentException();
-            }
-            if (!(q instanceof TargetingQueryRequested tr)) {
-                continue;
-            }
-
-            LivingEntity src = findLivingByActorId(tr.sourceActorId());
-            if (src == null) {
-                out.add(TargetingQueryResolved.empty(tr.queryId()));
-                continue;
-            }
-
-            ServerLevel level = (ServerLevel) src.level();
-            double r = 16.0;
-            AABB box = new AABB(src.getX() - r, src.getY() - r, src.getZ() - r, src.getX() + r, src.getY() + r, src.getZ() + r);
-
-            List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, box);
-            List<TargetingCandidate> candidates = new ArrayList<>();
-
-            for (LivingEntity e : entities) {
-                if (e == null) {
-                    continue;
-                }
-                ActorId id = new ActorId(e.getUUID());
-                if (id.equals(tr.sourceActorId())) {
-                    continue;
-                }
-                double dx = e.getX() - src.getX();
-                double dy = e.getY() - src.getY();
-                double dz = e.getZ() - src.getZ();
-                double ds = dx * dx + dy * dy + dz * dz;
-                int distSq = ds > (double) Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) ds;
-                candidates.add(new TargetingCandidate(id, distSq));
-            }
-
-            candidates.sort(cmp);
-
-            QueryId qid = tr.queryId();
-            out.add(new TargetingQueryResolved(qid, candidates));
-        }
-
-        return List.copyOf(out);
-    }
-
-    private LivingEntity findLivingByActorId(ActorId actorId) {
-        if (actorId == null) {
-            return null;
-        }
-
-        UUID uuid = actorId.uuid();
-        ServerPlayer p = server.getPlayerList().getPlayer(uuid);
-        if (p != null) {
-            return p;
-        }
-
-        for (ServerLevel level : server.getAllLevels()) {
-            Entity e = level.getEntity(uuid);
-            if (e instanceof LivingEntity le) {
-                return le;
-            }
-        }
-
-        return null;
-    }
-}
-
 ===== ports\ClientInboundPort.java =====
 package com.pgalaxyp.fragmento.rpg.ports;
 
@@ -3862,23 +3767,20 @@ package com.pgalaxyp.fragmento.rpg.ports.dto;
 import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
 import java.util.List;
 
 public record FrameJournalEntry(
         FrameContext frame,
         long frameSeed,
         List<IntentEnvelope> intents,
-        List<DomainResolution> resolutions,
         List<StateDelta> deltas,
         GameSnapshot snapshot
 ) {
     public FrameJournalEntry {
-        if (frame == null || intents == null || resolutions == null || deltas == null || snapshot == null) {
+        if (frame == null || intents == null || deltas == null || snapshot == null) {
             throw new IllegalArgumentException();
         }
         intents = List.copyOf(intents);
-        resolutions = List.copyOf(resolutions);
         deltas = List.copyOf(deltas);
     }
 }
@@ -3966,16 +3868,567 @@ public interface WorldCommandPort {
     void apply(FrameContext frame, GameState state, RpgContent content, List<StateDelta> deltas);
 }
 
-===== ports\WorldQueryPort.java =====
-package com.pgalaxyp.fragmento.rpg.ports;
+===== targeting\api\ActorTarget.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.query.ExternalQueryEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import java.util.List;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 
-public interface WorldQueryPort {
-    List<DomainResolution> resolve(FrameContext frame, GameState state, RpgContent content, List<ExternalQueryEvent> queries);
+public record ActorTarget(
+        ActorId actorId
+) implements Target {
+    public ActorTarget {
+        if (actorId == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\api\PointTarget.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public record PointTarget(
+        Vec3d position
+) implements Target {
+    public PointTarget {
+        if (position == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\api\Target.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public sealed interface Target permits ActorTarget, PointTarget {}
+
+===== targeting\api\TargetingFallbackPolicy.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public enum TargetingFallbackPolicy {
+    IMAGINARY_POINT,
+    SELF
+}
+
+===== targeting\api\TargetingMode.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public enum TargetingMode {
+    RAYCAST_SINGLE
+}
+
+===== targeting\api\TargetingService.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+import com.pgalaxyp.fragmento.rpg.targeting.system.TargetingContext;
+
+public interface TargetingService {
+    TargetResult resolve(TargetingContext context);
+}
+
+===== targeting\api\TargetingSpec.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public record TargetingSpec(
+        TargetingMode mode,
+        int rangeBlocks,
+        TargetingFallbackPolicy fallbackPolicy
+) {
+    public TargetingSpec {
+        if (mode == null || fallbackPolicy == null) {
+            throw new IllegalArgumentException();
+        }
+        if (rangeBlocks <= 0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\api\TargetResult.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+import java.util.Optional;
+
+public record TargetResult(
+        Target target,
+        Optional<TargetingFallbackPolicy> appliedFallback
+) {
+    public TargetResult {
+        if (target == null || appliedFallback == null) {
+            throw new IllegalArgumentException();
+        }
+        if (appliedFallback.isPresent() && appliedFallback.get() == null) {
+            throw new IllegalArgumentException();
+        }
+        appliedFallback = appliedFallback.isPresent() ? Optional.of(appliedFallback.get()) : Optional.empty();
+    }
+
+    public boolean usedFallback() {
+        return appliedFallback.isPresent();
+    }
+
+    public static TargetResult direct(Target target) {
+        if (target == null) {
+            throw new IllegalArgumentException();
+        }
+        return new TargetResult(target, Optional.empty());
+    }
+
+    public static TargetResult fallback(Target target, TargetingFallbackPolicy policy) {
+        if (target == null || policy == null) {
+            throw new IllegalArgumentException();
+        }
+        return new TargetResult(target, Optional.of(policy));
+    }
+}
+
+===== targeting\api\Vec3d.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public record Vec3d(
+        double x,
+        double y,
+        double z
+) {
+    public Vec3d {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public Vec3d add(Vec3d o) {
+        if (o == null) {
+            throw new IllegalArgumentException();
+        }
+        return new Vec3d(x + o.x, y + o.y, z + o.z);
+    }
+
+    public Vec3d mul(double k) {
+        if (!Double.isFinite(k)) {
+            throw new IllegalArgumentException();
+        }
+        return new Vec3d(x * k, y * k, z * k);
+    }
+
+    public double lengthSquared() {
+        return x * x + y * y + z * z;
+    }
+
+    public double length() {
+        return Math.sqrt(lengthSquared());
+    }
+
+    public Vec3d normalized() {
+        double len = length();
+        if (len <= 0.0 || !Double.isFinite(len)) {
+            throw new IllegalArgumentException();
+        }
+        return new Vec3d(x / len, y / len, z / len);
+    }
+}
+
+===== targeting\api\ViewRay.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.api;
+
+public record ViewRay(
+        Vec3d origin,
+        Vec3d direction
+) {
+    public ViewRay {
+        if (origin == null || direction == null) {
+            throw new IllegalArgumentException();
+        }
+        if (direction.lengthSquared() <= 0.0) {
+            throw new IllegalArgumentException();
+        }
+        direction = direction.normalized();
+    }
+
+    public Vec3d pointAt(double distance) {
+        if (!Double.isFinite(distance) || distance < 0.0) {
+            throw new IllegalArgumentException();
+        }
+        return origin.add(direction.mul(distance));
+    }
+}
+
+===== targeting\bridge\RaycastBlockHit.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.bridge;
+
+import com.pgalaxyp.fragmento.rpg.targeting.api.Vec3d;
+
+public record RaycastBlockHit(
+        Vec3d hitPosition,
+        double distance
+) implements RaycastHit {
+    public RaycastBlockHit {
+        if (hitPosition == null) {
+            throw new IllegalArgumentException();
+        }
+        if (!Double.isFinite(distance) || distance < 0.0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\bridge\RaycastEntityHit.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.bridge;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.targeting.api.Vec3d;
+
+public record RaycastEntityHit(
+        ActorId actorId,
+        Vec3d hitPosition,
+        double distance
+) implements RaycastHit {
+    public RaycastEntityHit {
+        if (actorId == null || hitPosition == null) {
+            throw new IllegalArgumentException();
+        }
+        if (!Double.isFinite(distance) || distance < 0.0) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\bridge\RaycastHit.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.bridge;
+
+public sealed interface RaycastHit permits RaycastEntityHit, RaycastBlockHit {
+    double distance();
+}
+
+===== targeting\bridge\WorldRaycastAccess.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.bridge;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
+import java.util.Optional;
+
+public interface WorldRaycastAccess {
+    Optional<ViewRay> viewRay(ActorId casterId);
+    Optional<RaycastHit> raycastFirstHit(ActorId casterId, ViewRay ray, double rangeBlocks);
+}
+
+===== targeting\minecraft\NeoForgeTargetingBootstrap.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.minecraft;
+
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
+import com.pgalaxyp.fragmento.rpg.targeting.system.DefaultTargetingService;
+import net.minecraft.server.MinecraftServer;
+
+public final class NeoForgeTargetingBootstrap {
+
+    public record ServerModule(
+            TargetingService service,
+            WorldRaycastAccess world
+    ) {
+        public ServerModule {
+            if (service == null || world == null) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    public static ServerModule createServer(MinecraftServer server) {
+        if (server == null) {
+            throw new IllegalArgumentException();
+        }
+        WorldRaycastAccess world = new NeoForgeWorldRaycast(server);
+        TargetingService service = new DefaultTargetingService();
+        return new ServerModule(service, world);
+    }
+
+    private NeoForgeTargetingBootstrap() {}
+}
+
+===== targeting\minecraft\NeoForgeWorldRaycast.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.minecraft;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.targeting.api.Vec3d;
+import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastBlockHit;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastEntityHit;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastHit;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+
+public final class NeoForgeWorldRaycast implements WorldRaycastAccess {
+
+    private final MinecraftServer server;
+
+    public NeoForgeWorldRaycast(MinecraftServer server) {
+        if (server == null) {
+            throw new IllegalArgumentException();
+        }
+        this.server = server;
+    }
+
+    @Override
+    public Optional<ViewRay> viewRay(ActorId casterId) {
+        if (casterId == null) {
+            throw new IllegalArgumentException();
+        }
+        LivingEntity caster = findLivingByActorId(casterId);
+        if (caster == null) {
+            return Optional.empty();
+        }
+
+        Vec3 o = caster.getEyePosition(1.0f);
+        Vec3 d = caster.getViewVector(1.0f);
+
+        Vec3d origin = new Vec3d(o.x, o.y, o.z);
+        Vec3d dir = new Vec3d(d.x, d.y, d.z);
+        return Optional.of(new ViewRay(origin, dir));
+    }
+
+    @Override
+    public Optional<RaycastHit> raycastFirstHit(ActorId casterId, ViewRay ray, double rangeBlocks) {
+        if (casterId == null || ray == null) {
+            throw new IllegalArgumentException();
+        }
+        if (!Double.isFinite(rangeBlocks) || rangeBlocks <= 0.0) {
+            throw new IllegalArgumentException();
+        }
+
+        LivingEntity caster = findLivingByActorId(casterId);
+        if (caster == null) {
+            return Optional.empty();
+        }
+
+        ServerLevel level = (ServerLevel) caster.level();
+
+        Vec3 start = new Vec3(ray.origin().x(), ray.origin().y(), ray.origin().z());
+        Vec3 dir = new Vec3(ray.direction().x(), ray.direction().y(), ray.direction().z());
+        Vec3 end = start.add(dir.scale(rangeBlocks));
+
+        ClipContext ctx = new ClipContext(
+                start,
+                end,
+                ClipContext.Block.OUTLINE,
+                ClipContext.Fluid.NONE,
+                caster
+        );
+
+        HitResult blockHr = level.clip(ctx);
+
+        double maxDist = rangeBlocks;
+        Vec3 blockLoc = null;
+
+        if (blockHr != null && blockHr.getType() == HitResult.Type.BLOCK) {
+            blockLoc = blockHr.getLocation();
+            maxDist = start.distanceTo(blockLoc);
+            if (maxDist < 0.0) {
+                maxDist = 0.0;
+            }
+        }
+
+        Vec3 entityEnd = start.add(dir.scale(maxDist));
+        AABB box = caster.getBoundingBox().expandTowards(dir.scale(maxDist)).inflate(1.0);
+
+        UUID casterUuid = casterId.uuid();
+        Predicate<Entity> pred = e -> {
+            if (e == null) {
+                return false;
+            }
+            if (!(e instanceof LivingEntity)) {
+                return false;
+            }
+            if (e.isSpectator()) {
+                return false;
+            }
+            if (!e.isPickable()) {
+                return false;
+            }
+            return !e.getUUID().equals(casterUuid);
+        };
+
+        EntityHitResult ehr = ProjectileUtil.getEntityHitResult(
+                caster,
+                start,
+                entityEnd,
+                box,
+                pred,
+                maxDist * maxDist
+        );
+
+        if (ehr != null && ehr.getEntity() != null) {
+            Entity ent = ehr.getEntity();
+            Vec3 loc = ehr.getLocation();
+            double dist = start.distanceTo(loc);
+            ActorId targetId = new ActorId(ent.getUUID());
+            return Optional.of(new RaycastEntityHit(targetId, new Vec3d(loc.x, loc.y, loc.z), dist));
+        }
+
+        if (blockLoc != null) {
+            double dist = start.distanceTo(blockLoc);
+            return Optional.of(new RaycastBlockHit(new Vec3d(blockLoc.x, blockLoc.y, blockLoc.z), dist));
+        }
+
+        return Optional.empty();
+    }
+
+    private LivingEntity findLivingByActorId(ActorId actorId) {
+        UUID uuid = actorId.uuid();
+
+        Entity e0 = server.getPlayerList().getPlayer(uuid);
+        if (e0 instanceof LivingEntity le0) {
+            return le0;
+        }
+
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity e = level.getEntity(uuid);
+            if (e instanceof LivingEntity le) {
+                return le;
+            }
+        }
+
+        return null;
+    }
+}
+
+===== targeting\system\DefaultTargetingService.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.system;
+
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+
+public final class DefaultTargetingService implements TargetingService {
+
+    private final TargetingResolver resolver = new TargetingResolver();
+
+    @Override
+    public TargetResult resolve(TargetingContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException();
+        }
+        return resolver.resolve(context);
+    }
+}
+
+===== targeting\system\RaycastTargetingSystem.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.system;
+
+import com.pgalaxyp.fragmento.rpg.targeting.api.ActorTarget;
+import com.pgalaxyp.fragmento.rpg.targeting.api.PointTarget;
+import com.pgalaxyp.fragmento.rpg.targeting.api.Target;
+import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastBlockHit;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastEntityHit;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.RaycastHit;
+import java.util.Optional;
+
+public final class RaycastTargetingSystem {
+
+    public Optional<Target> resolve(TargetingContext context, ViewRay ray) {
+        if (context == null || ray == null) {
+            throw new IllegalArgumentException();
+        }
+
+        double range = context.spec().rangeBlocks();
+        Optional<RaycastHit> hitOpt = context.world().raycastFirstHit(context.casterId(), ray, range);
+        if (hitOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        RaycastHit hit = hitOpt.get();
+        if (hit instanceof RaycastEntityHit eh) {
+            return Optional.of(new ActorTarget(eh.actorId()));
+        }
+        if (hit instanceof RaycastBlockHit bh) {
+            return Optional.of(new PointTarget(bh.hitPosition()));
+        }
+
+        return Optional.empty();
+    }
+}
+
+===== targeting\system\TargetingContext.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.system;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
+
+public record TargetingContext(
+        ActorId casterId,
+        TargetingSpec spec,
+        WorldRaycastAccess world
+) {
+    public TargetingContext {
+        if (casterId == null || spec == null || world == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+===== targeting\system\TargetingResolver.java =====
+package com.pgalaxyp.fragmento.rpg.targeting.system;
+
+import com.pgalaxyp.fragmento.rpg.targeting.api.ActorTarget;
+import com.pgalaxyp.fragmento.rpg.targeting.api.PointTarget;
+import com.pgalaxyp.fragmento.rpg.targeting.api.Target;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallbackPolicy;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
+import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
+import java.util.Optional;
+
+public final class TargetingResolver {
+
+    private final RaycastTargetingSystem raycastSingle = new RaycastTargetingSystem();
+
+    public TargetResult resolve(TargetingContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException();
+        }
+
+        Optional<ViewRay> rayOpt = context.world().viewRay(context.casterId());
+
+        TargetingMode mode = context.spec().mode();
+        Optional<Target> direct = Optional.empty();
+
+        if (mode == TargetingMode.RAYCAST_SINGLE && rayOpt.isPresent()) {
+            direct = raycastSingle.resolve(context, rayOpt.get());
+        }
+
+        if (direct.isPresent()) {
+            return TargetResult.direct(direct.get());
+        }
+
+        return applyFallback(context, rayOpt);
+    }
+
+    private TargetResult applyFallback(TargetingContext context, Optional<ViewRay> rayOpt) {
+        TargetingFallbackPolicy policy = context.spec().fallbackPolicy();
+
+        if (policy == TargetingFallbackPolicy.SELF) {
+            return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
+        }
+
+        if (policy == TargetingFallbackPolicy.IMAGINARY_POINT) {
+            if (rayOpt.isEmpty()) {
+                return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
+            }
+            ViewRay ray = rayOpt.get();
+            double half = ((double) context.spec().rangeBlocks()) * 0.5;
+            return TargetResult.fallback(new PointTarget(ray.pointAt(half)), TargetingFallbackPolicy.IMAGINARY_POINT);
+        }
+
+        return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
+    }
 }

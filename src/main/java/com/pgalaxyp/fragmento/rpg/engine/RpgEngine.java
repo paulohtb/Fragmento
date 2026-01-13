@@ -5,7 +5,6 @@ import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.resolution.DomainResolution;
 import com.pgalaxyp.fragmento.rpg.core.rules.RpgRules;
 import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
@@ -16,16 +15,18 @@ import com.pgalaxyp.fragmento.rpg.ports.IntentSourcePort;
 import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
 import com.pgalaxyp.fragmento.rpg.ports.SnapshotPort;
 import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldQueryPort;
 import com.pgalaxyp.fragmento.rpg.ports.dto.FrameJournalEntry;
 import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class RpgEngine {
 
     private final IntentSourcePort intents;
-    private final WorldQueryPort worldQueries;
+    private final TargetingService targetingService;
+    private final WorldRaycastAccess worldRaycast;
     private final WorldCommandPort worldCommands;
     private final EventSinkPort eventSink;
     private final JournalPort journal;
@@ -37,7 +38,8 @@ public final class RpgEngine {
 
     public RpgEngine(
             IntentSourcePort intents,
-            WorldQueryPort worldQueries,
+            TargetingService targetingService,
+            WorldRaycastAccess worldRaycast,
             WorldCommandPort worldCommands,
             EventSinkPort eventSink,
             JournalPort journal,
@@ -45,11 +47,12 @@ public final class RpgEngine {
             RpgContent content,
             GameState initialState
     ) {
-        if (intents == null || worldQueries == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
+        if (intents == null || targetingService == null || worldRaycast == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
-        this.worldQueries = worldQueries;
+        this.targetingService = targetingService;
+        this.worldRaycast = worldRaycast;
         this.worldCommands = worldCommands;
         this.eventSink = eventSink;
         this.journal = journal;
@@ -66,12 +69,10 @@ public final class RpgEngine {
         long frameSeed = seedForFrame(frame.frameId());
 
         List<IntentEnvelope> drained = intents.drain();
-        RuleResult a = RpgRules.passA(frame, state, content, drained);
 
-        List<DomainResolution> resolutions = worldQueries.resolve(frame, state, content, a.queries());
-        RuleResult b = RpgRules.passB(frame, state, content, a.queries(), resolutions);
+        RuleResult r = RpgRules.pass(frame, state, content, drained, targetingService, worldRaycast);
 
-        List<StateDelta> merged = StateDeltaMerger.mergeStable(a.deltas(), b.deltas());
+        List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
 
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
         state = committed;
@@ -81,13 +82,11 @@ public final class RpgEngine {
         GameSnapshot snapshot = new GameSnapshot(frame, committed.actors());
         snapshots.publish(snapshot);
 
-        List<DomainEvent> events = new ArrayList<>();
-        events.addAll(a.events());
-        events.addAll(b.events());
+        List<DomainEvent> events = new ArrayList<>(r.events());
 
         eventSink.publish(frame, events);
 
-        journal.append(new FrameJournalEntry(frame, frameSeed, drained, resolutions, merged, snapshot));
+        journal.append(new FrameJournalEntry(frame, frameSeed, drained, merged, snapshot));
 
         return new EngineFrameOutput(frame, snapshot, events);
     }

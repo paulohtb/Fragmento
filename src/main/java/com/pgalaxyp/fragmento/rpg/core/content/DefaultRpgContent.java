@@ -14,8 +14,10 @@ import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.TargetingSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallbackPolicy;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -26,12 +28,14 @@ public final class DefaultRpgContent {
 
     public static final WeaponId FLUTE = new WeaponId("weapon.flute");
     public static final ActionId FLUTE_BASIC_COMBO = new ActionId("action.bard.flute.basic");
+
     public static final EffectId HIT_1 = new EffectId("effect.bard.flute.hit1");
     public static final EffectId HIT_2 = new EffectId("effect.bard.flute.hit2");
     public static final EffectId HIT_3 = new EffectId("effect.bard.flute.hit3");
 
     public static RpgContent create() {
         NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
+
         HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
         effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1), homing));
         effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1), homing));
@@ -39,7 +43,7 @@ public final class DefaultRpgContent {
 
         ActionCycleSpec cycle = new ActionCycleSpec(
                 new ComboSpec(3, 3),
-                new TargetingSpec(true),
+                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 20, TargetingFallbackPolicy.IMAGINARY_POINT),
                 new StepWindowSpec(1)
         );
 
@@ -53,7 +57,12 @@ public final class DefaultRpgContent {
         NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
         actions.put(FLUTE_BASIC_COMBO, action);
 
-        WeaponDef weapon = new WeaponDef(FLUTE, WeaponSpec.empty(), FLUTE_BASIC_COMBO);
+        WeaponDef weapon = new WeaponDef(
+                FLUTE,
+                WeaponSpec.empty(),
+                FLUTE_BASIC_COMBO
+        );
+
         NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
         weapons.put(FLUTE, weapon);
 

@@ -42,7 +42,10 @@ public final class StateDeltaMerger {
                 continue;
             }
 
-            if (d instanceof DamageApplied(ActorId targetActorId, int hearts)) {
+            if (d instanceof DamageApplied da) {
+                ActorId targetActorId = da.targetActorId();
+                int hearts = da.hearts();
+
                 Integer prev = damageByTarget.get(targetActorId);
                 int base = prev == null ? 0 : prev;
                 int next = Math.addExact(base, hearts);
@@ -51,19 +54,26 @@ public final class StateDeltaMerger {
             }
 
             if (d instanceof ComboStarted cs) {
-                ComboAgg agg = comboByActor.computeIfAbsent(cs.actorId(), k -> new ComboAgg());
+                ActorId actorId = cs.actorId();
+
+                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptStart(cs);
                 continue;
             }
 
-            if (d instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
+            if (d instanceof ComboAdvanced ca) {
+                ActorId actorId = ca.actorId();
+                long stepFrameId = ca.stepFrameId();
+
                 ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptAdvance(stepFrameId);
                 continue;
             }
 
             if (d instanceof ComboEnded ce) {
-                ComboAgg agg = comboByActor.computeIfAbsent(ce.actorId(), k -> new ComboAgg());
+                ActorId actorId = ce.actorId();
+
+                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
                 agg.acceptEnd(ce);
             }
         }

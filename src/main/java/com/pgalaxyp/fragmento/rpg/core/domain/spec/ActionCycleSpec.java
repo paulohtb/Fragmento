@@ -1,5 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.spec;
 
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
+
 public record ActionCycleSpec(
         ComboSpec combo,
         TargetingSpec targeting,

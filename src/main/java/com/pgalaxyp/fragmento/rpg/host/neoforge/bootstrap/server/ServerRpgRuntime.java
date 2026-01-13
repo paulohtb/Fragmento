@@ -14,11 +14,10 @@ import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeNetRuntimeR
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeSnapshotPort;
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.NeoForgeJournalPortStub;
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.NeoForgeWorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.query.NeoForgeWorldQueryPort;
 import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
 import com.pgalaxyp.fragmento.rpg.ports.ServerIntentReceiverPort;
 import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldQueryPort;
+import com.pgalaxyp.fragmento.rpg.targeting.minecraft.NeoForgeTargetingBootstrap;
 import java.util.TreeMap;
 import net.minecraft.server.MinecraftServer;
 
@@ -38,13 +37,15 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
         this.queue = new IntentQueue();
         RpgContent content = DefaultRpgContent.create();
 
-        WorldQueryPort worldQueries = new NeoForgeWorldQueryPort(server);
+        var targeting = NeoForgeTargetingBootstrap.createServer(server);
+
         WorldCommandPort worldCommands = new NeoForgeWorldCommandPort(server);
         JournalPort journal = new NeoForgeJournalPortStub();
 
         this.engine = new RpgEngine(
                 queue,
-                worldQueries,
+                targeting.service(),
+                targeting.world(),
                 worldCommands,
                 new NeoForgeEventSinkPort(),
                 journal,

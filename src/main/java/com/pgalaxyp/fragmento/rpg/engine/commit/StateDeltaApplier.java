@@ -35,7 +35,14 @@ public final class StateDeltaApplier {
     }
 
     private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
-        if (delta instanceof ActorSpawned(ActorId actorId, ClassId classId, WeaponId weaponId, int healthHearts, int maxHealthHearts)) {
+        if (delta instanceof ActorSpawned s) {
+
+            ActorId actorId = s.actorId();
+            ClassId classId = s.classId();
+            WeaponId weaponId = s.equippedWeaponId();
+            int healthHearts = s.healthHearts();
+            int maxHealthHearts = s.maxHealthHearts();
+
             if (actors.containsKey(actorId)) {
                 return;
             }
@@ -44,7 +51,14 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboStarted(ActorId id, ActionId actionId, WeaponId weaponId, int stepsTotal, long frameId)) {
+        if (delta instanceof ComboStarted cs) {
+
+            ActorId id = cs.actorId();
+            ActionId actionId = cs.actionId();
+            WeaponId weaponId = cs.weaponId();
+            int stepsTotal = cs.stepsTotal();
+            long frameId = cs.stepFrameId();
+
             ActorState prev = actors.get(id);
             if (prev == null) {
                 return;
@@ -64,7 +78,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboAdvanced(ActorId actorId, long stepFrameId)) {
+        if (delta instanceof ComboAdvanced ca) {
+
+            ActorId actorId = ca.actorId();
+            long stepFrameId = ca.stepFrameId();
+
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
@@ -86,7 +104,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboEnded(ActorId actorId, ActionId actionId)) {
+        if (delta instanceof ComboEnded ce) {
+
+            ActorId actorId = ce.actorId();
+            ActionId actionId = ce.actionId();
+
             ActorState prev = actors.get(actorId);
             if (prev == null || prev.combo().isEmpty()) {
                 return;
@@ -100,7 +122,11 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof DamageApplied(ActorId targetActorId, int hearts)) {
+        if (delta instanceof DamageApplied da) {
+
+            ActorId targetActorId = da.targetActorId();
+            int hearts = da.hearts();
+
             ActorState prev = actors.get(targetActorId);
             if (prev == null) {
                 return;
