@@ -1,13 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.targeting.system;
 
-import com.pgalaxyp.fragmento.rpg.targeting.api.ActorTarget;
-import com.pgalaxyp.fragmento.rpg.targeting.api.PointTarget;
-import com.pgalaxyp.fragmento.rpg.targeting.api.Target;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallbackPolicy;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
-import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
 public final class TargetingResolver {
 
@@ -19,37 +14,36 @@ public final class TargetingResolver {
         }
 
         Optional<ViewRay> rayOpt = context.world().viewRay(context.casterId());
-
-        TargetingMode mode = context.spec().mode();
-        Optional<Target> direct = Optional.empty();
-
-        if (mode == TargetingMode.RAYCAST_SINGLE && rayOpt.isPresent()) {
-            direct = raycastSingle.resolve(context, rayOpt.get());
+        if (context.spec().mode() == TargetingMode.RAYCAST_SINGLE && rayOpt.isPresent()) {
+            Optional<Target> targetOpt = raycastSingle.resolve(context, rayOpt.get());
+            if (targetOpt.isPresent()) {
+                return directResult(context.casterId(), targetOpt.get());
+            }
         }
 
-        if (direct.isPresent()) {
-            return TargetResult.direct(direct.get());
-        }
-
-        return applyFallback(context, rayOpt);
+        return fallbackResult(context, rayOpt.orElse(null));
     }
 
-    private TargetResult applyFallback(TargetingContext context, Optional<ViewRay> rayOpt) {
-        TargetingFallbackPolicy policy = context.spec().fallbackPolicy();
-
-        if (policy == TargetingFallbackPolicy.SELF) {
-            return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
+    private TargetResult directResult(ActorId caster, Target target) {
+        if (target instanceof ActorTarget(var targetId) && !targetId.equals(caster)) {
+            return TargetResult.direct(target, targetId);
         }
 
-        if (policy == TargetingFallbackPolicy.IMAGINARY_POINT) {
-            if (rayOpt.isEmpty()) {
-                return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
-            }
-            ViewRay ray = rayOpt.get();
-            double half = ((double) context.spec().rangeBlocks()) * 0.5;
-            return TargetResult.fallback(new PointTarget(ray.pointAt(half)), TargetingFallbackPolicy.IMAGINARY_POINT);
+        return TargetResult.direct(target, null);
+    }
+
+    private TargetResult fallbackResult(TargetingContext context, ViewRay ray) {
+        TargetingFallback policy = context.spec().fallbackPolicy();
+        ActorId self = context.casterId();
+        if (policy == TargetingFallback.SELF) {
+            return TargetResult.fallback(new ActorTarget(self), policy, self);
         }
 
-        return TargetResult.fallback(new ActorTarget(context.casterId()), TargetingFallbackPolicy.SELF);
+        if (policy == TargetingFallback.IMAGINARY_POINT && ray != null) {
+            double half = context.spec().rangeBlocks() * 0.5;
+            return TargetResult.fallback(new PointTarget(ray.pointAt(half)), policy, null);
+        }
+
+        return TargetResult.fallback(new ActorTarget(self), TargetingFallback.SELF, self);
     }
 }

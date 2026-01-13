@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.events.delta;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
 
 public record ComboStarted(

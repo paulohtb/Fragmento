@@ -1,11 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.targeting.bridge;
 
-import com.pgalaxyp.fragmento.rpg.targeting.api.Vec3d;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
 
-public record RaycastBlockHit(
-        Vec3d hitPosition,
-        double distance
-) implements RaycastHit {
+public record RaycastBlockHit(Vec3d hitPosition, double distance) implements RaycastHit {
+
     public RaycastBlockHit {
         if (hitPosition == null) {
             throw new IllegalArgumentException();

@@ -7,10 +7,7 @@ public record DamageApplied(
         int hearts
 ) implements StateDelta {
     public DamageApplied {
-        if (targetActorId == null) {
-            throw new IllegalArgumentException();
-        }
-        if (hearts <= 0) {
+        if (targetActorId == null || hearts <= 0) {
             throw new IllegalArgumentException();
         }
     }

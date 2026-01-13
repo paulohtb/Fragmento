@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.input.bridge;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.ports.dto.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
 public final class InputSnapshotView {
 

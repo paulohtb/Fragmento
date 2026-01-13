@@ -1,36 +1,41 @@
 package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
-public record TargetResult(
-        Target target,
-        Optional<TargetingFallbackPolicy> appliedFallback
-) {
+public record TargetResult(Target target, TargetingFallback appliedFallback, ActorId actorTargetId) {
+
     public TargetResult {
-        if (target == null || appliedFallback == null) {
-            throw new IllegalArgumentException();
-        }
-        if (appliedFallback.isPresent() && appliedFallback.get() == null) {
-            throw new IllegalArgumentException();
-        }
-        appliedFallback = appliedFallback.isPresent() ? Optional.of(appliedFallback.get()) : Optional.empty();
-    }
-
-    public boolean usedFallback() {
-        return appliedFallback.isPresent();
-    }
-
-    public static TargetResult direct(Target target) {
         if (target == null) {
             throw new IllegalArgumentException();
         }
-        return new TargetResult(target, Optional.empty());
     }
 
-    public static TargetResult fallback(Target target, TargetingFallbackPolicy policy) {
+    public Optional<TargetingFallback> appliedFallbackOpt() {
+        return Optional.ofNullable(appliedFallback);
+    }
+
+    public Optional<ActorId> actorTargetOpt() {
+        return Optional.ofNullable(actorTargetId);
+    }
+
+    public boolean usedFallback() {
+        return appliedFallback != null;
+    }
+
+    public static TargetResult direct(Target target, ActorId actorTargetId) {
+        if (target == null) {
+            throw new IllegalArgumentException();
+        }
+
+        return new TargetResult(target, null, actorTargetId);
+    }
+
+    public static TargetResult fallback(Target target, TargetingFallback policy, ActorId actorTargetId) {
         if (target == null || policy == null) {
             throw new IllegalArgumentException();
         }
-        return new TargetResult(target, Optional.of(policy));
+
+        return new TargetResult(target, policy, actorTargetId);
     }
 }

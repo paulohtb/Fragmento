@@ -1,8 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.input.bridge;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
 public interface ActorInputContextProvider {
     Optional<ActorId> localActorId();

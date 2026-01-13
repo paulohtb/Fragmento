@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.core.domain.def;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.EffectVisualSpec;
+import com.pgalaxyp.fragmento.rpg.damage.domain.DamageSpec;
 import java.util.Optional;
 
 public record EffectDef(
@@ -25,7 +25,7 @@ public record EffectDef(
     }
 
     public static EffectDef withVisual(EffectId id, DamageSpec damage, EffectVisualSpec visual) {
-        if (visual == null) {
+        if (id == null || damage == null || visual == null) {
             throw new IllegalArgumentException();
         }
         return new EffectDef(id, damage, Optional.of(visual));

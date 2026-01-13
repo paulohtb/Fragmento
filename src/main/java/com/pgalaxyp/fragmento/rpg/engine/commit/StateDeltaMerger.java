@@ -1,12 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboAdvanced;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboEnded;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboStarted;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;

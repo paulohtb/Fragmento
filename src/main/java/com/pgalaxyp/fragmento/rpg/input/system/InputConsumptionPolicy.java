@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.input.system;
 
-import com.pgalaxyp.fragmento.rpg.input.api.InputContext;
-import com.pgalaxyp.fragmento.rpg.input.api.SemanticInput;
+import com.pgalaxyp.fragmento.rpg.input.api.*;
 
 public final class InputConsumptionPolicy {
 

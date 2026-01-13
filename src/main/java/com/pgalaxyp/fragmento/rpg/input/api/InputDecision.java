@@ -1,10 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.input.api;
 
-public record InputDecision(
-        boolean consumeVanilla,
-        boolean emittedDomainIntent
-) {
-    public InputDecision {}
+public record InputDecision(boolean consumeVanilla, boolean emittedDomainIntent) {
 
     public static InputDecision passThrough() {
         return new InputDecision(false, false);

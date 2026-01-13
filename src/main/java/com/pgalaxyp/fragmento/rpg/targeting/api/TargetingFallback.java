@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-public enum TargetingFallbackPolicy {
+public enum TargetingFallback {
     IMAGINARY_POINT,
     SELF
 }

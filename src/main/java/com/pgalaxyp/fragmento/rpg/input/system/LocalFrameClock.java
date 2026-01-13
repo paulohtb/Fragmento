@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.input.system;
 
-import com.pgalaxyp.fragmento.rpg.input.api.InputContext;
-import java.util.concurrent.atomic.AtomicLong;
+import com.pgalaxyp.fragmento.rpg.input.api.*;
+import java.util.concurrent.atomic.*;
 
 public final class LocalFrameClock implements FrameClock {
 

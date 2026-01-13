@@ -1,10 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-public record Vec3d(
-        double x,
-        double y,
-        double z
-) {
+public record Vec3d(double x, double y, double z) {
+
     public Vec3d {
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
             throw new IllegalArgumentException();
@@ -15,6 +12,7 @@ public record Vec3d(
         if (o == null) {
             throw new IllegalArgumentException();
         }
+
         return new Vec3d(x + o.x, y + o.y, z + o.z);
     }
 
@@ -22,6 +20,7 @@ public record Vec3d(
         if (!Double.isFinite(k)) {
             throw new IllegalArgumentException();
         }
+
         return new Vec3d(x * k, y * k, z * k);
     }
 
@@ -38,6 +37,7 @@ public record Vec3d(
         if (len <= 0.0 || !Double.isFinite(len)) {
             throw new IllegalArgumentException();
         }
+
         return new Vec3d(x / len, y / len, z / len);
     }
 }

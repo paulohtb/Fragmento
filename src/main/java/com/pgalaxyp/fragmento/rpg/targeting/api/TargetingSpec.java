@@ -1,10 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-public record TargetingSpec(
-        TargetingMode mode,
-        int rangeBlocks,
-        TargetingFallbackPolicy fallbackPolicy
-) {
+public record TargetingSpec(TargetingMode mode, int rangeBlocks, TargetingFallback fallbackPolicy) {
+
     public TargetingSpec {
         if (mode == null || fallbackPolicy == null) {
             throw new IllegalArgumentException();

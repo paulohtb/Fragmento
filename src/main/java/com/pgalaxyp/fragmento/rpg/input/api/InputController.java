@@ -1,13 +1,10 @@
 package com.pgalaxyp.fragmento.rpg.input.api;
 
-import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.input.bridge.InputIntentSink;
-import com.pgalaxyp.fragmento.rpg.input.system.ComboInputSystem;
-import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
-import com.pgalaxyp.fragmento.rpg.input.system.InputConsumptionPolicy;
-import com.pgalaxyp.fragmento.rpg.input.system.InputStateMachine;
-import java.util.Optional;
-import java.util.OptionalLong;
+import com.pgalaxyp.fragmento.rpg.input.bridge.*;
+import com.pgalaxyp.fragmento.rpg.input.system.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import java.util.*;
 
 public final class InputController {
 
@@ -45,12 +42,15 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        if (context.actorId().isEmpty()) {
+        Optional<ActorId> actorOpt = context.actorIdOpt();
+        if (actorOpt.isEmpty()) {
             return new InputDecision(consumeVanilla, false);
         }
 
+        ActorId actorId = actorOpt.get();
+
         long frameId = clock.frameId(context);
-        InputStateMachine.Decision sm = stateMachine.decidePrimaryAction(context.actorId().get(), frameId);
+        InputStateMachine.Decision sm = stateMachine.decidePrimaryAction(actorId, frameId);
         if (sm != InputStateMachine.Decision.ALLOWED) {
             return new InputDecision(consumeVanilla, false);
         }
@@ -68,8 +68,7 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        OptionalLong hint = OptionalLong.of(context.snapshot().frameIdOrZero());
-        emitter.emit(context.actorId().get(), intent.get(), hint);
+        emitter.emit(actorId, intent.get(), context.snapshot().frameIdOrZero());
 
         return new InputDecision(consumeVanilla, true);
     }

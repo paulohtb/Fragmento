@@ -1,13 +1,10 @@
 package com.pgalaxyp.fragmento.rpg.input.minecraft;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.TreeMap;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+import net.minecraft.resources.*;
+import net.minecraft.world.item.*;
+import net.minecraft.core.registries.*;
 
 public final class ItemWeaponBinding {
 
@@ -18,9 +15,6 @@ public final class ItemWeaponBinding {
             throw new IllegalArgumentException();
         }
         ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
-        if (key == null) {
-            throw new IllegalArgumentException();
-        }
         byItemId.put(key, weaponId);
     }
 
@@ -28,15 +22,7 @@ public final class ItemWeaponBinding {
         if (stack == null) {
             throw new IllegalArgumentException();
         }
-        Item item = stack.getItem();
-        if (item == null) {
-            return Optional.empty();
-        }
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
-        if (key == null) {
-            return Optional.empty();
-        }
-        WeaponId wid = byItemId.get(key);
-        return wid == null ? Optional.empty() : Optional.of(wid);
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return Optional.ofNullable(byItemId.get(key));
     }
 }

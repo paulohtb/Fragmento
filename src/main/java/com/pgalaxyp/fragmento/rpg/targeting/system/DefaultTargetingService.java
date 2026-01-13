@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.targeting.system;
 
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
 
 public final class DefaultTargetingService implements TargetingService {
 
@@ -12,6 +11,7 @@ public final class DefaultTargetingService implements TargetingService {
         if (context == null) {
             throw new IllegalArgumentException();
         }
+
         return resolver.resolve(context);
     }
 }

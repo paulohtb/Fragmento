@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.targeting.bridge;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.targeting.api.ViewRay;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
 public interface WorldRaycastAccess {
     Optional<ViewRay> viewRay(ActorId casterId);

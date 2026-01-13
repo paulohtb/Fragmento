@@ -7,6 +7,9 @@ import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
 import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
+import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
+import com.pgalaxyp.fragmento.rpg.damage.integration.CoreDamageSnapshotProvider;
+import com.pgalaxyp.fragmento.rpg.damage.system.DefaultDamageService;
 import com.pgalaxyp.fragmento.rpg.engine.RpgEngine;
 import com.pgalaxyp.fragmento.rpg.engine.intent.IntentQueue;
 import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeEventSinkPort;
@@ -17,7 +20,7 @@ import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.NeoForgeWorldC
 import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
 import com.pgalaxyp.fragmento.rpg.ports.ServerIntentReceiverPort;
 import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.targeting.minecraft.NeoForgeTargetingBootstrap;
+import com.pgalaxyp.fragmento.rpg.targeting.minecraft.GameTargetingBootstrap;
 import java.util.TreeMap;
 import net.minecraft.server.MinecraftServer;
 
@@ -37,7 +40,10 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
         this.queue = new IntentQueue();
         RpgContent content = DefaultRpgContent.create();
 
-        var targeting = NeoForgeTargetingBootstrap.createServer(server);
+        var targeting = GameTargetingBootstrap.createServer(server);
+
+        DamageService damageService = new DefaultDamageService();
+        com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider damageSnapshots = new CoreDamageSnapshotProvider();
 
         WorldCommandPort worldCommands = new NeoForgeWorldCommandPort(server);
         JournalPort journal = new NeoForgeJournalPortStub();
@@ -46,6 +52,8 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
                 queue,
                 targeting.service(),
                 targeting.world(),
+                damageService,
+                damageSnapshots,
                 worldCommands,
                 new NeoForgeEventSinkPort(),
                 journal,

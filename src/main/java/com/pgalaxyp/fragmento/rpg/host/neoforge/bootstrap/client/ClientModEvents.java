@@ -4,8 +4,8 @@ import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
 import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.FragmentoMod;
 import com.pgalaxyp.fragmento.rpg.host.neoforge.items.FragmentoItems;
+import com.pgalaxyp.fragmento.rpg.input.minecraft.GameInputBootstrap;
 import com.pgalaxyp.fragmento.rpg.input.minecraft.ItemWeaponBinding;
-import com.pgalaxyp.fragmento.rpg.input.minecraft.NeoForgeInputBootstrap;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -26,8 +26,8 @@ public final class ClientModEvents {
 
             LocalActorProvider provider = ClientRpgRuntime::localActorId;
 
-            NeoForgeInputBootstrap.ClientModule input =
-                    NeoForgeInputBootstrap.createClient(mapping, 2, provider);
+            GameInputBootstrap.ClientModule input =
+                    GameInputBootstrap.createClient(mapping, 2, provider);
 
             input.register(NeoForge.EVENT_BUS);
         });

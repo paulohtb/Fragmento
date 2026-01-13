@@ -1,12 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.input.system;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboAdvanceIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboStartIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.input.api.InputContext;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.input.api.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import java.util.*;
 
 public final class ComboInputSystem {
 
@@ -14,21 +11,33 @@ public final class ComboInputSystem {
         if (context == null) {
             throw new IllegalArgumentException();
         }
-        if (context.actorId().isEmpty()) {
+
+        var actorId = context.actorId();
+        if (actorId == null) {
             return Optional.empty();
         }
 
-        ActorId actorId = context.actorId().get();
-        Optional<ActorState> st = context.snapshot().findActor(actorId);
-        if (st.isEmpty()) {
+        var snapshot = context.snapshot();
+        var stateOpt = snapshot.findActor(actorId);
+        if (stateOpt.isEmpty()) {
             return Optional.empty();
         }
 
-        ActorState a = st.get();
-        if (a.combo().isPresent()) {
-            return Optional.of(new ComboAdvanceIntent(a.combo().get().actionId()));
+        ActorState state = stateOpt.get();
+        var comboOpt = state.combo();
+        if (comboOpt.isPresent()) {
+            var combo = comboOpt.get();
+            int next = combo.stepIndex() + 1;
+            if (next >= combo.stepsTotal()) {
+                return Optional.empty();
+            }
+            return Optional.of(new PerformActionIntent(next));
         }
 
-        return Optional.of(new ComboStartIntent());
+        if (state.equippedWeaponId().isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new PerformActionIntent(0));
     }
 }

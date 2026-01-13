@@ -1,8 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.input.system;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
 public final class InputStateMachine {
 

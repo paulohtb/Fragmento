@@ -1,33 +1,14 @@
 package com.pgalaxyp.fragmento.rpg.platform.neoforge.net.codec;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.event.AuditEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboAdvanceIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ComboStartIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
-import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.OptionalLong;
-import java.util.TreeMap;
-import java.util.UUID;
+import com.pgalaxyp.fragmento.rpg.ports.dto.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.core.events.event.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import java.io.*;
+import java.util.*;
+import java.nio.charset.*;
 
 public final class NeoForgeNetCodec {
 
@@ -38,8 +19,7 @@ public final class NeoForgeNetCodec {
     private static final int MSG_EVENTS = 3;
 
     private static final int INTENT_JOIN = 1;
-    private static final int INTENT_COMBO_START = 2;
-    private static final int INTENT_COMBO_ADVANCE = 3;
+    private static final int INTENT_PERFORM = 2;
 
     private static final int EVENT_AUDIT = 1;
     private static final int EVENT_HOMING_MAGIC = 2;
@@ -49,17 +29,23 @@ public final class NeoForgeNetCodec {
             throw new IllegalArgumentException();
         }
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(baos);
+            ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(outBytes);
+
             out.writeInt(VERSION);
             out.writeInt(MSG_INTENT);
 
             writeUuid(out, env.actorId().uuid());
             writeIntent(out, env.intent());
-            writeOptionalLong(out, env.clientFrameHint());
+
+            Long hint = env.clientFrameHint();
+            out.writeBoolean(hint != null);
+            if (hint != null) {
+                out.writeLong(hint);
+            }
 
             out.flush();
-            return baos.toByteArray();
+            return outBytes.toByteArray();
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }
@@ -71,18 +57,17 @@ public final class NeoForgeNetCodec {
         }
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-            int version = in.readInt();
-            if (version != VERSION) {
+
+            if (in.readInt() != VERSION) {
                 throw new IllegalArgumentException();
             }
-            int msg = in.readInt();
-            if (msg != MSG_INTENT) {
+            if (in.readInt() != MSG_INTENT) {
                 throw new IllegalArgumentException();
             }
 
             ActorId actorId = new ActorId(readUuid(in));
             DomainIntent intent = readIntent(in);
-            OptionalLong hint = readOptionalLong(in);
+            Long hint = in.readBoolean() ? in.readLong() : null;
 
             return new IntentEnvelope(actorId, intent, hint);
         } catch (Exception e) {
@@ -95,8 +80,9 @@ public final class NeoForgeNetCodec {
             throw new IllegalArgumentException();
         }
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(baos);
+            ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(outBytes);
+
             out.writeInt(VERSION);
             out.writeInt(MSG_SNAPSHOT);
 
@@ -104,14 +90,12 @@ public final class NeoForgeNetCodec {
             out.writeInt(snapshot.actors().size());
 
             for (var e : snapshot.actors().entrySet()) {
-                ActorId actorId = e.getKey();
-                ActorState state = e.getValue();
-                writeActorId(out, actorId);
-                writeActorState(out, state);
+                writeActorId(out, e.getKey());
+                writeActorState(out, e.getValue());
             }
 
             out.flush();
-            return baos.toByteArray();
+            return outBytes.toByteArray();
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }
@@ -123,12 +107,11 @@ public final class NeoForgeNetCodec {
         }
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-            int version = in.readInt();
-            if (version != VERSION) {
+
+            if (in.readInt() != VERSION) {
                 throw new IllegalArgumentException();
             }
-            int msg = in.readInt();
-            if (msg != MSG_SNAPSHOT) {
+            if (in.readInt() != MSG_SNAPSHOT) {
                 throw new IllegalArgumentException();
             }
 
@@ -140,9 +123,7 @@ public final class NeoForgeNetCodec {
 
             TreeMap<ActorId, ActorState> actors = new TreeMap<>();
             for (int i = 0; i < size; i++) {
-                ActorId actorId = readActorId(in);
-                ActorState st = readActorState(in);
-                actors.put(actorId, st);
+                actors.put(readActorId(in), readActorState(in));
             }
 
             return new GameSnapshot(frame, actors);
@@ -156,8 +137,9 @@ public final class NeoForgeNetCodec {
             throw new IllegalArgumentException();
         }
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(baos);
+            ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(outBytes);
+
             out.writeInt(VERSION);
             out.writeInt(MSG_EVENTS);
 
@@ -167,7 +149,7 @@ public final class NeoForgeNetCodec {
             }
 
             out.flush();
-            return baos.toByteArray();
+            return outBytes.toByteArray();
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }
@@ -179,12 +161,11 @@ public final class NeoForgeNetCodec {
         }
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-            int version = in.readInt();
-            if (version != VERSION) {
+
+            if (in.readInt() != VERSION) {
                 throw new IllegalArgumentException();
             }
-            int msg = in.readInt();
-            if (msg != MSG_EVENTS) {
+            if (in.readInt() != MSG_EVENTS) {
                 throw new IllegalArgumentException();
             }
 
@@ -193,10 +174,11 @@ public final class NeoForgeNetCodec {
                 throw new IllegalArgumentException();
             }
 
-            List<DomainEvent> out = new ArrayList<>(size);
+            ArrayList<DomainEvent> out = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 out.add(readEvent(in));
             }
+
             return List.copyOf(out);
         } catch (Exception e) {
             throw new IllegalArgumentException();
@@ -206,47 +188,44 @@ public final class NeoForgeNetCodec {
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
         if (intent instanceof ActorJoinIntent) {
             out.writeInt(INTENT_JOIN);
-            return;
+        } else if (intent instanceof PerformActionIntent(var stepIndex)) {
+            out.writeInt(INTENT_PERFORM);
+            out.writeInt(stepIndex);
+        } else {
+            throw new IllegalArgumentException();
         }
-        if (intent instanceof ComboStartIntent) {
-            out.writeInt(INTENT_COMBO_START);
-            return;
-        }
-        if (intent instanceof ComboAdvanceIntent ca) {
-            out.writeInt(INTENT_COMBO_ADVANCE);
-            writeString(out, ca.actionId().value());
-            return;
-        }
-        throw new IllegalArgumentException();
     }
 
     private static DomainIntent readIntent(DataInputStream in) throws Exception {
-        int t = in.readInt();
-        return switch (t) {
+        return switch (in.readInt()) {
             case INTENT_JOIN -> new ActorJoinIntent();
-            case INTENT_COMBO_START -> new ComboStartIntent();
-            case INTENT_COMBO_ADVANCE -> new ComboAdvanceIntent(new ActionId(readString(in)));
+            case INTENT_PERFORM -> new PerformActionIntent(in.readInt());
             default -> throw new IllegalArgumentException();
         };
     }
 
     private static void writeEvent(DataOutputStream out, DomainEvent e) throws Exception {
-        if (e instanceof AuditEvent a) {
+        if (e instanceof AuditEvent(var message)) {
             out.writeInt(EVENT_AUDIT);
-            writeString(out, a.message());
-            return;
-        }
-        if (e instanceof HomingMagicVisualEvent hm) {
+            writeString(out, message);
+        } else if (e instanceof HomingMagicVisualEvent(
+                long frameId,
+                int localIndex,
+                QueryId queryId,
+                ActorId source,
+                ActorId target,
+                int lifetimeFrames
+        )) {
             out.writeInt(EVENT_HOMING_MAGIC);
-            out.writeLong(hm.frameId());
-            out.writeInt(hm.localIndex());
-            out.writeLong(hm.queryId().value());
-            writeActorId(out, hm.sourceActorId());
-            writeActorId(out, hm.targetActorId());
-            out.writeInt(hm.lifetimeFrames());
-            return;
+            out.writeLong(frameId);
+            out.writeInt(localIndex);
+            out.writeLong(queryId.value());
+            writeActorId(out, source);
+            writeActorId(out, target);
+            out.writeInt(lifetimeFrames);
+        } else {
+            throw new IllegalArgumentException();
         }
-        throw new IllegalArgumentException();
     }
 
     private static DomainEvent readEvent(DataInputStream in) throws Exception {
@@ -255,13 +234,14 @@ public final class NeoForgeNetCodec {
             return new AuditEvent(readString(in));
         }
         if (t == EVENT_HOMING_MAGIC) {
-            long frameId = in.readLong();
-            int localIndex = in.readInt();
-            QueryId queryId = new QueryId(in.readLong());
-            ActorId source = readActorId(in);
-            ActorId target = readActorId(in);
-            int lifetime = in.readInt();
-            return new HomingMagicVisualEvent(frameId, localIndex, queryId, source, target, lifetime);
+            return new HomingMagicVisualEvent(
+                    in.readLong(),
+                    in.readInt(),
+                    new QueryId(in.readLong()),
+                    readActorId(in),
+                    readActorId(in),
+                    in.readInt()
+            );
         }
         throw new IllegalArgumentException();
     }
@@ -272,9 +252,7 @@ public final class NeoForgeNetCodec {
     }
 
     private static FrameContext readFrame(DataInputStream in) throws Exception {
-        long frameId = in.readLong();
-        int tickIndex = in.readInt();
-        return new FrameContext(frameId, tickIndex);
+        return new FrameContext(in.readLong(), in.readInt());
     }
 
     private static void writeActorId(DataOutputStream out, ActorId id) throws Exception {
@@ -305,25 +283,15 @@ public final class NeoForgeNetCodec {
     private static ActorState readActorState(DataInputStream in) throws Exception {
         ClassId classId = new ClassId(readString(in));
 
-        Optional<WeaponId> weapon;
-        boolean hasWeapon = in.readBoolean();
-        if (hasWeapon) {
-            weapon = Optional.of(new WeaponId(readString(in)));
-        } else {
-            weapon = Optional.empty();
-        }
+        Optional<WeaponId> weapon = in.readBoolean()
+                ? Optional.of(new WeaponId(readString(in)))
+                : Optional.empty();
 
-        Optional<ComboState> combo;
-        boolean hasCombo = in.readBoolean();
-        if (hasCombo) {
-            combo = Optional.of(readCombo(in));
-        } else {
-            combo = Optional.empty();
-        }
+        Optional<ComboState> combo = in.readBoolean()
+                ? Optional.of(readCombo(in))
+                : Optional.empty();
 
-        int hp = in.readInt();
-        int maxHp = in.readInt();
-        return new ActorState(classId, weapon, combo, hp, maxHp);
+        return new ActorState(classId, weapon, combo, in.readInt(), in.readInt());
     }
 
     private static void writeCombo(DataOutputStream out, ComboState combo) throws Exception {
@@ -335,28 +303,13 @@ public final class NeoForgeNetCodec {
     }
 
     private static ComboState readCombo(DataInputStream in) throws Exception {
-        ActionId actionId = new ActionId(readString(in));
-        WeaponId weaponId = new WeaponId(readString(in));
-        int stepIndex = in.readInt();
-        int stepsTotal = in.readInt();
-        long lastStepFrameId = in.readLong();
-        return new ComboState(actionId, weaponId, stepIndex, stepsTotal, lastStepFrameId);
-    }
-
-    private static void writeOptionalLong(DataOutputStream out, OptionalLong v) throws Exception {
-        out.writeBoolean(v.isPresent());
-        if (v.isPresent()) {
-            out.writeLong(v.getAsLong());
-        }
-    }
-
-    private static OptionalLong readOptionalLong(DataInputStream in) throws Exception {
-        boolean present = in.readBoolean();
-        if (!present) {
-            return OptionalLong.empty();
-        }
-        long v = in.readLong();
-        return OptionalLong.of(v);
+        return new ComboState(
+                new ActionId(readString(in)),
+                new WeaponId(readString(in)),
+                in.readInt(),
+                in.readInt(),
+                in.readLong()
+        );
     }
 
     private static void writeUuid(DataOutputStream out, UUID uuid) throws Exception {
@@ -365,15 +318,10 @@ public final class NeoForgeNetCodec {
     }
 
     private static UUID readUuid(DataInputStream in) throws Exception {
-        long msb = in.readLong();
-        long lsb = in.readLong();
-        return new UUID(msb, lsb);
+        return new UUID(in.readLong(), in.readLong());
     }
 
     private static void writeString(DataOutputStream out, String s) throws Exception {
-        if (s == null) {
-            throw new IllegalArgumentException();
-        }
         byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
         out.writeInt(bytes.length);
         out.write(bytes);

@@ -1,22 +1,12 @@
 package com.pgalaxyp.fragmento.rpg.input.minecraft;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.rpg.input.api.InputContext;
-import com.pgalaxyp.fragmento.rpg.input.api.InputController;
-import com.pgalaxyp.fragmento.rpg.input.api.InputDecision;
-import com.pgalaxyp.fragmento.rpg.input.api.SemanticInput;
-import com.pgalaxyp.fragmento.rpg.input.bridge.ActorInputContextProvider;
-import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotView;
-import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
-import java.util.Optional;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import com.pgalaxyp.fragmento.rpg.input.api.*;
+import com.pgalaxyp.fragmento.rpg.input.bridge.*;
+import com.pgalaxyp.fragmento.rpg.input.system.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import net.neoforged.bus.api.*;
+import net.neoforged.neoforge.client.event.*;
+import net.neoforged.neoforge.event.entity.player.*;
 
 public final class VanillaInputInterceptor {
 
@@ -24,20 +14,15 @@ public final class VanillaInputInterceptor {
     private final ActorInputContextProvider actors;
     private final FrameClock clock;
     private final InputController controller;
-
     private long cachedFrameId = Long.MIN_VALUE;
-    private Optional<ActorId> cachedActorId = Optional.empty();
+    private ActorId cachedActorId;
     private InputDecision cachedDecision = InputDecision.passThrough();
 
-    public VanillaInputInterceptor(
-            InputSnapshotProvider snapshots,
-            ActorInputContextProvider actors,
-            FrameClock clock,
-            InputController controller
-    ) {
+    public VanillaInputInterceptor(InputSnapshotProvider snapshots, ActorInputContextProvider actors, FrameClock clock, InputController controller) {
         if (snapshots == null || actors == null || clock == null || controller == null) {
             throw new IllegalArgumentException();
         }
+
         this.snapshots = snapshots;
         this.actors = actors;
         this.clock = clock;
@@ -48,6 +33,7 @@ public final class VanillaInputInterceptor {
         if (bus == null) {
             throw new IllegalArgumentException();
         }
+
         bus.register(this);
     }
 
@@ -55,7 +41,7 @@ public final class VanillaInputInterceptor {
     public void onClientTick(ClientTickEvent.Post event) {
         clock.tick();
         cachedFrameId = Long.MIN_VALUE;
-        cachedActorId = Optional.empty();
+        cachedActorId = null;
         cachedDecision = InputDecision.passThrough();
     }
 
@@ -96,24 +82,25 @@ public final class VanillaInputInterceptor {
 
     private InputDecision decisionForCurrentFrame(InputContext ctx) {
         long frameId = clock.frameId(ctx);
-        Optional<ActorId> actorId = ctx.actorId();
+        ActorId actorId = ctx.actorIdOpt().orElse(null);
 
-        if (frameId == cachedFrameId && actorId.equals(cachedActorId)) {
+        if (frameId == cachedFrameId && actorId == cachedActorId) {
             return cachedDecision;
         }
 
         InputDecision decision = controller.handle(ctx, SemanticInput.PRIMARY_ACTION);
-
         cachedFrameId = frameId;
         cachedActorId = actorId;
         cachedDecision = decision;
+
         return decision;
     }
 
     private InputContext resolveContext() {
-        Optional<ActorId> actorId = actors.localActorId();
-        InputSnapshotView snap = snapshots.current();
-        Optional<WeaponId> weapon = actorId.flatMap(id -> actors.weaponInHandId(id, snap));
-        return new InputContext(actorId, snap, weapon);
+        ActorId actorId = actors.localActorId().orElse(null);
+        InputSnapshotView snapshot = snapshots.current();
+        WeaponId weaponId = actorId != null ? actors.weaponInHandId(actorId, snapshot).orElse(null) : null;
+
+        return new InputContext(actorId, snapshot, weaponId);
     }
 }

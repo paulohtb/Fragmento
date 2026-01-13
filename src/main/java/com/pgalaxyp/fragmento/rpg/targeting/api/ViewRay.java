@@ -1,9 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.targeting.api;
 
-public record ViewRay(
-        Vec3d origin,
-        Vec3d direction
-) {
+public record ViewRay(Vec3d origin, Vec3d direction) {
+
     public ViewRay {
         if (origin == null || direction == null) {
             throw new IllegalArgumentException();
@@ -11,6 +9,7 @@ public record ViewRay(
         if (direction.lengthSquared() <= 0.0) {
             throw new IllegalArgumentException();
         }
+
         direction = direction.normalized();
     }
 
@@ -18,6 +17,7 @@ public record ViewRay(
         if (!Double.isFinite(distance) || distance < 0.0) {
             throw new IllegalArgumentException();
         }
+
         return origin.add(direction.mul(distance));
     }
 }

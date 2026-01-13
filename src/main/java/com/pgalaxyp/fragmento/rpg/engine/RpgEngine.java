@@ -8,6 +8,8 @@ import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.rpg.core.rules.RpgRules;
 import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
+import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
+import com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
 import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
 import com.pgalaxyp.fragmento.rpg.ports.EventSinkPort;
@@ -27,6 +29,8 @@ public final class RpgEngine {
     private final IntentSourcePort intents;
     private final TargetingService targetingService;
     private final WorldRaycastAccess worldRaycast;
+    private final DamageService damageService;
+    private final DamageSnapshotProvider damageSnapshots;
     private final WorldCommandPort worldCommands;
     private final EventSinkPort eventSink;
     private final JournalPort journal;
@@ -40,6 +44,8 @@ public final class RpgEngine {
             IntentSourcePort intents,
             TargetingService targetingService,
             WorldRaycastAccess worldRaycast,
+            DamageService damageService,
+            DamageSnapshotProvider damageSnapshots,
             WorldCommandPort worldCommands,
             EventSinkPort eventSink,
             JournalPort journal,
@@ -47,12 +53,14 @@ public final class RpgEngine {
             RpgContent content,
             GameState initialState
     ) {
-        if (intents == null || targetingService == null || worldRaycast == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
+        if (intents == null || targetingService == null || worldRaycast == null || damageService == null || damageSnapshots == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
         this.targetingService = targetingService;
         this.worldRaycast = worldRaycast;
+        this.damageService = damageService;
+        this.damageSnapshots = damageSnapshots;
         this.worldCommands = worldCommands;
         this.eventSink = eventSink;
         this.journal = journal;
@@ -70,7 +78,16 @@ public final class RpgEngine {
 
         List<IntentEnvelope> drained = intents.drain();
 
-        RuleResult r = RpgRules.pass(frame, state, content, drained, targetingService, worldRaycast);
+        RuleResult r = RpgRules.pass(
+                frame,
+                state,
+                content,
+                drained,
+                targetingService,
+                worldRaycast,
+                damageService,
+                damageSnapshots
+        );
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
 
@@ -83,7 +100,6 @@ public final class RpgEngine {
         snapshots.publish(snapshot);
 
         List<DomainEvent> events = new ArrayList<>(r.events());
-
         eventSink.publish(frame, events);
 
         journal.append(new FrameJournalEntry(frame, frameSeed, drained, merged, snapshot));

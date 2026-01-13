@@ -11,11 +11,13 @@ import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.DamageSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
 import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallbackPolicy;
+import com.pgalaxyp.fragmento.rpg.damage.domain.DamageElement;
+import com.pgalaxyp.fragmento.rpg.damage.domain.DamageSpec;
+import com.pgalaxyp.fragmento.rpg.damage.domain.DamageType;
+import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallback;
 import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
 import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
 import java.util.List;
@@ -37,13 +39,13 @@ public final class DefaultRpgContent {
         NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
 
         HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
-        effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1), homing));
-        effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1), homing));
-        effects.put(HIT_3, EffectDef.withVisual(HIT_3, new DamageSpec(1), homing));
+        effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
+        effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
+        effects.put(HIT_3, EffectDef.withVisual(HIT_3, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
 
         ActionCycleSpec cycle = new ActionCycleSpec(
                 new ComboSpec(3, 3),
-                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 20, TargetingFallbackPolicy.IMAGINARY_POINT),
+                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 20, TargetingFallback.IMAGINARY_POINT),
                 new StepWindowSpec(1)
         );
 
