@@ -1,307 +1,1135 @@
-package com.pgalaxyp.fragmento.rpg.action.id;
+package com.pgalaxyp.fragmento.rpg.action.command;
+
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import java.util.*;
+
+public record ActionAdvance(ComboInput input) implements ActionCommand {
+    public ActionAdvance {
+        Objects.requireNonNull(input, "input cannot be null");
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.command;
+
+public final class ActionCancel implements ActionCommand {
+
+    public static final ActionCancel INSTANCE = new ActionCancel();
+
+    private ActionCancel() {}
+}
+
+package com.pgalaxyp.fragmento.rpg.action.command;
+
+public sealed interface ActionCommand permits ActionStart, ActionCancel, ActionAdvance {}
+
+package com.pgalaxyp.fragmento.rpg.action.command;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import java.util.*;
+
+public record ActionStart(ActionKey actionKey) implements ActionCommand {
+
+    public ActionStart {
+        Objects.requireNonNull(actionKey, "action id cannot be null");
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.context;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public record ActionContext(ActorId actorId, WeaponId weaponId, long frameId) {
+
+    public ActionContext {
+        Objects.requireNonNull(actorId, "actor id cannot be null");
+        Objects.requireNonNull(weaponId, "weapon id cannot be null");
+
+        if (frameId < 0) {
+            throw new IllegalArgumentException("frame id must be zero or positive");
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.emit;
+
+public sealed interface ActionEmission permits EffectEmission {}
+
+package com.pgalaxyp.fragmento.rpg.action.emit;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public record EffectEmission(EffectId effectId) implements ActionEmission {
+    public EffectEmission {
+        Objects.requireNonNull(effectId, "effect id cannot be null");
+    }
+
+    public static EffectEmission of(EffectId effectId) {
+        return new EffectEmission(effectId);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.executor;
+
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+
+public interface ActionExecutor {
+
+    boolean supports(ActionDefinition def);
+
+    ActionRuntime create(ActionDefinition def);
+}
+
+package com.pgalaxyp.fragmento.rpg.action.executor;
 
 import java.util.*;
 
-public record ActionId(String value) implements Comparable<ActionId> {
+public record ActionRunId(UUID value) {
 
-    public ActionId {
-        Objects.requireNonNull(value);
+    public ActionRunId {
+        Objects.requireNonNull(value, "run id cannot be null");
+    }
+
+    public static ActionRunId create() {
+        return new ActionRunId(UUID.randomUUID());
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.executor;
+
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import java.util.*;
+
+public final class ComboActionExecutor implements ActionExecutor {
+
+    @Override
+    public boolean supports(ActionDefinition definition) {
+        Objects.requireNonNull(definition, "definition cannot be null");
+        return definition.type() == ActionType.COMBO && definition.plan() instanceof ComboActionPlan;
+    }
+
+    @Override
+    public ActionRuntime create(ActionDefinition definition) {
+        Objects.requireNonNull(definition, "definition cannot be null");
+        if (!supports(definition)) {
+            throw new IllegalArgumentException("definition not supported by this executor");
+        }
+
+        return new ComboActionRuntime(definition);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.executor;
+
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import java.util.*;
+
+public final class InstantActionExecutor implements ActionExecutor {
+
+    @Override
+    public boolean supports(ActionDefinition definition) {
+        Objects.requireNonNull(definition, "definition cannot be null");
+
+        return definition.type() == ActionType.INSTANT && definition.plan() instanceof SingleActionPlan;
+    }
+
+    @Override
+    public ActionRuntime create(ActionDefinition definition) {
+        Objects.requireNonNull(definition, "definition cannot be null");
+
+        if (!supports(definition)) {
+            throw new IllegalArgumentException("definition not supported by this executor");
+        }
+
+        return new InstantActionRuntime(definition);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.key;
+
+import java.util.*;
+
+public record ActionKey(String value) implements Comparable<ActionKey> {
+
+    public ActionKey {
+        Objects.requireNonNull(value, "value cannot be null");
+
         if (value.isBlank()) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("value cannot be blank");
         }
     }
 
     @Override
-    public int compareTo(ActionId other) {
-        return value.compareTo(other.value);
+    public int compareTo(ActionKey other) {
+        Objects.requireNonNull(other, "other cannot be null");
+
+        return this.value.compareTo(other.value);
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.model;
+package com.pgalaxyp.fragmento.rpg.action.registry;
 
-import com.pgalaxyp.fragmento.rpg.action.id.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
 import java.util.*;
 
-public record ActionDef(ActionId id, ActionKind kind, ActionSpec spec) {
+public final class ActionRegistry {
 
-    public ActionDef {
-        Objects.requireNonNull(id);
-        Objects.requireNonNull(kind);
-        Objects.requireNonNull(spec);
+    private final Map<ActionType, ActionExecutor> executors = new EnumMap<>(ActionType.class);
+
+    public void register(ActionType type, ActionExecutor executor) {
+        Objects.requireNonNull(type, "type cannot be null");
+        Objects.requireNonNull(executor, "executor cannot be null");
+
+        if (executors.containsKey(type)) {
+            throw new IllegalStateException("executor already registered for type " + type);
+        }
+
+        executors.put(type, executor);
+    }
+
+    public ActionRuntime createRuntime(ActionDefinition definition) {
+        Objects.requireNonNull(definition, "definition cannot be null");
+
+        ActionExecutor executor = executors.get(definition.type());
+        if (executor == null) {
+            throw new IllegalStateException("no executor for type " + definition.type());
+        }
+
+        if (!executor.supports(definition)) {
+            throw new IllegalArgumentException("definition not supported for type " + definition.type());
+        }
+
+        return executor.create(definition);
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.model;
+package com.pgalaxyp.fragmento.rpg.action.result;
 
+import com.pgalaxyp.fragmento.rpg.action.emit.*;
 import java.util.*;
 
-public record ActionEffectRef(String effectKey) {
+public record ActionResult(List<ActionEmission> emissions, boolean finished, ActionStatus status) {
 
-    public ActionEffectRef {
-        Objects.requireNonNull(effectKey);
-        if (effectKey.isBlank()) {
-            throw new IllegalArgumentException();
+    public ActionResult {
+        Objects.requireNonNull(emissions, "emissions cannot be null");
+        Objects.requireNonNull(status, "status cannot be null");
+
+        emissions = List.copyOf(emissions);
+
+        if (status != ActionStatus.ACCEPTED) {
+            if (finished) {
+                throw new IllegalArgumentException("finished must be false when status is not accepted");
+            }
+            if (!emissions.isEmpty()) {
+                throw new IllegalArgumentException("emissions must be empty when status is not accepted");
+            }
         }
     }
+
+    public static ActionResult ignored() {
+        return new ActionResult(List.of(), false, ActionStatus.IGNORED);
+    }
+
+    public static ActionResult rejected() {
+        return new ActionResult(List.of(), false, ActionStatus.REJECTED);
+    }
+
+    public static ActionResult accepted(List<ActionEmission> emissions, boolean finished) {
+        return new ActionResult(emissions, finished, ActionStatus.ACCEPTED);
+    }
+
+    public static ActionResult acceptedNone() {
+        return new ActionResult(List.of(), false, ActionStatus.ACCEPTED);
+    }
+
+    public static ActionResult finished(List<ActionEmission> emissions) {
+        return new ActionResult(emissions, true, ActionStatus.ACCEPTED);
+    }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.model;
+package com.pgalaxyp.fragmento.rpg.action.result;
 
-public enum ActionKind {
+public enum ActionStatus {
+    ACCEPTED,
+    REJECTED,
+    IGNORED
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
+
+public sealed interface ActionRuntime permits ComboActionRuntime, InstantActionRuntime {
+
+    ActionRunId executionId();
+
+    ActionDefinition definition();
+
+    ActionResult handle(ActionContext context, ActionCommand command);
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.registry.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public final class ActionRuntimeStore {
+
+    private final ActionRegistry registry;
+    private final Map<ActorId, ActionRuntime> activeByActor = new HashMap<>();
+
+    public ActionRuntimeStore(ActionRegistry registry) {
+        this.registry = Objects.requireNonNull(registry, "registry cannot be null");
+    }
+
+    public ActionResult handle(ActionContext context, ActionDefinition definition, ActionCommand command) {
+        Objects.requireNonNull(context, "context cannot be null");
+        Objects.requireNonNull(definition, "definition cannot be null");
+        Objects.requireNonNull(command, "command cannot be null");
+
+        ActorId actorId = context.actorId();
+        if (command instanceof ActionStart start) {
+            return handleStart(actorId, context, definition, start);
+        }
+
+        ActionRuntime runtime = activeByActor.get(actorId);
+        if (runtime == null) {
+            return ActionResult.rejected();
+        }
+
+        ActionResult result = runtime.handle(context, command);
+        if (result.finished()) {
+            activeByActor.remove(actorId);
+        }
+
+        return result;
+    }
+
+    private ActionResult handleStart(ActorId actorId, ActionContext context, ActionDefinition definition, ActionStart start) {
+        ActionKey actionKey = start.actionKey();
+        if (!definition.key().equals(actionKey)) {
+            return ActionResult.rejected();
+        }
+        if (activeByActor.containsKey(actorId)) {
+            return ActionResult.rejected();
+        }
+
+        ActionRuntime runtime = registry.createRuntime(definition);
+        ActionResult result = runtime.handle(context, start);
+        if (result.status() == ActionStatus.ACCEPTED && !result.finished()) {
+            activeByActor.put(actorId, runtime);
+        }
+
+        return result;
+    }
+
+    public boolean hasActive(ActorId actorId) {
+        Objects.requireNonNull(actorId, "actor id cannot be null");
+        return activeByActor.containsKey(actorId);
+    }
+
+    public void clear(ActorId actorId) {
+        Objects.requireNonNull(actorId, "actor id cannot be null");
+        activeByActor.remove(actorId);
+    }
+
+    public void clearAll() {
+        activeByActor.clear();
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.emit.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
+import java.util.*;
+
+public final class ComboActionRuntime implements ActionRuntime {
+
+    private final ActionRunId executionId;
+    private final ActionDefinition definition;
+    private boolean started;
+    private boolean finished;
+    private int stepIndex = -1;
+    private long lastStepFrameId = -1L;
+
+    public ComboActionRuntime(ActionDefinition definition) {
+        this.definition = Objects.requireNonNull(definition, "definition cannot be null");
+        this.executionId = ActionRunId.create();
+    }
+
+    @Override
+    public ActionRunId executionId() {
+        return executionId;
+    }
+
+    @Override
+    public ActionDefinition definition() {
+        return definition;
+    }
+
+    @Override
+    public ActionResult handle(ActionContext context, ActionCommand command) {
+        Objects.requireNonNull(context, "context cannot be null");
+        Objects.requireNonNull(command, "command cannot be null");
+
+        if (finished) {
+            return ActionResult.ignored();
+        }
+
+        return switch (command) {
+            case ActionCancel ignored -> handleCancel();
+            case ActionStart start -> handleStart(context, start);
+            case ActionAdvance adv -> handleAdvance(context, adv);
+        };
+    }
+
+    private ActionResult handleCancel() {
+        if (!started) {
+            return ActionResult.rejected();
+        }
+
+        finished = true;
+
+        return ActionResult.accepted(List.of(), true);
+    }
+
+    private ActionResult handleStart(ActionContext context, ActionStart start) {
+        ActionKey actionKey = start.actionKey();
+
+        if (started) {
+            return ActionResult.rejected();
+        }
+        if (!definition.key().equals(actionKey)) {
+            return ActionResult.rejected();
+        }
+        if (!(definition.plan() instanceof ComboActionPlan plan)) {
+            return ActionResult.rejected();
+        }
+
+        started = true;
+        stepIndex = 0;
+        lastStepFrameId = context.frameId();
+
+        ComboActionStep step = plan.step(0);
+        boolean isLast = plan.stepsTotal() == 1;
+        if (isLast) {
+            finished = true;
+            return ActionResult.finished(List.of(EffectEmission.of(step.effectId())));
+        }
+
+        return ActionResult.accepted(List.of(EffectEmission.of(step.effectId())), false);
+    }
+
+    private ActionResult handleAdvance(ActionContext context, ActionAdvance adv) {
+        if (!started) {
+            return ActionResult.rejected();
+        }
+        if (!(definition.plan() instanceof ComboActionPlan plan)) {
+            return ActionResult.rejected();
+        }
+
+        long frameId = context.frameId();
+        long elapsed = Math.subtractExact(frameId, lastStepFrameId);
+        if (elapsed > plan.stepWindowFrames()) {
+            finished = true;
+            return ActionResult.accepted(List.of(), true);
+        }
+
+        int nextIndex = stepIndex + 1;
+        if (nextIndex >= plan.stepsTotal()) {
+            return ActionResult.rejected();
+        }
+
+        ComboActionStep step = plan.step(nextIndex);
+        if (step.input() != adv.input()) {
+            return ActionResult.rejected();
+        }
+
+        stepIndex = nextIndex;
+        lastStepFrameId = frameId;
+
+        boolean isLast = nextIndex == plan.stepsTotal() - 1;
+        if (isLast) {
+            finished = true;
+            return ActionResult.finished(List.of(EffectEmission.of(step.effectId())));
+        }
+
+        return ActionResult.accepted(List.of(EffectEmission.of(step.effectId())), false);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.runtime;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.action.emit.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
+import java.util.*;
+
+public final class InstantActionRuntime implements ActionRuntime {
+
+    private final ActionRunId executionId;
+    private final ActionDefinition definition;
+    private boolean started;
+    private boolean finished;
+
+    public InstantActionRuntime(ActionDefinition definition) {
+        this.definition = Objects.requireNonNull(definition, "definition cannot be null");
+        this.executionId = ActionRunId.create();
+    }
+
+    @Override
+    public ActionRunId executionId() {
+        return executionId;
+    }
+
+    @Override
+    public ActionDefinition definition() {
+        return definition;
+    }
+
+    @Override
+    public ActionResult handle(ActionContext context, ActionCommand command) {
+        Objects.requireNonNull(context, "context cannot be null");
+        Objects.requireNonNull(command, "command cannot be null");
+
+        if (finished) {
+            return ActionResult.ignored();
+        }
+
+        return switch (command) {
+            case ActionCancel ignored -> handleCancel();
+            case ActionStart start -> handleStart(start);
+            default -> ActionResult.rejected();
+        };
+    }
+
+    private ActionResult handleCancel() {
+        if (!started) {
+            return ActionResult.rejected();
+        }
+
+        finished = true;
+
+        return ActionResult.accepted(List.of(), true);
+    }
+
+    private ActionResult handleStart(ActionStart start) {
+        ActionKey actionId = start.actionKey();
+        if (started) {
+            return ActionResult.rejected();
+        }
+        if (!definition.key().equals(actionId)) {
+            return ActionResult.rejected();
+        }
+        if (!(definition.plan() instanceof SingleActionPlan plan)) {
+            return ActionResult.rejected();
+        }
+
+        started = true;
+        finished = true;
+
+        return ActionResult.finished(List.of(EffectEmission.of(plan.effectId())));
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.type;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import java.util.*;
+
+public record ActionDefinition(ActionKey key, ActionType type, ActionPlan plan) {
+
+    public ActionDefinition {
+        Objects.requireNonNull(key, "key cannot be null");
+        Objects.requireNonNull(type, "type cannot be null");
+        Objects.requireNonNull(plan, "plan cannot be null");
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.action.type;
+
+public sealed interface ActionPlan permits SingleActionPlan, ComboActionPlan {}
+
+package com.pgalaxyp.fragmento.rpg.action.type;
+
+public enum ActionType {
     COMBO,
     INSTANT,
     CAST,
     CHANNEL
 }
 
-package com.pgalaxyp.fragmento.rpg.action.model;
-
-public sealed interface ActionSpec permits SequenceActionSpec, SingleActionSpec {}
-
-package com.pgalaxyp.fragmento.rpg.action.model;
+package com.pgalaxyp.fragmento.rpg.action.type;
 
 import java.util.*;
 
-public record SequenceActionSpec(List<ActionEffectRef> effects) implements ActionSpec {
-
-    public SequenceActionSpec {
-        Objects.requireNonNull(effects);
-        if (effects.isEmpty()) {
+public record ComboActionPlan(List<ComboActionStep> steps, int stepWindowFrames) implements ActionPlan {
+    public ComboActionPlan {
+        if (steps == null) {
+            throw new IllegalArgumentException();
+        }
+        if (stepWindowFrames <= 0) {
             throw new IllegalArgumentException();
         }
 
-        effects = List.copyOf(effects);
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.action.model;
-
-import java.util.*;
-
-public record SingleActionSpec(ActionEffectRef effect) implements ActionSpec {
-
-    public SingleActionSpec {
-        Objects.requireNonNull(effect);
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-public sealed interface ActionCommand permits StartAction, AdvanceAction, CancelAction {}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import java.util.*;
-
-public record ActionContext(Object actorId, long frameId) {
-
-    public ActionContext {
-        Objects.requireNonNull(actorId);
-        if (frameId < 0) {
+        steps = List.copyOf(steps);
+        if (steps.isEmpty()) {
             throw new IllegalArgumentException();
         }
-    }
-}
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import java.util.*;
-
-public record ActionExecutionId(UUID value) {
-
-    public ActionExecutionId {
-        if (value == null) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    public static ActionExecutionId create() {
-        return new ActionExecutionId(UUID.randomUUID());
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import com.pgalaxyp.fragmento.rpg.action.model.*;
-
-public interface ActionExecutor {
-
-    boolean supports(ActionDef def);
-    ActionRuntime create(ActionDef def);
-}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import com.pgalaxyp.fragmento.rpg.action.model.*;
-import java.util.*;
-
-public final class ActionRegistry {
-
-    private final List<ActionExecutor> executors = new ArrayList<>();
-
-    public void register(ActionExecutor executor) {
-        executors.add(Objects.requireNonNull(executor));
-    }
-
-    public ActionRuntime createRuntime(ActionDef def) {
-        for (var e : executors) {
-            if (e.supports(def)) {
-                return e.create(def);
+        for (int i = 0; i < steps.size(); i++) {
+            ComboActionStep s = steps.get(i);
+            if (s == null) {
+                throw new IllegalArgumentException();
+            }
+            if (s.index() != i) {
+                throw new IllegalArgumentException();
             }
         }
-        throw new IllegalStateException();
+    }
+
+    public int stepsTotal() {
+        return steps.size();
+    }
+
+    public ComboActionStep step(int index) {
+        return steps.get(index);
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
+package com.pgalaxyp.fragmento.rpg.action.type;
 
-import java.util.*;
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record ActionResult(List<Object> emittedEffects, boolean finished) {
-
-    public ActionResult {
-        Objects.requireNonNull(emittedEffects);
-        emittedEffects = List.copyOf(emittedEffects);
-    }
-
-    public static ActionResult none() {
-        return new ActionResult(List.of(), false);
-    }
-
-    public static ActionResult finished(List<Object> effects) {
-        return new ActionResult(effects, true);
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import com.pgalaxyp.fragmento.rpg.action.model.*;
-
-public sealed interface ActionRuntime permits StatelessActionRuntime {
-
-    ActionExecutionId executionId();
-    ActionDef definition();
-    ActionResult handle(ActionContext context, ActionCommand command);
-}
-
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-public record AdvanceAction(int stepIndex) implements ActionCommand {
-
-    public AdvanceAction {
-        if (stepIndex < 0) {
+public record ComboActionStep(int index, ComboInput input, EffectId effectId, String animationId) {
+    public ComboActionStep {
+        if (index < 0) {
+            throw new IllegalArgumentException("index must be zero or positive");
+        }
+        if (input == null || effectId == null || animationId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (animationId.isBlank()) {
             throw new IllegalArgumentException();
         }
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
+package com.pgalaxyp.fragmento.rpg.action.type;
 
-public record CancelAction() implements ActionCommand {}
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
-
-import com.pgalaxyp.fragmento.rpg.action.model.*;
-
-public final class DefaultActionExecutor implements ActionExecutor {
-
-    @Override
-    public boolean supports(ActionDef def) {
-        return def.kind() == ActionKind.INSTANT;
-    }
-
-    @Override
-    public ActionRuntime create(ActionDef def) {
-        return new StatelessActionRuntime(def);
+public record SingleActionPlan(EffectId effectId) implements ActionPlan {
+    public SingleActionPlan {
+        Objects.requireNonNull(effectId, "effect id cannot be null");
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
+package com.pgalaxyp.fragmento.rpg.combo.api;
 
-import com.pgalaxyp.fragmento.rpg.action.id.*;
-import java.util.*;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record StartAction(ActionId actionId) implements ActionCommand {
+public sealed interface ComboDecision permits ComboDecision.Accept, ComboDecision.Reset, ComboDecision.Reject {
 
-    public StartAction {
-        Objects.requireNonNull(actionId);
+    record Accept(ActionKey actionKey, WeaponId weaponId, int stepIndex, int stepsTotal, ComboStep step) implements ComboDecision {
+        public Accept {
+            if (actionKey == null || weaponId == null || step == null) {
+                throw new IllegalArgumentException();
+            }
+            if (stepIndex < 0) {
+                throw new IllegalArgumentException();
+            }
+            if (stepsTotal <= 0) {
+                throw new IllegalArgumentException();
+            }
+            if (stepIndex >= stepsTotal) {
+                throw new IllegalArgumentException();
+            }
+            if (step.index() != stepIndex) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    record Reset() implements ComboDecision {}
+
+    record Reject() implements ComboDecision {}
+
+    static ComboDecision reset() {
+        return new Reset();
+    }
+
+    static ComboDecision reject() {
+        return new Reject();
+    }
+
+    static ComboDecision accept(ActionKey actionKey, WeaponId weaponId, int stepIndex, int stepsTotal, ComboStep step) {
+        return new Accept(actionKey, weaponId, stepIndex, stepsTotal, step);
     }
 }
 
-package com.pgalaxyp.fragmento.rpg.action.runtime;
+package com.pgalaxyp.fragmento.rpg.combo.api;
 
-import com.pgalaxyp.fragmento.rpg.action.model.*;
+public enum ComboInput {
+    PRIMARY,
+    SECONDARY
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.api;
+
+import com.pgalaxyp.fragmento.rpg.combo.state.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 import java.util.*;
 
-public final class StatelessActionRuntime implements ActionRuntime {
+public interface ComboService {
 
-    private final ActionExecutionId executionId;
-    private final ActionDef definition;
-    private boolean consumed;
+    ComboDecision decide(ActorId actorId, WeaponId weaponId, ComboInput input);
 
-    public StatelessActionRuntime(ActionDef definition) {
-        this.executionId = ActionExecutionId.create();
-        this.definition = Objects.requireNonNull(definition);
-    }
+    void reset(ActorId actorId);
 
-    @Override
-    public ActionExecutionId executionId() {
-        return executionId;
-    }
+    Optional<ComboState> stateOf(ActorId actorId);
+}
 
-    @Override
-    public ActionDef definition() {
-        return definition;
-    }
+package com.pgalaxyp.fragmento.rpg.combo.internal;
 
-    @Override
-    public ActionResult handle(ActionContext context, ActionCommand command) {
-        if (consumed) {
-            return ActionResult.none();
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import com.pgalaxyp.fragmento.rpg.combo.state.*;
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.combo.skill.*;
+import com.pgalaxyp.fragmento.rpg.combo.registry.*;
+import com.pgalaxyp.fragmento.rpg.combo.resolver.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public final class ComboEngine implements ComboService {
+
+    private final ComboTracker tracker;
+    private final ComboCatalog catalog;
+    private final ComboSkillResolver skills;
+    private final ComboResolver resolver;
+
+    public ComboEngine(ComboTracker tracker, ComboCatalog catalog, ComboSkillResolver skills) {
+        if (tracker == null || catalog == null || skills == null) {
+            throw new IllegalArgumentException();
         }
 
-        if (command instanceof StartAction && definition.spec() instanceof SingleActionSpec(ActionEffectRef effect)) {
-            consumed = true;
-            return ActionResult.finished(List.of(effect));
+        this.tracker = tracker;
+        this.catalog = catalog;
+        this.skills = skills;
+        this.resolver = new ComboResolver();
+    }
+
+    @Override
+    public ComboDecision decide(ActorId actorId, WeaponId weaponId, ComboInput input) {
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(weaponId);
+        Objects.requireNonNull(input);
+
+        Optional<ComboDefinition> baseOpt = catalog.baseFor(weaponId);
+        if (baseOpt.isEmpty()) {
+            tracker.clear(actorId);
+            return ComboDecision.reject();
         }
 
-        return ActionResult.none();
+        ComboDefinition base = baseOpt.get();
+        ComboPattern effective = skills.resolve(actorId, weaponId, base.pattern());
+        resolver.validatePattern(effective);
+        ComboDefinition def = new ComboDefinition(base.actionKey(), effective);
+
+        Optional<ComboState> stOpt = tracker.get(actorId);
+        if (stOpt.isPresent()) {
+            ComboState st = stOpt.get();
+            if (!st.weaponId().equals(weaponId)) {
+                tracker.clear(actorId);
+                stOpt = Optional.empty();
+            }
+        }
+
+        Optional<Integer> nextOpt = resolver.nextStepIndex(stOpt, def, input);
+        if (nextOpt.isEmpty()) {
+            return ComboDecision.reject();
+        }
+
+        int nextIndex = nextOpt.get();
+        int total = def.stepsTotal();
+        ComboStep step = def.pattern().step(nextIndex);
+
+        ComboState nextState;
+        if (stOpt.isEmpty()) {
+            nextState = new ComboState(def.actionKey(), weaponId, 0, total);
+        } else if (nextIndex == 0) {
+            nextState = new ComboState(def.actionKey(), weaponId, 0, total);
+        } else {
+            ComboState prev = stOpt.get();
+            if (prev.stepIndex() + 1 != nextIndex) {
+                return ComboDecision.reject();
+            }
+            nextState = prev.advance();
+        }
+        if (nextIndex == total - 1) {
+            tracker.clear(actorId);
+        } else {
+            tracker.put(actorId, nextState);
+        }
+
+        return ComboDecision.accept(def.actionKey(), weaponId, nextIndex, total, step);
+    }
+
+    @Override
+    public void reset(ActorId actorId) {
+        Objects.requireNonNull(actorId);
+        tracker.clear(actorId);
+    }
+
+    @Override
+    public Optional<ComboState> stateOf(ActorId actorId) {
+        Objects.requireNonNull(actorId);
+        return tracker.get(actorId);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.model;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+
+public record ComboDefinition(ActionKey actionKey, ComboPattern pattern) {
+
+    public ComboDefinition {
+        if (actionKey == null || pattern == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public int stepsTotal() {
+        return pattern.size();
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.model;
+
+import java.util.*;
+
+public record ComboPattern(List<ComboStep> steps) {
+
+    public ComboPattern {
+        if (steps == null) {
+            throw new IllegalArgumentException();
+        }
+        if (steps.isEmpty()) {
+            throw new IllegalArgumentException();
+        }
+
+        steps = List.copyOf(steps);
+        int size = steps.size();
+        for (int i = 0; i < size; i++) {
+            ComboStep s = steps.get(i);
+            if (s == null) {
+                throw new IllegalArgumentException();
+            }
+            if (s.index() != i) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    public int size() {
+        return steps.size();
+    }
+
+    public ComboStep step(int index) {
+        return steps.get(index);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.model;
+
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+
+public record ComboStep(int index, ComboInput input, EffectId effectId, String animationId) {
+
+    public ComboStep {
+        if (index < 0) {
+            throw new IllegalArgumentException();
+        }
+        if (input == null || effectId == null || animationId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (animationId.isBlank()) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.registry;
+
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public interface ComboCatalog {
+    Optional<ComboDefinition> baseFor(WeaponId weaponId);
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.registry;
+
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public final class InMemoryComboCatalog implements ComboCatalog {
+
+    private final NavigableMap<WeaponId, ComboDefinition> byWeapon = new TreeMap<>();
+
+    public void register(WeaponId weaponId, ComboDefinition def) {
+        Objects.requireNonNull(weaponId);
+        Objects.requireNonNull(def);
+
+        if (byWeapon.containsKey(weaponId)) {
+            throw new IllegalStateException();
+        }
+        byWeapon.put(weaponId, def);
+    }
+
+    @Override
+    public Optional<ComboDefinition> baseFor(WeaponId weaponId) {
+        Objects.requireNonNull(weaponId);
+        return Optional.ofNullable(byWeapon.get(weaponId));
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.resolver;
+
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import com.pgalaxyp.fragmento.rpg.combo.state.*;
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import java.util.*;
+
+public final class ComboResolver {
+
+    public Optional<Integer> nextStepIndex(Optional<ComboState> stateOpt, ComboDefinition def, ComboInput input) {
+        if (stateOpt == null || def == null || input == null) {
+            throw new IllegalArgumentException();
+        }
+
+        int total = def.stepsTotal();
+        if (stateOpt.isEmpty()) {
+            ComboStep first = def.pattern().step(0);
+            if (first.input() != input) {
+                return Optional.empty();
+            }
+            return Optional.of(0);
+        }
+
+        ComboState st = stateOpt.get();
+        if (!st.actionKey().equals(def.actionKey())) {
+            return Optional.empty();
+        }
+        if (st.stepsTotal() != total) {
+            return Optional.empty();
+        }
+
+        int next = st.stepIndex() + 1;
+        if (next >= total) {
+            return Optional.empty();
+        }
+
+        ComboStep step = def.pattern().step(next);
+        if (step.input() != input) {
+            return Optional.empty();
+        }
+
+        return Optional.of(next);
+    }
+
+    public ComboPattern validatePattern(ComboPattern p) {
+        if (p == null) {
+            throw new IllegalArgumentException();
+        }
+        return p;
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.skill;
+
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+
+public interface ComboModifier {
+
+    boolean applies(ActorId actorId, WeaponId weaponId);
+
+    ComboPattern modify(ActorId actorId, WeaponId weaponId, ComboPattern base);
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.skill;
+
+import com.pgalaxyp.fragmento.rpg.combo.model.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public final class ComboSkillResolver {
+
+    private final List<ComboModifier> modifiers;
+
+    public ComboSkillResolver(List<ComboModifier> modifiers) {
+        if (modifiers == null) {
+            throw new IllegalArgumentException();
+        }
+
+        this.modifiers = List.copyOf(modifiers);
+        for (ComboModifier m : this.modifiers) {
+            if (m == null) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    public ComboPattern resolve(ActorId actorId, WeaponId weaponId, ComboPattern base) {
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(weaponId);
+        Objects.requireNonNull(base);
+
+        ComboPattern out = base;
+        for (ComboModifier m : modifiers) {
+            if (m.applies(actorId, weaponId)) {
+                ComboPattern next = m.modify(actorId, weaponId, out);
+                if (next == null) {
+                    throw new IllegalArgumentException();
+                }
+                out = next;
+            }
+        }
+
+        return out;
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.state;
+
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+
+public record ComboState(ActionKey actionKey, WeaponId weaponId, int stepIndex, int stepsTotal) {
+
+    public ComboState {
+        if (actionKey == null || weaponId == null) {
+            throw new IllegalArgumentException();
+        }
+        if (stepsTotal <= 0) {
+            throw new IllegalArgumentException();
+        }
+        if (stepIndex < 0 || stepIndex >= stepsTotal) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public ComboState start(ActionKey actionKey, WeaponId nextWeaponId, int total) {
+        if (actionKey == null || nextWeaponId == null) {
+            throw new IllegalArgumentException();
+        }
+        return new ComboState(actionKey, nextWeaponId, 0, total);
+    }
+
+    public ComboState advance() {
+        int next = Math.addExact(stepIndex, 1);
+        if (next >= stepsTotal) {
+            throw new IllegalArgumentException();
+        }
+        return new ComboState(actionKey, weaponId, next, stepsTotal);
+    }
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.state;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+
+public interface ComboTracker {
+
+    Optional<ComboState> get(ActorId actorId);
+
+    void put(ActorId actorId, ComboState state);
+    void clear(ActorId actorId);
+}
+
+package com.pgalaxyp.fragmento.rpg.combo.state;
+
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+public final class InMemoryComboTracker implements ComboTracker {
+
+    private final ConcurrentHashMap<ActorId, ComboState> byActor = new ConcurrentHashMap<>();
+
+    @Override
+    public Optional<ComboState> get(ActorId actorId) {
+        Objects.requireNonNull(actorId);
+        return Optional.ofNullable(byActor.get(actorId));
+    }
+
+    @Override
+    public void put(ActorId actorId, ComboState state) {
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(state);
+        byActor.put(actorId, state);
+    }
+
+    @Override
+    public void clear(ActorId actorId) {
+        Objects.requireNonNull(actorId);
+        byActor.remove(actorId);
     }
 }
 
 package com.pgalaxyp.fragmento.rpg.core.content;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionKind;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ClassDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.ComboSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.StepWindowSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
-import com.pgalaxyp.fragmento.rpg.damage.domain.DamageElement;
-import com.pgalaxyp.fragmento.rpg.damage.domain.DamageSpec;
-import com.pgalaxyp.fragmento.rpg.damage.domain.DamageType;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingFallback;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingMode;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingSpec;
-import java.util.List;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import com.pgalaxyp.fragmento.rpg.combo.api.*;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.damage.domain.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.*;
+import java.util.*;
 
 public final class DefaultRpgContent {
 
     public static final ClassId BARD = new ClassId("class.bard");
-
     public static final WeaponId FLUTE = new WeaponId("weapon.flute");
-    public static final ActionId FLUTE_BASIC_COMBO = new ActionId("action.bard.flute.basic");
-
+    public static final ActionKey FLUTE_BASIC_COMBO = new ActionKey("action.bard.flute.basic");
     public static final EffectId HIT_1 = new EffectId("effect.bard.flute.hit1");
     public static final EffectId HIT_2 = new EffectId("effect.bard.flute.hit2");
     public static final EffectId HIT_3 = new EffectId("effect.bard.flute.hit3");
@@ -310,31 +1138,23 @@ public final class DefaultRpgContent {
         NavigableMap<EffectId, EffectDef> effects = new TreeMap<>();
 
         HomingMagicSpec homing = HomingMagicSpec.defaultSpec();
+
         effects.put(HIT_1, EffectDef.withVisual(HIT_1, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
         effects.put(HIT_2, EffectDef.withVisual(HIT_2, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
         effects.put(HIT_3, EffectDef.withVisual(HIT_3, new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR), homing));
 
-        ActionCycleSpec cycle = new ActionCycleSpec(
-                new ComboSpec(3, 3),
-                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 20, TargetingFallback.IMAGINARY_POINT),
-                new StepWindowSpec(1)
+        List<ComboActionStep> steps = List.of(
+                new ComboActionStep(0, ComboInput.PRIMARY, HIT_1, "anim.none"),
+                new ComboActionStep(1, ComboInput.PRIMARY, HIT_2, "anim.none"),
+                new ComboActionStep(2, ComboInput.PRIMARY, HIT_3, "anim.none")
         );
 
-        ActionDef action = new ActionDef(
-                FLUTE_BASIC_COMBO,
-                ActionKind.COMBO,
-                cycle,
-                List.of(HIT_1, HIT_2, HIT_3)
-        );
+        ActionDefinition action = new ActionDefinition(FLUTE_BASIC_COMBO, ActionType.COMBO, new ComboActionPlan(steps, 1));
 
-        NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
+        NavigableMap<ActionKey, ActionDefinition> actions = new TreeMap<>();
         actions.put(FLUTE_BASIC_COMBO, action);
 
-        WeaponDef weapon = new WeaponDef(
-                FLUTE,
-                WeaponSpec.empty(),
-                FLUTE_BASIC_COMBO
-        );
+        WeaponDef weapon = new WeaponDef(FLUTE, WeaponSpec.empty(), FLUTE_BASIC_COMBO);
 
         NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
         weapons.put(FLUTE, weapon);
@@ -350,25 +1170,14 @@ public final class DefaultRpgContent {
 
 package com.pgalaxyp.fragmento.rpg.core.content;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ClassDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.Collections;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.TreeMap;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.*;
+import java.util.*;
 
-public record RpgContent(
-        NavigableMap<ClassId, ClassDef> classes,
-        NavigableMap<ActionId, ActionDef> actions,
-        NavigableMap<WeaponId, WeaponDef> weapons,
-        NavigableMap<EffectId, EffectDef> effects
-) {
+public record RpgContent(NavigableMap<ClassId, ClassDef> classes, NavigableMap<ActionKey, ActionDefinition> actions, NavigableMap<WeaponId, WeaponDef> weapons, NavigableMap<EffectId, EffectDef> effects) {
+
     public RpgContent {
         if (classes == null || actions == null || weapons == null || effects == null) {
             throw new IllegalArgumentException();
@@ -382,12 +1191,7 @@ public record RpgContent(
         validate(classes, actions, weapons, effects);
     }
 
-    private static void validate(
-            NavigableMap<ClassId, ClassDef> classes,
-            NavigableMap<ActionId, ActionDef> actions,
-            NavigableMap<WeaponId, WeaponDef> weapons,
-            NavigableMap<EffectId, EffectDef> effects
-    ) {
+    private static void validate(NavigableMap<ClassId, ClassDef> classes, NavigableMap<ActionKey, ActionDefinition> actions, NavigableMap<WeaponId, WeaponDef> weapons, NavigableMap<EffectId, EffectDef> effects) {
         for (var e : classes.entrySet()) {
             if (e.getKey() == null || e.getValue() == null) {
                 throw new IllegalArgumentException();
@@ -407,7 +1211,7 @@ public record RpgContent(
             if (!e.getKey().equals(e.getValue().id())) {
                 throw new IllegalArgumentException();
             }
-            if (!actions.containsKey(e.getValue().actionId())) {
+            if (!actions.containsKey(e.getValue().actionKey())) {
                 throw new IllegalArgumentException();
             }
         }
@@ -416,16 +1220,8 @@ public record RpgContent(
             if (e.getKey() == null || e.getValue() == null) {
                 throw new IllegalArgumentException();
             }
-            if (!e.getKey().equals(e.getValue().id())) {
+            if (!e.getKey().equals(e.getValue().key())) {
                 throw new IllegalArgumentException();
-            }
-            for (EffectId effectId : e.getValue().effectSequence()) {
-                if (effectId == null) {
-                    throw new IllegalArgumentException();
-                }
-                if (!effects.containsKey(effectId)) {
-                    throw new IllegalArgumentException();
-                }
             }
         }
 
@@ -453,11 +1249,11 @@ public record RpgContent(
         return Optional.ofNullable(weapons.get(id));
     }
 
-    public Optional<ActionDef> findAction(ActionId id) {
-        if (id == null) {
+    public Optional<ActionDefinition> findAction(ActionKey key) {
+        if (key == null) {
             throw new IllegalArgumentException();
         }
-        return Optional.ofNullable(actions.get(id));
+        return Optional.ofNullable(actions.get(key));
     }
 
     public Optional<EffectDef> findEffect(EffectId id) {
@@ -483,8 +1279,8 @@ public record RpgContent(
         return def;
     }
 
-    public ActionDef action(ActionId id) {
-        ActionDef def = actions.get(id);
+    public ActionDefinition action(ActionKey key) {
+        ActionDefinition def = actions.get(key);
         if (def == null) {
             throw new IllegalArgumentException();
         }
@@ -497,45 +1293,6 @@ public record RpgContent(
             throw new IllegalArgumentException();
         }
         return def;
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.core.domain.def;
-
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.ActionCycleSpec;
-import java.util.List;
-
-public record ActionDef(
-        ActionId id,
-        ActionKind kind,
-        ActionCycleSpec cycle,
-        List<EffectId> effectSequence
-) {
-    public ActionDef {
-        if (id == null || kind == null || cycle == null || effectSequence == null) {
-            throw new IllegalArgumentException();
-        }
-        if (effectSequence.isEmpty()) {
-            throw new IllegalArgumentException();
-        }
-        for (EffectId effectId : effectSequence) {
-            if (effectId == null) {
-                throw new IllegalArgumentException();
-            }
-        }
-
-        if (kind == ActionKind.COMBO) {
-            int size = effectSequence.size();
-            int min = cycle.combo().minStepsTotal();
-            int max = cycle.combo().maxStepsTotal();
-            if (size < min || size > max) {
-                throw new IllegalArgumentException();
-            }
-        }
-
-        effectSequence = List.copyOf(effectSequence);
     }
 }
 
@@ -597,35 +1354,16 @@ public record EffectDef(
 
 package com.pgalaxyp.fragmento.rpg.core.domain.def;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.WeaponSpec;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.*;
 
-public record WeaponDef(
-        WeaponId id,
-        WeaponSpec spec,
-        ActionId actionId
-) {
+public record WeaponDef(WeaponId id, WeaponSpec spec, ActionKey actionKey) {
+
     public WeaponDef {
-        if (id == null || spec == null || actionId == null) {
+        if (id == null || spec == null || actionKey == null) {
             throw new IllegalArgumentException();
         }
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.core.domain.ids;
-
-public record ActionId(String value) implements Comparable<ActionId> {
-    public ActionId {
-        value = IdValidation.normalizedKey(value);
-    }
-
-    @Override
-    public int compareTo(ActionId other) {
-        if (other == null) {
-            throw new IllegalArgumentException();
-        }
-        return value.compareTo(other.value);
     }
 }
 
@@ -922,15 +1660,13 @@ public record ComboAdvanced(
 
 package com.pgalaxyp.fragmento.rpg.core.events.delta;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record ComboEnded(
-        ActorId actorId,
-        ActionId actionId
-) implements StateDelta {
+public record ComboEnded(ActorId actorId, ActionKey actionKey) implements StateDelta {
+
     public ComboEnded {
-        if (actorId == null || actionId == null) {
+        if (actorId == null || actionKey == null) {
             throw new IllegalArgumentException();
         }
     }
@@ -938,19 +1674,13 @@ public record ComboEnded(
 
 package com.pgalaxyp.fragmento.rpg.core.events.delta;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record ComboStarted(
-        ActorId actorId,
-        ActionId actionId,
-        WeaponId weaponId,
-        int stepsTotal,
-        long stepFrameId
-) implements StateDelta {
+public record ComboStarted(ActorId actorId, ActionKey actionKey, WeaponId weaponId, int stepsTotal, long stepFrameId) implements StateDelta {
+
     public ComboStarted {
-        if (actorId == null || actionId == null || weaponId == null) {
+        if (actorId == null || actionKey == null || weaponId == null) {
             throw new IllegalArgumentException();
         }
         if (stepsTotal <= 0) {
@@ -979,8 +1709,7 @@ public record DamageApplied(
 
 package com.pgalaxyp.fragmento.rpg.core.events.delta;
 
-public sealed interface StateDelta
-        permits ActorSpawned, ComboAdvanced, ComboEnded, ComboStarted, DamageApplied {}
+public sealed interface StateDelta permits ActorSpawned, ComboAdvanced, ComboEnded, ComboStarted, DamageApplied {}
 
 package com.pgalaxyp.fragmento.rpg.core.events.event;
 
@@ -1037,14 +1766,12 @@ public record ActorJoinIntent() implements DomainIntent {}
 
 package com.pgalaxyp.fragmento.rpg.core.events.intent;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
 
-public record ComboAdvanceIntent(
-        ActionId actionId,
-        int stepIndex
-) implements DomainIntent {
+public record ComboAdvanceIntent(ActionKey actionKey, int stepIndex) implements DomainIntent {
+
     public ComboAdvanceIntent {
-        if (actionId == null) {
+        if (actionKey == null) {
             throw new IllegalArgumentException();
         }
         if (stepIndex < 0) {
@@ -1055,13 +1782,12 @@ public record ComboAdvanceIntent(
 
 package com.pgalaxyp.fragmento.rpg.core.events.intent;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
 
-public record ComboStartIntent(
-        ActionId actionId
-) implements DomainIntent {
+public record ComboStartIntent(ActionKey actionKey) implements DomainIntent {
+
     public ComboStartIntent {
-        if (actionId == null) {
+        if (actionKey == null) {
             throw new IllegalArgumentException();
         }
     }
@@ -1102,12 +1828,14 @@ public record IntentEnvelope(ActorId actorId, DomainIntent intent, Long clientFr
 
 package com.pgalaxyp.fragmento.rpg.core.events.intent;
 
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+
 public record PerformActionIntent(
-        int stepIndex
+        ComboInput input
 ) implements DomainIntent {
 
     public PerformActionIntent {
-        if (stepIndex < 0) {
+        if (input == null) {
             throw new IllegalArgumentException();
         }
     }
@@ -1115,78 +1843,39 @@ public record PerformActionIntent(
 
 package com.pgalaxyp.fragmento.rpg.core.rules;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.emit.*;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.event.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.damage.domain.*;
+import com.pgalaxyp.fragmento.rpg.damage.snapshot.*;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.*;
+import com.pgalaxyp.fragmento.rpg.targeting.system.*;
 
-import java.util.Optional;
-
-public final class ActionResolver {
-
-    public Optional<ActionId> resolvePrimaryAction(ActorState actor, RpgContent content) {
-        if (actor == null || content == null) {
-            throw new IllegalArgumentException();
-        }
-
-        if (actor.combo().isPresent()) {
-            return Optional.of(actor.combo().get().actionId());
-        }
-
-        if (actor.equippedWeaponId().isEmpty()) {
-            return Optional.empty();
-        }
-
-        WeaponDef weapon = content.weapon(actor.equippedWeaponId().get());
-        return Optional.of(weapon.actionId());
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.core.rules;
-
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboAdvanced;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboEnded;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboStarted;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.domain.DamageRequest;
-import com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
-import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
-import com.pgalaxyp.fragmento.rpg.targeting.system.TargetingContext;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public final class RpgRules {
-
-    private static final ActionResolver ACTION_RESOLVER = new ActionResolver();
 
     public static RuleResult pass(
             FrameContext frame,
             GameState state,
             RpgContent content,
             List<IntentEnvelope> intents,
+            ActionRuntimeStore actions,
             TargetingService targetingService,
             WorldRaycastAccess world,
             DamageService damageService,
@@ -1211,67 +1900,55 @@ public final class RpgRules {
                 continue;
             }
 
-            if (intent instanceof PerformActionIntent p) {
-                var actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
-                }
+            if (!(intent instanceof PerformActionIntent p)) {
+                continue;
+            }
 
-                ActorState actor = actorOpt.get();
-                Optional<ActionId> actionIdOpt = ACTION_RESOLVER.resolvePrimaryAction(actor, content);
-                if (actionIdOpt.isEmpty()) {
-                    continue;
-                }
+            var actorOpt = state.findActor(actorId);
+            if (actorOpt.isEmpty()) {
+                continue;
+            }
 
-                ActionDef action = content.findAction(actionIdOpt.get()).orElse(null);
-                if (action == null) {
-                    continue;
-                }
+            ActorState actor = actorOpt.get();
+            if (actor.equippedWeaponId().isEmpty()) {
+                continue;
+            }
 
-                int step = p.stepIndex();
-                if (step < 0 || step >= action.effectSequence().size()) {
-                    continue;
-                }
+            WeaponId weaponId = actor.equippedWeaponId().get();
+            WeaponDef weapon = content.weapon(weaponId);
+            ActionKey actionKey = weapon.actionKey();
+            ActionDefinition def = content.findAction(actionKey).orElse(null);
+            if (def == null) {
+                continue;
+            }
 
-                boolean starting = actor.combo().isEmpty();
-                if (starting && step != 0) {
-                    continue;
-                }
+            ActionContext ctx = new ActionContext(actorId, weaponId, frame.frameId());
+            ActionCommand cmd = actions.hasActive(actorId)
+                    ? new ActionAdvance(p.input())
+                    : new ActionStart(actionKey);
 
-                if (!starting) {
-                    var combo = actor.combo().get();
-                    if (!combo.actionId().equals(action.id()) || combo.stepIndex() + 1 != step) {
-                        continue;
-                    }
-                }
+            ActionResult result = actions.handle(ctx, def, cmd);
+            if (result.status() != ActionStatus.ACCEPTED) {
+                continue;
+            }
 
-                applyStep(
-                        frame,
-                        state,
-                        content,
-                        targetingService,
-                        world,
-                        damageService,
-                        damageSnapshots,
-                        actorId,
-                        action,
-                        step,
-                        deltas,
-                        events,
-                        queryIndex++,
-                        eventIndex++
-                );
-
-                int stepsTotal = action.effectSequence().size();
-
-                if (starting) {
-                    deltas.add(new ComboStarted(actorId, action.id(), actor.equippedWeaponId().orElseThrow(), stepsTotal, frame.frameId()));
-                } else {
-                    deltas.add(new ComboAdvanced(actorId, frame.frameId()));
-                }
-
-                if (step == stepsTotal - 1) {
-                    deltas.add(new ComboEnded(actorId, action.id()));
+            for (ActionEmission emission : result.emissions()) {
+                if (emission instanceof EffectEmission ee) {
+                    applyEffect(
+                            frame,
+                            state,
+                            content,
+                            targetingService,
+                            world,
+                            damageService,
+                            damageSnapshots,
+                            actorId,
+                            ee.effectId(),
+                            deltas,
+                            events,
+                            queryIndex++,
+                            eventIndex++
+                    );
                 }
             }
         }
@@ -1279,7 +1956,7 @@ public final class RpgRules {
         return new RuleResult(deltas, events);
     }
 
-    private static void applyStep(
+    private static void applyEffect(
             FrameContext frame,
             GameState state,
             RpgContent content,
@@ -1288,25 +1965,28 @@ public final class RpgRules {
             DamageService damageService,
             DamageSnapshotProvider damageSnapshots,
             ActorId sourceActorId,
-            ActionDef action,
-            int stepIndex,
+            EffectId effectId,
             List<StateDelta> deltas,
             List<DomainEvent> events,
             int queryIndex,
             int eventIndex
     ) {
-        TargetResult res = targetingService.resolve(
-                new TargetingContext(sourceActorId, action.cycle().targeting(), world)
+        TargetingSpec targetingSpec = TargetingSpec.singleEnemy();
+
+        TargetResult result = targetingService.resolve(
+                new TargetingContext(sourceActorId, targetingSpec, world)
         );
 
-        res.actorTargetOpt().ifPresent(targetId -> {
-            EffectId effectId = action.effectSequence().get(stepIndex);
+        result.actorTargetOpt().ifPresent(targetId -> {
             EffectDef effect = content.effect(effectId);
 
-            var snap = damageSnapshots.snapshot(state, sourceActorId, targetId);
-            var dmg = damageService.resolve(new DamageRequest(sourceActorId, targetId, effect.damage()), snap);
+            var snapshot = damageSnapshots.snapshot(state, sourceActorId, targetId);
+            var damage = damageService.resolve(
+                    new DamageRequest(sourceActorId, targetId, effect.damage()),
+                    snapshot
+            );
 
-            deltas.add(new DamageApplied(targetId, dmg.finalHearts()));
+            deltas.add(new DamageApplied(targetId, damage.finalHearts()));
 
             effect.visual().ifPresent(v -> {
                 if (v instanceof HomingMagicSpec hm) {
@@ -1359,67 +2039,47 @@ import java.util.Optional;
 public record ActorState(
         ClassId classId,
         Optional<WeaponId> equippedWeaponId,
-        Optional<ComboState> combo,
         int healthHearts,
         int maxHealthHearts
 ) {
     public ActorState {
-        if (classId == null || equippedWeaponId == null || combo == null) {
+        if (classId == null || equippedWeaponId == null) {
             throw new IllegalArgumentException();
         }
         if (healthHearts < 0 || maxHealthHearts <= 0 || healthHearts > maxHealthHearts) {
             throw new IllegalArgumentException();
         }
-
         if (equippedWeaponId.isPresent() && equippedWeaponId.get() == null) {
             throw new IllegalArgumentException();
         }
-        if (combo.isPresent() && combo.get() == null) {
-            throw new IllegalArgumentException();
-        }
-
-        if (combo.isPresent()) {
-            if (equippedWeaponId.isEmpty()) {
-                throw new IllegalArgumentException();
-            }
-            if (!equippedWeaponId.get().equals(combo.get().weaponId())) {
-                throw new IllegalArgumentException();
-            }
-        }
 
         equippedWeaponId = equippedWeaponId.isPresent() ? Optional.of(equippedWeaponId.get()) : Optional.empty();
-        combo = combo.isPresent() ? Optional.of(combo.get()) : Optional.empty();
     }
 
     public static ActorState idleWithHealth(ClassId classId, int healthHearts, int maxHealthHearts) {
         if (classId == null) {
             throw new IllegalArgumentException();
         }
-        return new ActorState(classId, Optional.empty(), Optional.empty(), healthHearts, maxHealthHearts);
+        return new ActorState(classId, Optional.empty(), healthHearts, maxHealthHearts);
     }
 
     public static ActorState withEquippedWeapon(ClassId classId, WeaponId weaponId, int healthHearts, int maxHealthHearts) {
         if (classId == null || weaponId == null) {
             throw new IllegalArgumentException();
         }
-        return new ActorState(classId, Optional.of(weaponId), Optional.empty(), healthHearts, maxHealthHearts);
+        return new ActorState(classId, Optional.of(weaponId), healthHearts, maxHealthHearts);
     }
 }
 
 package com.pgalaxyp.fragmento.rpg.core.state;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record ComboState(
-        ActionId actionId,
-        WeaponId weaponId,
-        int stepIndex,
-        int stepsTotal,
-        long lastStepFrameId
-) {
+public record ComboState(ActionKey actionKey, WeaponId weaponId, int stepIndex, int stepsTotal, long lastStepFrameId) {
+
     public ComboState {
-        if (actionId == null || weaponId == null) {
+        if (actionKey == null || weaponId == null) {
             throw new IllegalArgumentException();
         }
         if (stepsTotal <= 0) {
@@ -1440,11 +2100,13 @@ public record ComboState(
         if (frameId < lastStepFrameId) {
             throw new IllegalArgumentException();
         }
+
         int nextIndex = Math.addExact(stepIndex, 1);
         if (nextIndex >= stepsTotal) {
             throw new IllegalArgumentException();
         }
-        return new ComboState(actionId, weaponId, nextIndex, stepsTotal, frameId);
+
+        return new ComboState(actionKey, weaponId, nextIndex, stepsTotal, frameId);
     }
 }
 
@@ -1661,17 +2323,16 @@ public final class DefaultDamageService implements DamageService {
 
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.ComboState;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Optional;
 import java.util.TreeMap;
 
 public final class StateDeltaApplier {
@@ -1707,77 +2368,6 @@ public final class StateDeltaApplier {
             return;
         }
 
-        if (delta instanceof ComboStarted cs) {
-
-            ActorId id = cs.actorId();
-            ActionId actionId = cs.actionId();
-            WeaponId weaponId = cs.weaponId();
-            int stepsTotal = cs.stepsTotal();
-            long frameId = cs.stepFrameId();
-
-            ActorState prev = actors.get(id);
-            if (prev == null) {
-                return;
-            }
-            if (prev.combo().isPresent()) {
-                return;
-            }
-            if (prev.equippedWeaponId().isEmpty()) {
-                return;
-            }
-            if (!prev.equippedWeaponId().get().equals(weaponId)) {
-                return;
-            }
-            ComboState combo = new ComboState(actionId, weaponId, 0, stepsTotal, frameId);
-            ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(combo), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(id, next);
-            return;
-        }
-
-        if (delta instanceof ComboAdvanced ca) {
-
-            ActorId actorId = ca.actorId();
-            long stepFrameId = ca.stepFrameId();
-
-            ActorState prev = actors.get(actorId);
-            if (prev == null || prev.combo().isEmpty()) {
-                return;
-            }
-            if (prev.equippedWeaponId().isEmpty()) {
-                return;
-            }
-            ComboState current = prev.combo().get();
-            if (!prev.equippedWeaponId().get().equals(current.weaponId())) {
-                return;
-            }
-            int nextIndex = Math.addExact(current.stepIndex(), 1);
-            if (nextIndex >= current.stepsTotal()) {
-                return;
-            }
-            ComboState nextCombo = new ComboState(current.actionId(), current.weaponId(), nextIndex, current.stepsTotal(), stepFrameId);
-            ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.of(nextCombo), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(actorId, next);
-            return;
-        }
-
-        if (delta instanceof ComboEnded ce) {
-
-            ActorId actorId = ce.actorId();
-            ActionId actionId = ce.actionId();
-
-            ActorState prev = actors.get(actorId);
-            if (prev == null || prev.combo().isEmpty()) {
-                return;
-            }
-            ComboState current = prev.combo().get();
-            if (!current.actionId().equals(actionId)) {
-                return;
-            }
-            ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), Optional.empty(), prev.healthHearts(), prev.maxHealthHearts());
-            actors.put(actorId, next);
-            return;
-        }
-
         if (delta instanceof DamageApplied da) {
 
             ActorId targetActorId = da.targetActorId();
@@ -1791,7 +2381,7 @@ public final class StateDeltaApplier {
             if (nextHealth < 0) {
                 nextHealth = 0;
             }
-            ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), prev.combo(), nextHealth, prev.maxHealthHearts());
+            ActorState next = new ActorState(prev.classId(), prev.equippedWeaponId(), nextHealth, prev.maxHealthHearts());
             actors.put(targetActorId, next);
         }
     }
@@ -1802,7 +2392,9 @@ public final class StateDeltaApplier {
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -1830,7 +2422,6 @@ public final class StateDeltaMerger {
 
         TreeMap<ActorId, ActorSpawned> spawnByActor = new TreeMap<>();
         TreeMap<ActorId, Integer> damageByTarget = new TreeMap<>();
-        TreeMap<ActorId, ComboAgg> comboByActor = new TreeMap<>();
 
         for (StateDelta d : all) {
             if (d instanceof ActorSpawned s) {
@@ -1846,31 +2437,6 @@ public final class StateDeltaMerger {
                 int base = prev == null ? 0 : prev;
                 int next = Math.addExact(base, hearts);
                 damageByTarget.put(targetActorId, next);
-                continue;
-            }
-
-            if (d instanceof ComboStarted cs) {
-                ActorId actorId = cs.actorId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptStart(cs);
-                continue;
-            }
-
-            if (d instanceof ComboAdvanced ca) {
-                ActorId actorId = ca.actorId();
-                long stepFrameId = ca.stepFrameId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptAdvance(stepFrameId);
-                continue;
-            }
-
-            if (d instanceof ComboEnded ce) {
-                ActorId actorId = ce.actorId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptEnd(ce);
             }
         }
 
@@ -1878,25 +2444,6 @@ public final class StateDeltaMerger {
 
         for (var e : spawnByActor.entrySet()) {
             out.add(e.getValue());
-        }
-
-        for (var e : comboByActor.entrySet()) {
-            ActorId actorId = e.getKey();
-            ComboAgg agg = e.getValue();
-
-            if (agg.start != null) {
-                out.add(agg.start);
-            }
-
-            int advances = agg.advances;
-            long advanceFrameId = agg.advanceFrameId;
-            for (int i = 0; i < advances; i++) {
-                out.add(new ComboAdvanced(actorId, advanceFrameId));
-            }
-
-            if (agg.end != null) {
-                out.add(agg.end);
-            }
         }
 
         for (var e : damageByTarget.entrySet()) {
@@ -1908,35 +2455,6 @@ public final class StateDeltaMerger {
         }
 
         return List.copyOf(out);
-    }
-
-    private static final class ComboAgg {
-
-        private ComboStarted start;
-        private int advances;
-        private long advanceFrameId;
-        private ComboEnded end;
-
-        private void acceptStart(ComboStarted s) {
-            if (end != null) {
-                return;
-            }
-            if (start == null) {
-                start = s;
-            }
-        }
-
-        private void acceptAdvance(long frameId) {
-            if (end != null) {
-                return;
-            }
-            advances = Math.addExact(advances, 1);
-            advanceFrameId = frameId;
-        }
-
-        private void acceptEnd(ComboEnded e) {
-            end = e;
-        }
     }
 
     private StateDeltaMerger() {}
@@ -1994,33 +2512,27 @@ public final class IntentQueue implements IntentSourcePort {
 
 package com.pgalaxyp.fragmento.rpg.engine;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.rules.RpgRules;
-import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
-import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
-import com.pgalaxyp.fragmento.rpg.ports.EventSinkPort;
-import com.pgalaxyp.fragmento.rpg.ports.IntentSourcePort;
-import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
-import com.pgalaxyp.fragmento.rpg.ports.SnapshotPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.dto.FrameJournalEntry;
-import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
-import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
-import java.util.ArrayList;
-import java.util.List;
+import com.pgalaxyp.fragmento.rpg.ports.*;
+import com.pgalaxyp.fragmento.rpg.ports.dto.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.core.rules.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.engine.commit.*;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.damage.snapshot.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.event.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import java.util.*;
 
 public final class RpgEngine {
 
     private final IntentSourcePort intents;
+    private final ActionRuntimeStore actions;
     private final TargetingService targetingService;
     private final WorldRaycastAccess worldRaycast;
     private final DamageService damageService;
@@ -2030,27 +2542,15 @@ public final class RpgEngine {
     private final JournalPort journal;
     private final SnapshotPort snapshots;
     private final RpgContent content;
-
     private GameState state;
     private long nextFrameId;
 
-    public RpgEngine(
-            IntentSourcePort intents,
-            TargetingService targetingService,
-            WorldRaycastAccess worldRaycast,
-            DamageService damageService,
-            DamageSnapshotProvider damageSnapshots,
-            WorldCommandPort worldCommands,
-            EventSinkPort eventSink,
-            JournalPort journal,
-            SnapshotPort snapshots,
-            RpgContent content,
-            GameState initialState
-    ) {
-        if (intents == null || targetingService == null || worldRaycast == null || damageService == null || damageSnapshots == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
+    public RpgEngine(IntentSourcePort intents, ActionRuntimeStore actions, TargetingService targetingService, WorldRaycastAccess worldRaycast, DamageService damageService, DamageSnapshotProvider damageSnapshots, WorldCommandPort worldCommands, EventSinkPort eventSink, JournalPort journal, SnapshotPort snapshots, RpgContent content, GameState initialState) {
+        if (intents == null || actions == null || targetingService == null || worldRaycast == null || damageService == null || damageSnapshots == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
+        this.actions = actions;
         this.targetingService = targetingService;
         this.worldRaycast = worldRaycast;
         this.damageService = damageService;
@@ -2072,16 +2572,7 @@ public final class RpgEngine {
 
         List<IntentEnvelope> drained = intents.drain();
 
-        RuleResult r = RpgRules.pass(
-                frame,
-                state,
-                content,
-                drained,
-                targetingService,
-                worldRaycast,
-                damageService,
-                damageSnapshots
-        );
+        RuleResult r = RpgRules.pass(frame, state, content, drained, actions, targetingService, worldRaycast, damageService, damageSnapshots);
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
 
@@ -2346,34 +2837,31 @@ public final class ServerEvents {
 
 package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.server;
 
-import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.integration.CoreDamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.damage.system.DefaultDamageService;
-import com.pgalaxyp.fragmento.rpg.engine.RpgEngine;
-import com.pgalaxyp.fragmento.rpg.engine.intent.IntentQueue;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeEventSinkPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeNetRuntimeRefs;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeSnapshotPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.NeoForgeJournalPortStub;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.NeoForgeWorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
-import com.pgalaxyp.fragmento.rpg.ports.ServerIntentReceiverPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.targeting.minecraft.GameTargetingBootstrap;
-import java.util.TreeMap;
-import net.minecraft.server.MinecraftServer;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
+import com.pgalaxyp.fragmento.rpg.action.registry.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.damage.integration.*;
+import com.pgalaxyp.fragmento.rpg.damage.system.*;
+import com.pgalaxyp.fragmento.rpg.engine.*;
+import com.pgalaxyp.fragmento.rpg.engine.intent.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.*;
+import com.pgalaxyp.fragmento.rpg.ports.*;
+import com.pgalaxyp.fragmento.rpg.targeting.minecraft.*;
+import java.util.*;
+import net.minecraft.server.*;
 
 public final class ServerRpgRuntime implements ServerIntentReceiverPort {
 
     private static volatile ServerRpgRuntime active;
-
     private final IntentQueue queue;
     private final RpgEngine engine;
     private int tickIndex;
@@ -2387,26 +2875,17 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
         RpgContent content = DefaultRpgContent.create();
 
         var targeting = GameTargetingBootstrap.createServer(server);
-
         DamageService damageService = new DefaultDamageService();
-        com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider damageSnapshots = new CoreDamageSnapshotProvider();
 
+        var damageSnapshots = new CoreDamageSnapshotProvider();
         WorldCommandPort worldCommands = new NeoForgeWorldCommandPort(server);
         JournalPort journal = new NeoForgeJournalPortStub();
+        ActionRegistry registry = new ActionRegistry();
+        registry.register(ActionType.INSTANT, new InstantActionExecutor());
+        registry.register(ActionType.COMBO, new ComboActionExecutor());
+        ActionRuntimeStore actions = new ActionRuntimeStore(registry);
 
-        this.engine = new RpgEngine(
-                queue,
-                targeting.service(),
-                targeting.world(),
-                damageService,
-                damageSnapshots,
-                worldCommands,
-                new NeoForgeEventSinkPort(),
-                journal,
-                new NeoForgeSnapshotPort(),
-                content,
-                new GameState(new FrameContext(0, 0), new TreeMap<>())
-        );
+        this.engine = new RpgEngine(queue, actions, targeting.service(), targeting.world(), damageService, damageSnapshots, worldCommands, new NeoForgeEventSinkPort(), journal, new NeoForgeSnapshotPort(), content, new GameState(new FrameContext(0, 0), new TreeMap<>()));
     }
 
     public static void activate(ServerRpgRuntime rt) {
@@ -2670,32 +3149,34 @@ public record InputContext(ActorId actorId, InputSnapshotView snapshot, WeaponId
 
 package com.pgalaxyp.fragmento.rpg.input.api;
 
-import com.pgalaxyp.fragmento.rpg.input.bridge.*;
-import com.pgalaxyp.fragmento.rpg.input.system.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
-import java.util.*;
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputIntentSink;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotView;
+import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
+import com.pgalaxyp.fragmento.rpg.input.system.InputConsumptionPolicy;
+import com.pgalaxyp.fragmento.rpg.input.system.InputStateMachine;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
+import java.util.Optional;
 
 public final class InputController {
 
     private final InputStateMachine stateMachine;
-    private final ComboInputSystem comboSystem;
     private final InputConsumptionPolicy consumptionPolicy;
     private final FrameClock clock;
     private final InputIntentSink emitter;
 
     public InputController(
             InputStateMachine stateMachine,
-            ComboInputSystem comboSystem,
             InputConsumptionPolicy consumptionPolicy,
             FrameClock clock,
             InputIntentSink emitter
     ) {
-        if (stateMachine == null || comboSystem == null || consumptionPolicy == null || clock == null || emitter == null) {
+        if (stateMachine == null || consumptionPolicy == null || clock == null || emitter == null) {
             throw new IllegalArgumentException();
         }
         this.stateMachine = stateMachine;
-        this.comboSystem = comboSystem;
         this.consumptionPolicy = consumptionPolicy;
         this.clock = clock;
         this.emitter = emitter;
@@ -2725,7 +3206,8 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        if (!context.snapshot().isPresent()) {
+        InputSnapshotView snapshot = context.snapshot();
+        if (!snapshot.isPresent()) {
             return new InputDecision(consumeVanilla, false);
         }
 
@@ -2733,12 +3215,8 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        Optional<DomainIntent> intent = comboSystem.onPrimaryAction(context);
-        if (intent.isEmpty()) {
-            return new InputDecision(consumeVanilla, false);
-        }
-
-        emitter.emit(actorId, intent.get(), context.snapshot().frameIdOrZero());
+        DomainIntent intent = new PerformActionIntent(ComboInput.PRIMARY);
+        emitter.emit(actorId, intent, snapshot.frameIdOrZero());
 
         return new InputDecision(consumeVanilla, true);
     }
@@ -2913,11 +3391,15 @@ public final class GameActorInputContext implements ActorInputContextProvider {
 
 package com.pgalaxyp.fragmento.rpg.input.minecraft;
 
-import com.pgalaxyp.fragmento.rpg.host.api.*;
-import com.pgalaxyp.fragmento.rpg.input.api.*;
-import com.pgalaxyp.fragmento.rpg.input.bridge.*;
-import com.pgalaxyp.fragmento.rpg.input.system.*;
-import net.neoforged.bus.api.IEventBus;
+import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
+import com.pgalaxyp.fragmento.rpg.input.bridge.ActorInputContextProvider;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputIntentSink;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotProvider;
+import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
+import com.pgalaxyp.fragmento.rpg.input.system.InputConsumptionPolicy;
+import com.pgalaxyp.fragmento.rpg.input.system.InputStateMachine;
+import com.pgalaxyp.fragmento.rpg.input.system.LocalFrameClock;
+import com.pgalaxyp.fragmento.rpg.input.api.InputController;
 
 public final class GameInputBootstrap {
 
@@ -2928,7 +3410,7 @@ public final class GameInputBootstrap {
             }
         }
 
-        public void register(IEventBus bus) {
+        public void register(net.neoforged.bus.api.IEventBus bus) {
             if (bus == null) {
                 throw new IllegalArgumentException();
             }
@@ -2954,10 +3436,9 @@ public final class GameInputBootstrap {
         ActorInputContextProvider actors = new GameActorInputContext(mapping, localActorProvider);
         InputIntentSink emitter = new GameInputIntentSink();
         InputStateMachine sm = new InputStateMachine(primaryDebounceFrames);
-        ComboInputSystem combo = new ComboInputSystem();
         InputConsumptionPolicy consume = new InputConsumptionPolicy();
         FrameClock clock = new LocalFrameClock();
-        InputController controller = new InputController(sm, combo, consume, clock, emitter);
+        InputController controller = new InputController(sm, consume, clock, emitter);
 
         return new VanillaInputInterceptor(snapshots, actors, clock, controller);
     }
@@ -3135,50 +3616,6 @@ public final class VanillaInputInterceptor {
 
 package com.pgalaxyp.fragmento.rpg.input.system;
 
-import com.pgalaxyp.fragmento.rpg.input.api.*;
-import com.pgalaxyp.fragmento.rpg.core.state.*;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
-import java.util.*;
-
-public final class ComboInputSystem {
-
-    public Optional<DomainIntent> onPrimaryAction(InputContext context) {
-        if (context == null) {
-            throw new IllegalArgumentException();
-        }
-
-        var actorId = context.actorId();
-        if (actorId == null) {
-            return Optional.empty();
-        }
-
-        var snapshot = context.snapshot();
-        var stateOpt = snapshot.findActor(actorId);
-        if (stateOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        ActorState state = stateOpt.get();
-        var comboOpt = state.combo();
-        if (comboOpt.isPresent()) {
-            var combo = comboOpt.get();
-            int next = combo.stepIndex() + 1;
-            if (next >= combo.stepsTotal()) {
-                return Optional.empty();
-            }
-            return Optional.of(new PerformActionIntent(next));
-        }
-
-        if (state.equippedWeaponId().isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new PerformActionIntent(0));
-    }
-}
-
-package com.pgalaxyp.fragmento.rpg.input.system;
-
 import com.pgalaxyp.fragmento.rpg.input.api.InputContext;
 
 public interface FrameClock {
@@ -3282,19 +3719,35 @@ public final class LocalFrameClock implements FrameClock {
 
 package com.pgalaxyp.fragmento.rpg.platform.neoforge.net.codec;
 
-import com.pgalaxyp.fragmento.rpg.ports.dto.*;
-import com.pgalaxyp.fragmento.rpg.core.state.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
-import com.pgalaxyp.fragmento.rpg.core.events.event.*;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
-import java.io.*;
-import java.util.*;
-import java.nio.charset.*;
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.events.event.AuditEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.List;
 
 public final class NeoForgeNetCodec {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
@@ -3470,9 +3923,9 @@ public final class NeoForgeNetCodec {
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
         if (intent instanceof ActorJoinIntent) {
             out.writeInt(INTENT_JOIN);
-        } else if (intent instanceof PerformActionIntent(var stepIndex)) {
+        } else if (intent instanceof PerformActionIntent(var input)) {
             out.writeInt(INTENT_PERFORM);
-            out.writeInt(stepIndex);
+            out.writeInt(input.ordinal());
         } else {
             throw new IllegalArgumentException();
         }
@@ -3481,7 +3934,14 @@ public final class NeoForgeNetCodec {
     private static DomainIntent readIntent(DataInputStream in) throws Exception {
         return switch (in.readInt()) {
             case INTENT_JOIN -> new ActorJoinIntent();
-            case INTENT_PERFORM -> new PerformActionIntent(in.readInt());
+            case INTENT_PERFORM -> {
+                int ord = in.readInt();
+                ComboInput[] vals = ComboInput.values();
+                if (ord < 0 || ord >= vals.length) {
+                    throw new IllegalArgumentException();
+                }
+                yield new PerformActionIntent(vals[ord]);
+            }
             default -> throw new IllegalArgumentException();
         };
     }
@@ -3553,11 +4013,6 @@ public final class NeoForgeNetCodec {
             writeString(out, st.equippedWeaponId().get().value());
         }
 
-        out.writeBoolean(st.combo().isPresent());
-        if (st.combo().isPresent()) {
-            writeCombo(out, st.combo().get());
-        }
-
         out.writeInt(st.healthHearts());
         out.writeInt(st.maxHealthHearts());
     }
@@ -3569,29 +4024,10 @@ public final class NeoForgeNetCodec {
                 ? Optional.of(new WeaponId(readString(in)))
                 : Optional.empty();
 
-        Optional<ComboState> combo = in.readBoolean()
-                ? Optional.of(readCombo(in))
-                : Optional.empty();
+        int hp = in.readInt();
+        int max = in.readInt();
 
-        return new ActorState(classId, weapon, combo, in.readInt(), in.readInt());
-    }
-
-    private static void writeCombo(DataOutputStream out, ComboState combo) throws Exception {
-        writeString(out, combo.actionId().value());
-        writeString(out, combo.weaponId().value());
-        out.writeInt(combo.stepIndex());
-        out.writeInt(combo.stepsTotal());
-        out.writeLong(combo.lastStepFrameId());
-    }
-
-    private static ComboState readCombo(DataInputStream in) throws Exception {
-        return new ComboState(
-                new ActionId(readString(in)),
-                new WeaponId(readString(in)),
-                in.readInt(),
-                in.readInt(),
-                in.readLong()
-        );
+        return new ActorState(classId, weapon, hp, max);
     }
 
     private static void writeUuid(DataOutputStream out, UUID uuid) throws Exception {

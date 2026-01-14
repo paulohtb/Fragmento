@@ -1,33 +1,30 @@
 package com.pgalaxyp.fragmento.rpg.host.neoforge.bootstrap.server;
 
-import com.pgalaxyp.fragmento.rpg.core.content.DefaultRpgContent;
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.integration.CoreDamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.damage.system.DefaultDamageService;
-import com.pgalaxyp.fragmento.rpg.engine.RpgEngine;
-import com.pgalaxyp.fragmento.rpg.engine.intent.IntentQueue;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeEventSinkPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeNetRuntimeRefs;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.NeoForgeSnapshotPort;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.NeoForgeJournalPortStub;
-import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.NeoForgeWorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
-import com.pgalaxyp.fragmento.rpg.ports.ServerIntentReceiverPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.targeting.minecraft.GameTargetingBootstrap;
-import java.util.TreeMap;
-import net.minecraft.server.MinecraftServer;
+import com.pgalaxyp.fragmento.rpg.action.executor.*;
+import com.pgalaxyp.fragmento.rpg.action.registry.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.damage.integration.*;
+import com.pgalaxyp.fragmento.rpg.damage.system.*;
+import com.pgalaxyp.fragmento.rpg.engine.*;
+import com.pgalaxyp.fragmento.rpg.engine.intent.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.persist.*;
+import com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command.*;
+import com.pgalaxyp.fragmento.rpg.ports.*;
+import com.pgalaxyp.fragmento.rpg.targeting.minecraft.*;
+import java.util.*;
+import net.minecraft.server.*;
 
 public final class ServerRpgRuntime implements ServerIntentReceiverPort {
 
     private static volatile ServerRpgRuntime active;
-
     private final IntentQueue queue;
     private final RpgEngine engine;
     private int tickIndex;
@@ -41,26 +38,17 @@ public final class ServerRpgRuntime implements ServerIntentReceiverPort {
         RpgContent content = DefaultRpgContent.create();
 
         var targeting = GameTargetingBootstrap.createServer(server);
-
         DamageService damageService = new DefaultDamageService();
-        com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider damageSnapshots = new CoreDamageSnapshotProvider();
 
+        var damageSnapshots = new CoreDamageSnapshotProvider();
         WorldCommandPort worldCommands = new NeoForgeWorldCommandPort(server);
         JournalPort journal = new NeoForgeJournalPortStub();
+        ActionRegistry registry = new ActionRegistry();
+        registry.register(ActionType.INSTANT, new InstantActionExecutor());
+        registry.register(ActionType.COMBO, new ComboActionExecutor());
+        ActionRuntimeStore actions = new ActionRuntimeStore(registry);
 
-        this.engine = new RpgEngine(
-                queue,
-                targeting.service(),
-                targeting.world(),
-                damageService,
-                damageSnapshots,
-                worldCommands,
-                new NeoForgeEventSinkPort(),
-                journal,
-                new NeoForgeSnapshotPort(),
-                content,
-                new GameState(new FrameContext(0, 0), new TreeMap<>())
-        );
+        this.engine = new RpgEngine(queue, actions, targeting.service(), targeting.world(), damageService, damageSnapshots, worldCommands, new NeoForgeEventSinkPort(), journal, new NeoForgeSnapshotPort(), content, new GameState(new FrameContext(0, 0), new TreeMap<>()));
     }
 
     public static void activate(ServerRpgRuntime rt) {

@@ -1,32 +1,26 @@
 package com.pgalaxyp.fragmento.rpg.engine;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.rules.RpgRules;
-import com.pgalaxyp.fragmento.rpg.core.rules.RuleResult;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaApplier;
-import com.pgalaxyp.fragmento.rpg.engine.commit.StateDeltaMerger;
-import com.pgalaxyp.fragmento.rpg.ports.EventSinkPort;
-import com.pgalaxyp.fragmento.rpg.ports.IntentSourcePort;
-import com.pgalaxyp.fragmento.rpg.ports.JournalPort;
-import com.pgalaxyp.fragmento.rpg.ports.SnapshotPort;
-import com.pgalaxyp.fragmento.rpg.ports.WorldCommandPort;
-import com.pgalaxyp.fragmento.rpg.ports.dto.FrameJournalEntry;
-import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
-import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
-import java.util.ArrayList;
-import java.util.List;
+import com.pgalaxyp.fragmento.rpg.ports.*;
+import com.pgalaxyp.fragmento.rpg.ports.dto.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.core.rules.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.engine.commit.*;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.damage.snapshot.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.event.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import java.util.*;
 
 public final class RpgEngine {
 
     private final IntentSourcePort intents;
+    private final ActionRuntimeStore actions;
     private final TargetingService targetingService;
     private final WorldRaycastAccess worldRaycast;
     private final DamageService damageService;
@@ -36,27 +30,15 @@ public final class RpgEngine {
     private final JournalPort journal;
     private final SnapshotPort snapshots;
     private final RpgContent content;
-
     private GameState state;
     private long nextFrameId;
 
-    public RpgEngine(
-            IntentSourcePort intents,
-            TargetingService targetingService,
-            WorldRaycastAccess worldRaycast,
-            DamageService damageService,
-            DamageSnapshotProvider damageSnapshots,
-            WorldCommandPort worldCommands,
-            EventSinkPort eventSink,
-            JournalPort journal,
-            SnapshotPort snapshots,
-            RpgContent content,
-            GameState initialState
-    ) {
-        if (intents == null || targetingService == null || worldRaycast == null || damageService == null || damageSnapshots == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
+    public RpgEngine(IntentSourcePort intents, ActionRuntimeStore actions, TargetingService targetingService, WorldRaycastAccess worldRaycast, DamageService damageService, DamageSnapshotProvider damageSnapshots, WorldCommandPort worldCommands, EventSinkPort eventSink, JournalPort journal, SnapshotPort snapshots, RpgContent content, GameState initialState) {
+        if (intents == null || actions == null || targetingService == null || worldRaycast == null || damageService == null || damageSnapshots == null || worldCommands == null || eventSink == null || journal == null || snapshots == null || content == null || initialState == null) {
             throw new IllegalArgumentException();
         }
         this.intents = intents;
+        this.actions = actions;
         this.targetingService = targetingService;
         this.worldRaycast = worldRaycast;
         this.damageService = damageService;
@@ -78,16 +60,7 @@ public final class RpgEngine {
 
         List<IntentEnvelope> drained = intents.drain();
 
-        RuleResult r = RpgRules.pass(
-                frame,
-                state,
-                content,
-                drained,
-                targetingService,
-                worldRaycast,
-                damageService,
-                damageSnapshots
-        );
+        RuleResult r = RpgRules.pass(frame, state, content, drained, actions, targetingService, worldRaycast, damageService, damageSnapshots);
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
 

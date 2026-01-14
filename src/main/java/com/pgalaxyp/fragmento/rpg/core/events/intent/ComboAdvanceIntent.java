@@ -1,13 +1,11 @@
 package com.pgalaxyp.fragmento.rpg.core.events.intent;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
 
-public record ComboAdvanceIntent(
-        ActionId actionId,
-        int stepIndex
-) implements DomainIntent {
+public record ComboAdvanceIntent(ActionKey actionKey, int stepIndex) implements DomainIntent {
+
     public ComboAdvanceIntent {
-        if (actionId == null) {
+        if (actionKey == null) {
             throw new IllegalArgumentException();
         }
         if (stepIndex < 0) {

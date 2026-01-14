@@ -1,10 +1,14 @@
 package com.pgalaxyp.fragmento.rpg.input.minecraft;
 
-import com.pgalaxyp.fragmento.rpg.host.api.*;
-import com.pgalaxyp.fragmento.rpg.input.api.*;
-import com.pgalaxyp.fragmento.rpg.input.bridge.*;
-import com.pgalaxyp.fragmento.rpg.input.system.*;
-import net.neoforged.bus.api.IEventBus;
+import com.pgalaxyp.fragmento.rpg.host.api.LocalActorProvider;
+import com.pgalaxyp.fragmento.rpg.input.bridge.ActorInputContextProvider;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputIntentSink;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotProvider;
+import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
+import com.pgalaxyp.fragmento.rpg.input.system.InputConsumptionPolicy;
+import com.pgalaxyp.fragmento.rpg.input.system.InputStateMachine;
+import com.pgalaxyp.fragmento.rpg.input.system.LocalFrameClock;
+import com.pgalaxyp.fragmento.rpg.input.api.InputController;
 
 public final class GameInputBootstrap {
 
@@ -15,7 +19,7 @@ public final class GameInputBootstrap {
             }
         }
 
-        public void register(IEventBus bus) {
+        public void register(net.neoforged.bus.api.IEventBus bus) {
             if (bus == null) {
                 throw new IllegalArgumentException();
             }
@@ -41,10 +45,9 @@ public final class GameInputBootstrap {
         ActorInputContextProvider actors = new GameActorInputContext(mapping, localActorProvider);
         InputIntentSink emitter = new GameInputIntentSink();
         InputStateMachine sm = new InputStateMachine(primaryDebounceFrames);
-        ComboInputSystem combo = new ComboInputSystem();
         InputConsumptionPolicy consume = new InputConsumptionPolicy();
         FrameClock clock = new LocalFrameClock();
-        InputController controller = new InputController(sm, combo, consume, clock, emitter);
+        InputController controller = new InputController(sm, consume, clock, emitter);
 
         return new VanillaInputInterceptor(snapshots, actors, clock, controller);
     }

@@ -1,17 +1,12 @@
 package com.pgalaxyp.fragmento.rpg.core.state;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
 
-public record ComboState(
-        ActionId actionId,
-        WeaponId weaponId,
-        int stepIndex,
-        int stepsTotal,
-        long lastStepFrameId
-) {
+public record ComboState(ActionKey actionKey, WeaponId weaponId, int stepIndex, int stepsTotal, long lastStepFrameId) {
+
     public ComboState {
-        if (actionId == null || weaponId == null) {
+        if (actionKey == null || weaponId == null) {
             throw new IllegalArgumentException();
         }
         if (stepsTotal <= 0) {
@@ -32,10 +27,12 @@ public record ComboState(
         if (frameId < lastStepFrameId) {
             throw new IllegalArgumentException();
         }
+
         int nextIndex = Math.addExact(stepIndex, 1);
         if (nextIndex >= stepsTotal) {
             throw new IllegalArgumentException();
         }
-        return new ComboState(actionId, weaponId, nextIndex, stepsTotal, frameId);
+
+        return new ComboState(actionKey, weaponId, nextIndex, stepsTotal, frameId);
     }
 }

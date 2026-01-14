@@ -1,48 +1,38 @@
 package com.pgalaxyp.fragmento.rpg.core.rules;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
-import com.pgalaxyp.fragmento.rpg.core.domain.spec.HomingMagicSpec;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboAdvanced;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboEnded;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.ComboStarted;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
-import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
-import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
-import com.pgalaxyp.fragmento.rpg.core.state.GameState;
-import com.pgalaxyp.fragmento.rpg.damage.api.DamageService;
-import com.pgalaxyp.fragmento.rpg.damage.domain.DamageRequest;
-import com.pgalaxyp.fragmento.rpg.damage.snapshot.DamageSnapshotProvider;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetResult;
-import com.pgalaxyp.fragmento.rpg.targeting.api.TargetingService;
-import com.pgalaxyp.fragmento.rpg.targeting.bridge.WorldRaycastAccess;
-import com.pgalaxyp.fragmento.rpg.targeting.system.TargetingContext;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.rpg.action.command.*;
+import com.pgalaxyp.fragmento.rpg.action.context.*;
+import com.pgalaxyp.fragmento.rpg.action.emit.*;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.result.*;
+import com.pgalaxyp.fragmento.rpg.action.runtime.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.content.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.spec.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.event.*;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
+import com.pgalaxyp.fragmento.rpg.core.state.*;
+import com.pgalaxyp.fragmento.rpg.damage.api.*;
+import com.pgalaxyp.fragmento.rpg.damage.domain.*;
+import com.pgalaxyp.fragmento.rpg.damage.snapshot.*;
+import com.pgalaxyp.fragmento.rpg.targeting.api.*;
+import com.pgalaxyp.fragmento.rpg.targeting.bridge.*;
+import com.pgalaxyp.fragmento.rpg.targeting.system.*;
+
+import java.util.*;
 
 public final class RpgRules {
-
-    private static final ActionResolver ACTION_RESOLVER = new ActionResolver();
 
     public static RuleResult pass(
             FrameContext frame,
             GameState state,
             RpgContent content,
             List<IntentEnvelope> intents,
+            ActionRuntimeStore actions,
             TargetingService targetingService,
             WorldRaycastAccess world,
             DamageService damageService,
@@ -67,67 +57,55 @@ public final class RpgRules {
                 continue;
             }
 
-            if (intent instanceof PerformActionIntent p) {
-                var actorOpt = state.findActor(actorId);
-                if (actorOpt.isEmpty()) {
-                    continue;
-                }
+            if (!(intent instanceof PerformActionIntent p)) {
+                continue;
+            }
 
-                ActorState actor = actorOpt.get();
-                Optional<ActionId> actionIdOpt = ACTION_RESOLVER.resolvePrimaryAction(actor, content);
-                if (actionIdOpt.isEmpty()) {
-                    continue;
-                }
+            var actorOpt = state.findActor(actorId);
+            if (actorOpt.isEmpty()) {
+                continue;
+            }
 
-                ActionDef action = content.findAction(actionIdOpt.get()).orElse(null);
-                if (action == null) {
-                    continue;
-                }
+            ActorState actor = actorOpt.get();
+            if (actor.equippedWeaponId().isEmpty()) {
+                continue;
+            }
 
-                int step = p.stepIndex();
-                if (step < 0 || step >= action.effectSequence().size()) {
-                    continue;
-                }
+            WeaponId weaponId = actor.equippedWeaponId().get();
+            WeaponDef weapon = content.weapon(weaponId);
+            ActionKey actionKey = weapon.actionKey();
+            ActionDefinition def = content.findAction(actionKey).orElse(null);
+            if (def == null) {
+                continue;
+            }
 
-                boolean starting = actor.combo().isEmpty();
-                if (starting && step != 0) {
-                    continue;
-                }
+            ActionContext ctx = new ActionContext(actorId, weaponId, frame.frameId());
+            ActionCommand cmd = actions.hasActive(actorId)
+                    ? new ActionAdvance(p.input())
+                    : new ActionStart(actionKey);
 
-                if (!starting) {
-                    var combo = actor.combo().get();
-                    if (!combo.actionId().equals(action.id()) || combo.stepIndex() + 1 != step) {
-                        continue;
-                    }
-                }
+            ActionResult result = actions.handle(ctx, def, cmd);
+            if (result.status() != ActionStatus.ACCEPTED) {
+                continue;
+            }
 
-                applyStep(
-                        frame,
-                        state,
-                        content,
-                        targetingService,
-                        world,
-                        damageService,
-                        damageSnapshots,
-                        actorId,
-                        action,
-                        step,
-                        deltas,
-                        events,
-                        queryIndex++,
-                        eventIndex++
-                );
-
-                int stepsTotal = action.effectSequence().size();
-
-                if (starting) {
-                    deltas.add(new ComboStarted(actorId, action.id(), actor.equippedWeaponId().orElseThrow(), stepsTotal, frame.frameId()));
-                } else {
-                    deltas.add(new ComboAdvanced(actorId, frame.frameId()));
-                }
-
-                if (step == stepsTotal - 1) {
-                    deltas.add(new ComboEnded(actorId, action.id()));
+            for (ActionEmission emission : result.emissions()) {
+                if (emission instanceof EffectEmission ee) {
+                    applyEffect(
+                            frame,
+                            state,
+                            content,
+                            targetingService,
+                            world,
+                            damageService,
+                            damageSnapshots,
+                            actorId,
+                            ee.effectId(),
+                            deltas,
+                            events,
+                            queryIndex++,
+                            eventIndex++
+                    );
                 }
             }
         }
@@ -135,7 +113,7 @@ public final class RpgRules {
         return new RuleResult(deltas, events);
     }
 
-    private static void applyStep(
+    private static void applyEffect(
             FrameContext frame,
             GameState state,
             RpgContent content,
@@ -144,25 +122,28 @@ public final class RpgRules {
             DamageService damageService,
             DamageSnapshotProvider damageSnapshots,
             ActorId sourceActorId,
-            ActionDef action,
-            int stepIndex,
+            EffectId effectId,
             List<StateDelta> deltas,
             List<DomainEvent> events,
             int queryIndex,
             int eventIndex
     ) {
-        TargetResult res = targetingService.resolve(
-                new TargetingContext(sourceActorId, action.cycle().targeting(), world)
+        TargetingSpec targetingSpec = TargetingSpec.singleEnemy();
+
+        TargetResult result = targetingService.resolve(
+                new TargetingContext(sourceActorId, targetingSpec, world)
         );
 
-        res.actorTargetOpt().ifPresent(targetId -> {
-            EffectId effectId = action.effectSequence().get(stepIndex);
+        result.actorTargetOpt().ifPresent(targetId -> {
             EffectDef effect = content.effect(effectId);
 
-            var snap = damageSnapshots.snapshot(state, sourceActorId, targetId);
-            var dmg = damageService.resolve(new DamageRequest(sourceActorId, targetId, effect.damage()), snap);
+            var snapshot = damageSnapshots.snapshot(state, sourceActorId, targetId);
+            var damage = damageService.resolve(
+                    new DamageRequest(sourceActorId, targetId, effect.damage()),
+                    snapshot
+            );
 
-            deltas.add(new DamageApplied(targetId, dmg.finalHearts()));
+            deltas.add(new DamageApplied(targetId, damage.finalHearts()));
 
             effect.visual().ifPresent(v -> {
                 if (v instanceof HomingMagicSpec hm) {

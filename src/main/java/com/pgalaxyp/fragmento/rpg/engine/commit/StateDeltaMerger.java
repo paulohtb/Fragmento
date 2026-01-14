@@ -1,7 +1,9 @@
 package com.pgalaxyp.fragmento.rpg.engine.commit;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.events.delta.*;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.ActorSpawned;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
+import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -29,7 +31,6 @@ public final class StateDeltaMerger {
 
         TreeMap<ActorId, ActorSpawned> spawnByActor = new TreeMap<>();
         TreeMap<ActorId, Integer> damageByTarget = new TreeMap<>();
-        TreeMap<ActorId, ComboAgg> comboByActor = new TreeMap<>();
 
         for (StateDelta d : all) {
             if (d instanceof ActorSpawned s) {
@@ -45,31 +46,6 @@ public final class StateDeltaMerger {
                 int base = prev == null ? 0 : prev;
                 int next = Math.addExact(base, hearts);
                 damageByTarget.put(targetActorId, next);
-                continue;
-            }
-
-            if (d instanceof ComboStarted cs) {
-                ActorId actorId = cs.actorId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptStart(cs);
-                continue;
-            }
-
-            if (d instanceof ComboAdvanced ca) {
-                ActorId actorId = ca.actorId();
-                long stepFrameId = ca.stepFrameId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptAdvance(stepFrameId);
-                continue;
-            }
-
-            if (d instanceof ComboEnded ce) {
-                ActorId actorId = ce.actorId();
-
-                ComboAgg agg = comboByActor.computeIfAbsent(actorId, k -> new ComboAgg());
-                agg.acceptEnd(ce);
             }
         }
 
@@ -77,25 +53,6 @@ public final class StateDeltaMerger {
 
         for (var e : spawnByActor.entrySet()) {
             out.add(e.getValue());
-        }
-
-        for (var e : comboByActor.entrySet()) {
-            ActorId actorId = e.getKey();
-            ComboAgg agg = e.getValue();
-
-            if (agg.start != null) {
-                out.add(agg.start);
-            }
-
-            int advances = agg.advances;
-            long advanceFrameId = agg.advanceFrameId;
-            for (int i = 0; i < advances; i++) {
-                out.add(new ComboAdvanced(actorId, advanceFrameId));
-            }
-
-            if (agg.end != null) {
-                out.add(agg.end);
-            }
         }
 
         for (var e : damageByTarget.entrySet()) {
@@ -107,35 +64,6 @@ public final class StateDeltaMerger {
         }
 
         return List.copyOf(out);
-    }
-
-    private static final class ComboAgg {
-
-        private ComboStarted start;
-        private int advances;
-        private long advanceFrameId;
-        private ComboEnded end;
-
-        private void acceptStart(ComboStarted s) {
-            if (end != null) {
-                return;
-            }
-            if (start == null) {
-                start = s;
-            }
-        }
-
-        private void acceptAdvance(long frameId) {
-            if (end != null) {
-                return;
-            }
-            advances = Math.addExact(advances, 1);
-            advanceFrameId = frameId;
-        }
-
-        private void acceptEnd(ComboEnded e) {
-            end = e;
-        }
     }
 
     private StateDeltaMerger() {}

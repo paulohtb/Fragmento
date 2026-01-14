@@ -1,31 +1,33 @@
 package com.pgalaxyp.fragmento.rpg.input.api;
 
-import com.pgalaxyp.fragmento.rpg.input.bridge.*;
-import com.pgalaxyp.fragmento.rpg.input.system.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
-import java.util.*;
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputIntentSink;
+import com.pgalaxyp.fragmento.rpg.input.bridge.InputSnapshotView;
+import com.pgalaxyp.fragmento.rpg.input.system.FrameClock;
+import com.pgalaxyp.fragmento.rpg.input.system.InputConsumptionPolicy;
+import com.pgalaxyp.fragmento.rpg.input.system.InputStateMachine;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
+import java.util.Optional;
 
 public final class InputController {
 
     private final InputStateMachine stateMachine;
-    private final ComboInputSystem comboSystem;
     private final InputConsumptionPolicy consumptionPolicy;
     private final FrameClock clock;
     private final InputIntentSink emitter;
 
     public InputController(
             InputStateMachine stateMachine,
-            ComboInputSystem comboSystem,
             InputConsumptionPolicy consumptionPolicy,
             FrameClock clock,
             InputIntentSink emitter
     ) {
-        if (stateMachine == null || comboSystem == null || consumptionPolicy == null || clock == null || emitter == null) {
+        if (stateMachine == null || consumptionPolicy == null || clock == null || emitter == null) {
             throw new IllegalArgumentException();
         }
         this.stateMachine = stateMachine;
-        this.comboSystem = comboSystem;
         this.consumptionPolicy = consumptionPolicy;
         this.clock = clock;
         this.emitter = emitter;
@@ -55,7 +57,8 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        if (!context.snapshot().isPresent()) {
+        InputSnapshotView snapshot = context.snapshot();
+        if (!snapshot.isPresent()) {
             return new InputDecision(consumeVanilla, false);
         }
 
@@ -63,12 +66,8 @@ public final class InputController {
             return new InputDecision(consumeVanilla, false);
         }
 
-        Optional<DomainIntent> intent = comboSystem.onPrimaryAction(context);
-        if (intent.isEmpty()) {
-            return new InputDecision(consumeVanilla, false);
-        }
-
-        emitter.emit(actorId, intent.get(), context.snapshot().frameIdOrZero());
+        DomainIntent intent = new PerformActionIntent(ComboInput.PRIMARY);
+        emitter.emit(actorId, intent, snapshot.frameIdOrZero());
 
         return new InputDecision(consumeVanilla, true);
     }

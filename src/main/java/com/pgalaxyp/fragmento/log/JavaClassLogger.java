@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 public final class JavaClassLogger {
 
     private static final Path BASE_DIR =
-            Paths.get("C:\\Users\\Loteria Aldeota\\Documents\\projetos\\analise f\\src\\main");
+            Paths.get("C:\\Users\\User\\Documents\\Projetos\\Fragmento\\src\\main");
 
     private static final List<String> TARGET_FOLDERS = List.of(
             "java/com/pgalaxyp/fragmento/rpg"

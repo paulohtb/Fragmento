@@ -1,11 +1,13 @@
 package com.pgalaxyp.fragmento.rpg.core.events.intent;
 
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+
 public record PerformActionIntent(
-        int stepIndex
+        ComboInput input
 ) implements DomainIntent {
 
     public PerformActionIntent {
-        if (stepIndex < 0) {
+        if (input == null) {
             throw new IllegalArgumentException();
         }
     }

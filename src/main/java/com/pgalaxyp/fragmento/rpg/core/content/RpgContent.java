@@ -1,24 +1,13 @@
 package com.pgalaxyp.fragmento.rpg.core.content;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ActionDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.ClassDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.EffectDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.def.WeaponDef;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActionId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.EffectId;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
-import java.util.Collections;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.TreeMap;
+import com.pgalaxyp.fragmento.rpg.action.key.*;
+import com.pgalaxyp.fragmento.rpg.action.type.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import com.pgalaxyp.fragmento.rpg.core.domain.def.*;
+import java.util.*;
 
-public record RpgContent(
-        NavigableMap<ClassId, ClassDef> classes,
-        NavigableMap<ActionId, ActionDef> actions,
-        NavigableMap<WeaponId, WeaponDef> weapons,
-        NavigableMap<EffectId, EffectDef> effects
-) {
+public record RpgContent(NavigableMap<ClassId, ClassDef> classes, NavigableMap<ActionKey, ActionDefinition> actions, NavigableMap<WeaponId, WeaponDef> weapons, NavigableMap<EffectId, EffectDef> effects) {
+
     public RpgContent {
         if (classes == null || actions == null || weapons == null || effects == null) {
             throw new IllegalArgumentException();
@@ -32,12 +21,7 @@ public record RpgContent(
         validate(classes, actions, weapons, effects);
     }
 
-    private static void validate(
-            NavigableMap<ClassId, ClassDef> classes,
-            NavigableMap<ActionId, ActionDef> actions,
-            NavigableMap<WeaponId, WeaponDef> weapons,
-            NavigableMap<EffectId, EffectDef> effects
-    ) {
+    private static void validate(NavigableMap<ClassId, ClassDef> classes, NavigableMap<ActionKey, ActionDefinition> actions, NavigableMap<WeaponId, WeaponDef> weapons, NavigableMap<EffectId, EffectDef> effects) {
         for (var e : classes.entrySet()) {
             if (e.getKey() == null || e.getValue() == null) {
                 throw new IllegalArgumentException();
@@ -57,7 +41,7 @@ public record RpgContent(
             if (!e.getKey().equals(e.getValue().id())) {
                 throw new IllegalArgumentException();
             }
-            if (!actions.containsKey(e.getValue().actionId())) {
+            if (!actions.containsKey(e.getValue().actionKey())) {
                 throw new IllegalArgumentException();
             }
         }
@@ -66,16 +50,8 @@ public record RpgContent(
             if (e.getKey() == null || e.getValue() == null) {
                 throw new IllegalArgumentException();
             }
-            if (!e.getKey().equals(e.getValue().id())) {
+            if (!e.getKey().equals(e.getValue().key())) {
                 throw new IllegalArgumentException();
-            }
-            for (EffectId effectId : e.getValue().effectSequence()) {
-                if (effectId == null) {
-                    throw new IllegalArgumentException();
-                }
-                if (!effects.containsKey(effectId)) {
-                    throw new IllegalArgumentException();
-                }
             }
         }
 
@@ -103,11 +79,11 @@ public record RpgContent(
         return Optional.ofNullable(weapons.get(id));
     }
 
-    public Optional<ActionDef> findAction(ActionId id) {
-        if (id == null) {
+    public Optional<ActionDefinition> findAction(ActionKey key) {
+        if (key == null) {
             throw new IllegalArgumentException();
         }
-        return Optional.ofNullable(actions.get(id));
+        return Optional.ofNullable(actions.get(key));
     }
 
     public Optional<EffectDef> findEffect(EffectId id) {
@@ -133,8 +109,8 @@ public record RpgContent(
         return def;
     }
 
-    public ActionDef action(ActionId id) {
-        ActionDef def = actions.get(id);
+    public ActionDefinition action(ActionKey key) {
+        ActionDefinition def = actions.get(key);
         if (def == null) {
             throw new IllegalArgumentException();
         }

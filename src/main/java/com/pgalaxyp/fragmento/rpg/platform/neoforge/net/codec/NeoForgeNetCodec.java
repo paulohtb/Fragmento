@@ -1,18 +1,34 @@
 package com.pgalaxyp.fragmento.rpg.platform.neoforge.net.codec;
 
-import com.pgalaxyp.fragmento.rpg.ports.dto.*;
-import com.pgalaxyp.fragmento.rpg.core.state.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.*;
-import com.pgalaxyp.fragmento.rpg.core.events.event.*;
-import com.pgalaxyp.fragmento.rpg.core.events.intent.*;
-import java.io.*;
-import java.util.*;
-import java.nio.charset.*;
+import com.pgalaxyp.fragmento.rpg.combo.api.ComboInput;
+import com.pgalaxyp.fragmento.rpg.ports.dto.GameSnapshot;
+import com.pgalaxyp.fragmento.rpg.core.state.ActorState;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.ClassId;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.events.event.AuditEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.event.HomingMagicVisualEvent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.ActorJoinIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.DomainIntent;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.rpg.core.events.intent.PerformActionIntent;
+import com.pgalaxyp.fragmento.rpg.core.domain.ids.QueryId;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.List;
 
 public final class NeoForgeNetCodec {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
@@ -188,9 +204,9 @@ public final class NeoForgeNetCodec {
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
         if (intent instanceof ActorJoinIntent) {
             out.writeInt(INTENT_JOIN);
-        } else if (intent instanceof PerformActionIntent(var stepIndex)) {
+        } else if (intent instanceof PerformActionIntent(var input)) {
             out.writeInt(INTENT_PERFORM);
-            out.writeInt(stepIndex);
+            out.writeInt(input.ordinal());
         } else {
             throw new IllegalArgumentException();
         }
@@ -199,7 +215,14 @@ public final class NeoForgeNetCodec {
     private static DomainIntent readIntent(DataInputStream in) throws Exception {
         return switch (in.readInt()) {
             case INTENT_JOIN -> new ActorJoinIntent();
-            case INTENT_PERFORM -> new PerformActionIntent(in.readInt());
+            case INTENT_PERFORM -> {
+                int ord = in.readInt();
+                ComboInput[] vals = ComboInput.values();
+                if (ord < 0 || ord >= vals.length) {
+                    throw new IllegalArgumentException();
+                }
+                yield new PerformActionIntent(vals[ord]);
+            }
             default -> throw new IllegalArgumentException();
         };
     }
@@ -271,11 +294,6 @@ public final class NeoForgeNetCodec {
             writeString(out, st.equippedWeaponId().get().value());
         }
 
-        out.writeBoolean(st.combo().isPresent());
-        if (st.combo().isPresent()) {
-            writeCombo(out, st.combo().get());
-        }
-
         out.writeInt(st.healthHearts());
         out.writeInt(st.maxHealthHearts());
     }
@@ -287,29 +305,10 @@ public final class NeoForgeNetCodec {
                 ? Optional.of(new WeaponId(readString(in)))
                 : Optional.empty();
 
-        Optional<ComboState> combo = in.readBoolean()
-                ? Optional.of(readCombo(in))
-                : Optional.empty();
+        int hp = in.readInt();
+        int max = in.readInt();
 
-        return new ActorState(classId, weapon, combo, in.readInt(), in.readInt());
-    }
-
-    private static void writeCombo(DataOutputStream out, ComboState combo) throws Exception {
-        writeString(out, combo.actionId().value());
-        writeString(out, combo.weaponId().value());
-        out.writeInt(combo.stepIndex());
-        out.writeInt(combo.stepsTotal());
-        out.writeLong(combo.lastStepFrameId());
-    }
-
-    private static ComboState readCombo(DataInputStream in) throws Exception {
-        return new ComboState(
-                new ActionId(readString(in)),
-                new WeaponId(readString(in)),
-                in.readInt(),
-                in.readInt(),
-                in.readLong()
-        );
+        return new ActorState(classId, weapon, hp, max);
     }
 
     private static void writeUuid(DataOutputStream out, UUID uuid) throws Exception {
