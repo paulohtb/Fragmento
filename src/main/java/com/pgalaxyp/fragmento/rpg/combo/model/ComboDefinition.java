@@ -1,17 +1,12 @@
 package com.pgalaxyp.fragmento.rpg.combo.model;
 
-import com.pgalaxyp.fragmento.rpg.action.key.*;
-import com.pgalaxyp.fragmento.rpg.core.domain.ids.*;
+import java.util.*;
 
-public record ComboDefinition(ActionKey actionKey, ComboPattern pattern) {
+public record ComboDefinition(ComboId comboId, ComboPattern pattern) {
 
     public ComboDefinition {
-        if (actionKey == null || pattern == null) {
-            throw new IllegalArgumentException();
-        }
+        if (comboId == null || pattern == null) throw new IllegalArgumentException();
     }
 
-    public int stepsTotal() {
-        return pattern.size();
-    }
+    public int stepsTotal() { return pattern.size(); }
 }

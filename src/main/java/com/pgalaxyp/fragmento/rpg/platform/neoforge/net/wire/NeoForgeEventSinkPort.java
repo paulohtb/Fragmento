@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.rpg.platform.neoforge.net.wire;
 
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.event.DomainEvent;
 import com.pgalaxyp.fragmento.rpg.ports.EventSinkPort;
 import java.util.List;

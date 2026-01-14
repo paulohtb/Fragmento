@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.rpg.core.state;
 
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.time.FrameContext;
 import java.util.Collections;
 import java.util.NavigableMap;
 import java.util.Optional;

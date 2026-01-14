@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.rpg.platform.neoforge.world.command;
 
-import com.pgalaxyp.fragmento.rpg.core.content.RpgContent;
+import com.pgalaxyp.fragmento.rpg.core.content.GameContent;
 import com.pgalaxyp.fragmento.rpg.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.rpg.core.domain.time.FrameContext;
+import com.pgalaxyp.fragmento.rpg.core.time.FrameContext;
 import com.pgalaxyp.fragmento.rpg.core.events.delta.DamageApplied;
 import com.pgalaxyp.fragmento.rpg.core.events.delta.StateDelta;
 import com.pgalaxyp.fragmento.rpg.core.state.GameState;
@@ -27,7 +27,7 @@ public final class NeoForgeWorldCommandPort implements WorldCommandPort {
     public void apply(
             FrameContext frame,
             GameState state,
-            RpgContent content,
+            GameContent content,
             List<StateDelta> deltas
     ) {
         for (StateDelta d : deltas) {

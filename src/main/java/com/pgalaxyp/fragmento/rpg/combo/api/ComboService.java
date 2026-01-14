@@ -6,9 +6,7 @@ import java.util.*;
 
 public interface ComboService {
 
-    ComboDecision decide(ActorId actorId, WeaponId weaponId, ComboInput input);
-
+    ComboResult decide(ActorId actorId, WeaponId weaponId, ComboInput input);
     void reset(ActorId actorId);
-
     Optional<ComboState> stateOf(ActorId actorId);
 }
