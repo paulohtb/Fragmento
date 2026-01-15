@@ -1,0 +1,12 @@
+package com.pgalaxyp.fragmento.combat.damage.domain;
+
+import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+
+public record DamageRequest(ActorId sourceActorId, ActorId targetActorId, DamageSpec spec) {
+
+    public DamageRequest {
+        if (sourceActorId == null || targetActorId == null || spec == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
