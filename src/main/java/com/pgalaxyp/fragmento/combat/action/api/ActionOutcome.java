@@ -1,22 +1,27 @@
 package com.pgalaxyp.fragmento.combat.action.api;
 
-import com.pgalaxyp.fragmento.combat.action.emit.*;
+import com.pgalaxyp.fragmento.combat.effect.model.*;
 import java.util.*;
 
-public sealed interface ActionOutcome permits ActionOutcome.Accepted, ActionOutcome.Rejected, ActionOutcome.Ignored {
-
-    record Accepted(List<ActionEmission> emissions, boolean finished) implements ActionOutcome {
-        public Accepted {
-            if (emissions == null) throw new IllegalArgumentException();
-            emissions = List.copyOf(emissions);
+public sealed interface ActionOutcome permits ActionOutcome.Success, ActionOutcome.Reject {
+    record Success(List<EffectIntent> intents, boolean finished) implements ActionOutcome {
+        public Success {
+            intents = List.copyOf(Objects.requireNonNull(intents));
         }
     }
 
-    enum Rejected implements ActionOutcome { INSTANCE }
-    enum Ignored implements ActionOutcome { INSTANCE }
+    enum Reject implements ActionOutcome { INSTANCE }
 
-    static ActionOutcome rejected() { return Rejected.INSTANCE; }
-    static ActionOutcome ignored() { return Ignored.INSTANCE; }
-    static ActionOutcome accepted(List<ActionEmission> emissions, boolean finished) { return new Accepted(emissions, finished); }
-    static ActionOutcome acceptedNone() { return new Accepted(List.of(), false); }
+    static ActionOutcome success(List<EffectIntent> intents, boolean finished) {
+        return new Success(intents, finished);
+    }
+    static ActionOutcome finished(List<EffectIntent> intents) {
+        return new Success(intents, true);
+    }
+    static ActionOutcome running(List<EffectIntent> intents) {
+        return new Success(intents, false);
+    }
+    static ActionOutcome reject() {
+        return Reject.INSTANCE;
+    }
 }

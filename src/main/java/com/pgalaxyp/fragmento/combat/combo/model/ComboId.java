@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.combo.model;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public record ComboId(String value) implements Comparable<ComboId> {
 

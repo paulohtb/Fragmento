@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.engine.intent;
 
-import com.pgalaxyp.fragmento.combat.core.events.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.combat.ports.IntentSourcePort;
 import java.util.ArrayDeque;
 import java.util.ArrayList;

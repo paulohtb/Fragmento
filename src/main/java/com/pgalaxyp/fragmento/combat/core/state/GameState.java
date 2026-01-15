@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.core.state;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import java.util.Collections;
 import java.util.NavigableMap;

@@ -1,58 +1,73 @@
 package com.pgalaxyp.fragmento.combat.core.rules;
 
-import com.pgalaxyp.fragmento.combat.core.time.*;
-import com.pgalaxyp.fragmento.combat.combo.api.*;
-import com.pgalaxyp.fragmento.combat.cycle.api.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
-import com.pgalaxyp.fragmento.combat.effect.api.*;
+import com.pgalaxyp.fragmento.combat.combo.api.*;
+import com.pgalaxyp.fragmento.combat.combo.model.*;
+import com.pgalaxyp.fragmento.combat.combo.skill.*;
+import com.pgalaxyp.fragmento.combat.combo.state.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.action.emit.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
-import com.pgalaxyp.fragmento.combat.core.events.event.*;
-import com.pgalaxyp.fragmento.combat.core.events.delta.*;
-import com.pgalaxyp.fragmento.combat.core.events.intent.*;
+import com.pgalaxyp.fragmento.combat.core.time.*;
+import com.pgalaxyp.fragmento.combat.cycle.api.*;
+import com.pgalaxyp.fragmento.combat.delta.*;
+import com.pgalaxyp.fragmento.combat.effect.api.*;
+import com.pgalaxyp.fragmento.combat.effect.model.*;
+import com.pgalaxyp.fragmento.combat.event.*;
+import com.pgalaxyp.fragmento.combat.intent.*;
 import java.util.*;
 
 public final class GameRules {
 
-    public static RuleResult pass(FrameContext frame, GameState state, List<IntentEnvelope> intents, ComboService combo, ActionCycleService cycles, ActionService actions, EffectService effects) {
-        if (frame == null || state == null || intents == null || combo == null || cycles == null || actions == null || effects == null) throw new IllegalArgumentException();
-
+    public static RuleResult pass(FrameContext frame, GameState state, List<IntentEnvelope> intents, ComboCatalog combos, ComboTracker comboTracker, ComboSkillResolver comboSkills, ComboService combo, ActionCycleService cycles, ActionService actions, EffectService effects) {
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
+
         for (IntentEnvelope env : intents) {
-            if (env == null) continue;
-
             ActorId actorId = env.actorId();
-            DomainIntent intent = env.intent();
-            if (!(intent instanceof PerformActionIntent p)) continue;
-
-            var actorOpt = state.findActor(actorId);
-            if (actorOpt.isEmpty()) continue;
-
-            var actor = actorOpt.get();
-            if (actor.equippedWeaponId().isEmpty()) continue;
-
-            WeaponId weaponId = actor.equippedWeaponId().get();
-            ComboResult comboResult = combo.decide(actorId, weaponId, p.input());
-            if (!(comboResult instanceof ComboResult.Progress progress)) continue;
-
-            Optional<ActionRequest> reqOpt = cycles.translate(frame, actorId, weaponId, progress);
-            if (reqOpt.isEmpty()) {
-                combo.reset(actorId);
-                actions.clear(actorId);
+            if (env.intent() instanceof ActorJoinIntent) {
+                if (state.findActor(actorId).isEmpty()) {
+                    deltas.add(new ActorSpawned(
+                            actorId,
+                            new ClassId("class.default"),
+                            new WeaponId("weapon.flute"),
+                            20,
+                            20
+                    ));
+                }
                 continue;
             }
 
-            ActionOutcome out = actions.handle(new ActionContext(actorId, weaponId, frame.frameId()), reqOpt.get());
-            if (!(out instanceof ActionOutcome.Accepted a)) continue;
+            if (!(env.intent() instanceof PerformActionIntent p)) continue;
 
-            for (ActionEmission e : a.emissions()) {
-                if (e instanceof EffectIntentEmission ee) {
-                    var eo = effects.apply(frame, state, new ActionContext(actorId, weaponId, frame.frameId()), ee.intent());
-                    deltas.addAll(eo.deltas());
-                    events.addAll(eo.events());
-                }
+            ActorState actor = state.findActor(actorId).orElse(null);
+            if (actor == null || actor.equippedWeaponId().isEmpty()) continue;
+
+            WeaponId weaponId = actor.equippedWeaponId().get();
+            var entry = combos.baseFor(weaponId).orElse(null);
+            if (entry == null) continue;
+
+            ComboId comboId = entry.comboId();
+            ComboPattern pattern = comboSkills.resolve(actorId, weaponId, entry.pattern());
+            Optional<ComboState> prev = comboTracker.get(actorId);
+
+            ComboResult result = combo.decide(comboId, pattern, p.input(), prev);
+            if (!(result instanceof ComboResult.Progress progress)) continue;
+
+            Optional<ComboState> next = progress.end() ? Optional.empty() : combo.advanceState(prev.orElseGet(() -> combo.start(comboId, pattern)), progress.stepsTotal());
+
+            if (next.isPresent()) comboTracker.put(actorId, next.get());
+            else comboTracker.clear(actorId);
+
+            ActionRequest req = cycles.translate(progress, actorId, weaponId, frame.frameId()).orElse(ActionRequest.Cancel.INSTANCE);
+
+            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), req);
+            if (!(out instanceof ActionOutcome.Success s)) continue;
+
+            for (EffectIntent intent : s.intents()) {
+                EffectOutcome eo = effects.apply(frame, state, intent, actorId);
+                deltas.addAll(eo.deltas());
+                events.addAll(eo.events());
             }
         }
 

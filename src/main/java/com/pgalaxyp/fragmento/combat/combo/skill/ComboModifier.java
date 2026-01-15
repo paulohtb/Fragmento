@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.combo.skill;
 
 import com.pgalaxyp.fragmento.combat.combo.model.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public interface ComboModifier {
 

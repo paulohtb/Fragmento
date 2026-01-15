@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.server;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.FragmentoMod;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,18 +16,18 @@ public final class ServerEvents {
     @SubscribeEvent
     public static void onServerStarting(ServerStartingEvent event) {
         var server = event.getServer();
-        ServerRpgRuntime rt = new ServerRpgRuntime(server);
-        ServerRpgRuntime.activate(rt);
+        ServerModRuntime rt = new ServerModRuntime(server);
+        ServerModRuntime.activate(rt);
     }
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
-        ServerRpgRuntime.deactivate();
+        ServerModRuntime.deactivate();
     }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        ServerRpgRuntime rt = ServerRpgRuntime.getActive();
+        ServerModRuntime rt = ServerModRuntime.getActive();
         if (rt == null) {
             return;
         }
@@ -39,7 +39,7 @@ public final class ServerEvents {
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) {
             return;
         }
-        ServerRpgRuntime rt = ServerRpgRuntime.getActive();
+        ServerModRuntime rt = ServerModRuntime.getActive();
         if (rt == null) {
             return;
         }

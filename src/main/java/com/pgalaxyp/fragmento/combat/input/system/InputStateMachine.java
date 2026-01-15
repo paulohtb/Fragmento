@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.input.system;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
 public final class InputStateMachine {

@@ -1,9 +1,8 @@
 package com.pgalaxyp.fragmento.combat.action.api;
 
-import com.pgalaxyp.fragmento.combat.action.model.*;
+import com.pgalaxyp.fragmento.combat.action.model.ActionId;
 
 public sealed interface ActionRequest permits ActionRequest.Start, ActionRequest.Tick, ActionRequest.Cancel {
-
     record Start(ActionId actionId) implements ActionRequest {
         public Start { if (actionId == null) throw new IllegalArgumentException(); }
     }

@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.targeting.bridge;
 
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
 public interface WorldRaycastAccess {

@@ -6,9 +6,9 @@ import com.pgalaxyp.fragmento.combat.input.bridge.InputSnapshotView;
 import com.pgalaxyp.fragmento.combat.input.system.FrameClock;
 import com.pgalaxyp.fragmento.combat.input.system.InputConsumptionPolicy;
 import com.pgalaxyp.fragmento.combat.input.system.InputStateMachine;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.combat.core.events.intent.DomainIntent;
-import com.pgalaxyp.fragmento.combat.core.events.intent.PerformActionIntent;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.intent.DomainIntent;
+import com.pgalaxyp.fragmento.combat.intent.PerformActionIntent;
 import java.util.Optional;
 
 public final class InputController {
@@ -41,12 +41,12 @@ public final class InputController {
         boolean consumeVanilla = consumptionPolicy.shouldBlockVanilla(context, input);
 
         if (input != SemanticInput.PRIMARY_ACTION) {
-            return new InputDecision(consumeVanilla, false);
+            return new InputDecision(consumeVanilla);
         }
 
         Optional<ActorId> actorOpt = context.actorIdOpt();
         if (actorOpt.isEmpty()) {
-            return new InputDecision(consumeVanilla, false);
+            return new InputDecision(consumeVanilla);
         }
 
         ActorId actorId = actorOpt.get();
@@ -54,21 +54,21 @@ public final class InputController {
         long frameId = clock.frameId(context);
         InputStateMachine.Decision sm = stateMachine.decidePrimaryAction(actorId, frameId);
         if (sm != InputStateMachine.Decision.ALLOWED) {
-            return new InputDecision(consumeVanilla, false);
+            return new InputDecision(consumeVanilla);
         }
 
         InputSnapshotView snapshot = context.snapshot();
         if (!snapshot.isPresent()) {
-            return new InputDecision(consumeVanilla, false);
+            return new InputDecision(consumeVanilla);
         }
 
         if (!context.hasWeaponInHand()) {
-            return new InputDecision(consumeVanilla, false);
+            return new InputDecision(consumeVanilla);
         }
 
         DomainIntent intent = new PerformActionIntent(ComboInput.PRIMARY);
         emitter.emit(actorId, intent, snapshot.frameIdOrZero());
 
-        return new InputDecision(consumeVanilla, true);
+        return new InputDecision(consumeVanilla);
     }
 }

@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.combat.input.bridge;
 
 import com.pgalaxyp.fragmento.combat.ports.dto.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
 public final class InputSnapshotView {

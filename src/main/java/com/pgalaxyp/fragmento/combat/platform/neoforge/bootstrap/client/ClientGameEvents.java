@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client;
 
 import com.mojang.blaze3d.vertex.*;
 import com.pgalaxyp.fragmento.combat.ports.dto.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.clientfx.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.*;
 import java.util.*;

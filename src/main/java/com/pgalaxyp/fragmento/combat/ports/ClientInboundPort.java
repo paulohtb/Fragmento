@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.ports;
 
-import com.pgalaxyp.fragmento.combat.core.events.event.DomainEvent;
+import com.pgalaxyp.fragmento.combat.event.DomainEvent;
 import com.pgalaxyp.fragmento.combat.ports.dto.GameSnapshot;
 import java.util.List;
 

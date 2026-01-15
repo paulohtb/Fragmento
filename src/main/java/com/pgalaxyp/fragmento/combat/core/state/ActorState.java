@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.core.state;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.WeaponId;
+import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
+import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
 import java.util.Optional;
 
 public record ActorState(

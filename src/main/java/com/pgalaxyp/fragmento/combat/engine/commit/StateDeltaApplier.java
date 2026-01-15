@@ -1,11 +1,11 @@
 package com.pgalaxyp.fragmento.combat.engine.commit;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ActorId;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ClassId;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.WeaponId;
-import com.pgalaxyp.fragmento.combat.core.events.delta.ActorSpawned;
-import com.pgalaxyp.fragmento.combat.core.events.delta.DamageApplied;
-import com.pgalaxyp.fragmento.combat.core.events.delta.StateDelta;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
+import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
+import com.pgalaxyp.fragmento.combat.delta.ActorSpawned;
+import com.pgalaxyp.fragmento.combat.delta.DamageApplied;
+import com.pgalaxyp.fragmento.combat.delta.StateDelta;
 import com.pgalaxyp.fragmento.combat.core.state.ActorState;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import java.util.Map;

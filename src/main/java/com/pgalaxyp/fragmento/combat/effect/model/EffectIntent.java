@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.effect.model;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public record EffectIntent(EffectId effectId) {
     public EffectIntent { if (effectId == null) throw new IllegalArgumentException(); }

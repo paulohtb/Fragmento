@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.ports.dto;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import com.pgalaxyp.fragmento.combat.core.state.ActorState;
 import java.util.Collections;

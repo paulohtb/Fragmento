@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.input.minecraft;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 import net.minecraft.resources.*;
 import net.minecraft.world.item.*;

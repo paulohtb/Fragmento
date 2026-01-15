@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.action.model;
 
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public record ActionId(String value) implements Comparable<ActionId> {
 

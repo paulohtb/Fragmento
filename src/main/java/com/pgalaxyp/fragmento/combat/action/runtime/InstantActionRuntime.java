@@ -1,42 +1,30 @@
 package com.pgalaxyp.fragmento.combat.action.runtime;
 
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
-import com.pgalaxyp.fragmento.combat.action.emit.*;
 import com.pgalaxyp.fragmento.combat.action.model.*;
 import java.util.*;
 
 public final class InstantActionRuntime implements ActionRuntime {
+    private final InstantActionPlan plan;
+    private long startFrame = Long.MIN_VALUE;
+    private boolean done;
 
-    private final ActionRunId id = ActionRunId.create();
-    private final ActionDef definition;
-    private boolean finished;
-
-    public InstantActionRuntime(ActionDef definition) { this.definition = Objects.requireNonNull(definition); }
-
-    @Override
-    public ActionRunId runId() { return id; }
+    public InstantActionRuntime(InstantActionPlan plan) { this.plan = Objects.requireNonNull(plan); }
 
     @Override
-    public ActionDef definition() { return definition; }
-
-    @Override
-    public ActionOutcome handle(ActionContext context, ActionRequest request) {
-        Objects.requireNonNull(context);
-        Objects.requireNonNull(request);
-
-        if (finished) return ActionOutcome.ignored();
-
+    public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
+        if (done) return ActionOutcome.finished(List.of());
         if (request instanceof ActionRequest.Cancel) {
-            finished = true;
-            return ActionOutcome.accepted(List.of(), true);
+            done = true;
+            return ActionOutcome.finished(List.of());
         }
-
         if (request instanceof ActionRequest.Start) {
-            if (!(definition.plan() instanceof InstantActionPlan plan)) return ActionOutcome.rejected();
-            finished = true;
-            return ActionOutcome.accepted(List.of(EffectIntentEmission.of(plan.intent())), true);
+            startFrame = frameId;
+            done = true;
+            return ActionOutcome.finished(List.of(plan.intent()));
         }
 
-        return ActionOutcome.rejected();
+        return ActionOutcome.reject();
     }
 }

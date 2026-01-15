@@ -13,7 +13,7 @@ public final class FragmentoMod {
 
     public FragmentoMod(IEventBus modBus) {
         ModItemsRegistry.REGISTRY.register(modBus);
-        modBus.addListener(NFWire::register);
+        modBus.addListener(NfWire::register);
         modBus.addListener(ModItemsRegistry::addToCreativeTabs);
     }
 }

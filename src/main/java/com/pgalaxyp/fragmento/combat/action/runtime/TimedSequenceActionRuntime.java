@@ -1,64 +1,67 @@
 package com.pgalaxyp.fragmento.combat.action.runtime;
 
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
-import com.pgalaxyp.fragmento.combat.action.emit.*;
 import com.pgalaxyp.fragmento.combat.action.model.*;
+import com.pgalaxyp.fragmento.combat.effect.model.*;
 import java.util.*;
 
 public final class TimedSequenceActionRuntime implements ActionRuntime {
+    private final List<EffectStep> steps;
+    private final int windowFrames;
+    private long startFrame = Long.MIN_VALUE;
+    private long lastEmitFrame = Long.MIN_VALUE;
+    private int nextIndex;
+    private boolean done;
 
-    private final ActionRunId id = ActionRunId.create();
-    private final ActionDef definition;
-    private int index = -1;
-    private long lastFrame = -1;
-    private boolean finished;
-
-    public TimedSequenceActionRuntime(ActionDef definition) { this.definition = Objects.requireNonNull(definition); }
-
-    @Override
-    public ActionRunId runId() { return id; }
-
-    @Override
-    public ActionDef definition() { return definition; }
+    public TimedSequenceActionRuntime(TimedSequenceActionPlan plan) {
+        this.steps = plan.steps();
+        this.windowFrames = plan.windowFrames();
+    }
 
     @Override
-    public ActionOutcome handle(ActionContext context, ActionRequest request) {
-        Objects.requireNonNull(context);
-        Objects.requireNonNull(request);
-
-        if (finished) return ActionOutcome.ignored();
-
+    public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
+        if (done) return ActionOutcome.finished(List.of());
         if (request instanceof ActionRequest.Cancel) {
-            finished = true;
-            return ActionOutcome.accepted(List.of(), true);
+            done = true;
+            return ActionOutcome.finished(List.of());
+        }
+        if (request instanceof ActionRequest.Start) {
+            startFrame = frameId;
+            lastEmitFrame = frameId;
+            nextIndex = 0;
+            return emit(frameId);
+        }
+        if (!(request instanceof ActionRequest.Tick)) {
+            return ActionOutcome.reject();
+        }
+        if (startFrame == Long.MIN_VALUE) {
+            return ActionOutcome.reject();
         }
 
-        if (!(definition.plan() instanceof TimedSequenceActionPlan plan)) return ActionOutcome.rejected();
+        long delta = frameId - lastEmitFrame;
+        if (delta < 0 || delta > windowFrames * 2L) {
+            done = true;
+            return ActionOutcome.finished(List.of());
+        }
+        if (delta < windowFrames) {
+            return ActionOutcome.running(List.of());
+        }
+        lastEmitFrame = frameId;
 
-        if (request instanceof ActionRequest.Start || request instanceof ActionRequest.Tick) {
-            if (index == -1) index = 0;
-            else {
-                long elapsed = context.frameId() - lastFrame;
-                if (elapsed > plan.windowFrames()) {
-                    finished = true;
-                    return ActionOutcome.accepted(List.of(), true);
-                }
-                index++;
-            }
+        return emit(frameId);
+    }
 
-            if (index >= plan.steps().size()) {
-                finished = true;
-                return ActionOutcome.accepted(List.of(), true);
-            }
-
-            lastFrame = context.frameId();
-            EffectStep step = plan.steps().get(index);
-            boolean isLast = index == plan.steps().size() - 1;
-            if (isLast) finished = true;
-
-            return ActionOutcome.accepted(List.of(EffectIntentEmission.of(step.intent())), isLast);
+    private ActionOutcome emit(long frameId) {
+        if (nextIndex >= steps.size()) {
+            done = true;
+            return ActionOutcome.finished(List.of());
         }
 
-        return ActionOutcome.rejected();
+        EffectIntent intent = steps.get(nextIndex++).intent();
+        boolean finished = nextIndex >= steps.size();
+        if (finished) done = true;
+
+        return ActionOutcome.success(List.of(intent), finished);
     }
 }

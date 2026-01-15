@@ -2,8 +2,8 @@ package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client;
 
 import com.pgalaxyp.fragmento.combat.ports.*;
 import com.pgalaxyp.fragmento.combat.ports.dto.*;
-import com.pgalaxyp.fragmento.combat.core.domain.ids.*;
-import com.pgalaxyp.fragmento.combat.core.events.event.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.event.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.net.wire.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.clientfx.*;
 import java.util.*;
@@ -17,8 +17,8 @@ public final class ClientModRuntime implements ClientInboundPort {
     private final AtomicReference<GameSnapshot> last = new AtomicReference<>();
 
     private ClientModRuntime() {}
-    public static void install() { NFRuntimeRefs.setClientInbound(INSTANCE); }
-    public static void uninstall() { NFRuntimeRefs.clearClientInbound(); }
+    public static void install() { NfRuntimeRefs.setClientInbound(INSTANCE); }
+    public static void uninstall() { NfRuntimeRefs.clearClientInbound(); }
 
     @Override
     public void acceptSnapshot(GameSnapshot snapshot) {

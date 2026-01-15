@@ -10,31 +10,47 @@ import java.util.stream.Stream;
 public final class JavaClassLogger {
 
     private static final Path BASE_DIR =
-            Paths.get("C:\\Users\\User\\Documents\\Projetos\\Fragmento\\src\\main");
+            Paths.get("C:\\Users\\Loteria Aldeota\\Documents\\projetos\\analise f\\src\\main");
 
     private static final List<String> TARGET_FOLDERS = List.of(
-            "java/com/pgalaxyp/fragmento/combat"
+            "C:\\Users\\Loteria Aldeota\\Documents\\projetos\\analise f\\src\\main\\java\\com\\pgalaxyp\\fragmento\\combat"
     );
 
     private static final String OUTPUT_FILE_NAME = "java-classes-log.txt";
 
     public static void main(String[] args) throws IOException {
 
-        Path logDir = BASE_DIR
-                .resolve("java/com/pgalaxyp/fragmento/log");
+        System.out.println("Iniciando JavaClassLogger");
+        System.out.println("BASE_DIR = " + BASE_DIR);
+        System.out.println("BASE_DIR existe: " + Files.exists(BASE_DIR));
+        System.out.println("BASE_DIR é diretório: " + Files.isDirectory(BASE_DIR));
+
+        Path logDir = BASE_DIR.resolve("java/com/pgalaxyp/fragmento/log");
+        System.out.println("LOG_DIR = " + logDir);
 
         Files.createDirectories(logDir);
 
         Path outputFile = logDir.resolve(OUTPUT_FILE_NAME);
+        System.out.println("Arquivo de saída = " + outputFile);
+
         List<String> outputLines = new ArrayList<>();
 
         for (String folder : TARGET_FOLDERS) {
             Path targetDir = BASE_DIR.resolve(folder);
 
+            System.out.println("Verificando diretório alvo: " + targetDir);
+            System.out.println("Existe: " + Files.exists(targetDir));
+            System.out.println("É diretório: " + Files.isDirectory(targetDir));
+
             if (Files.isDirectory(targetDir)) {
+                System.out.println("Entrando no diretório: " + targetDir);
                 collectFilesRecursively(targetDir, outputLines);
+            } else {
+                System.out.println("Diretório ignorado");
             }
         }
+
+        System.out.println("Total de linhas coletadas: " + outputLines.size());
 
         Files.write(
                 outputFile,
@@ -43,28 +59,26 @@ public final class JavaClassLogger {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
         );
+
+        System.out.println("Finalizado com sucesso");
     }
 
     private static void collectFilesRecursively(Path root, List<String> outputLines) {
         try (Stream<Path> paths = Files.walk(root)) {
             paths
                     .filter(Files::isRegularFile)
-                    .filter(JavaClassLogger::isTargetFile)
                     .sorted()
-                    .forEach(file -> appendFile(file, root, outputLines));
+                    .forEach(file -> {
+                        System.out.println("Lendo arquivo: " + file);
+                        appendFile(file, root, outputLines);
+                    });
 
         } catch (IOException e) {
             throw new RuntimeException("Erro ao percorrer diretório: " + root, e);
         }
     }
 
-    private static boolean isTargetFile(Path path) {
-        return true;
-    }
-
     private static void appendFile(Path file, Path root, List<String> outputLines) {
-        Path relativePath = root.relativize(file);
-
         try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
             lines.forEach(outputLines::add);
         } catch (IOException e) {
