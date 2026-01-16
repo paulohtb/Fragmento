@@ -1,13 +1,17 @@
 package com.pgalaxyp.fragmento.combat.content.defaults;
 
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
 import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.effect.model.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import java.util.*;
 
-public final class DefaultActions {
-    public static void register(ContentRegistry registry) {
-        ActionId id = new ActionId("action.magic.basic");
-        registry.action(new ActionDef(id, new InstantActionPlan(EffectIntent.of(DefaultEffects.MAGIC))));
+final class DefaultActions {
+
+    static ActionCatalog create() {
+        ActionDef def = new ActionDef(
+                DefaultIds.ACTION_FLUTE_CAST,
+                new InstantActionPlan(new com.pgalaxyp.fragmento.combat.effect.model.EffectIntent(DefaultIds.EFFECT_FLUTE_MAGIC))
+        );
+
+        return new ActionCatalog(Map.of(def.id(), def));
     }
-    private DefaultActions() {}
 }

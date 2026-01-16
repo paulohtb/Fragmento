@@ -1,14 +1,16 @@
 package com.pgalaxyp.fragmento.combat.cycle.system;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.cycle.api.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
-import com.pgalaxyp.fragmento.combat.cycle.model.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.cycle.model.ActionCycleDef;
+
 import java.util.*;
 
 public final class ActionCycleEngine implements ActionCycleService {
+
     private final ActionCycleCatalog catalog;
 
     public ActionCycleEngine(ActionCycleCatalog catalog) {
@@ -19,9 +21,13 @@ public final class ActionCycleEngine implements ActionCycleService {
     public Optional<ActionRequest> translate(ComboResult comboResult, ActorId actorId, WeaponId weaponId, long frameId) {
         if (!(comboResult instanceof ComboResult.Progress p)) return Optional.empty();
 
-        ActionCycleDef def = catalog.cycleFor(weaponId).orElse(null);
-        if (def == null || !def.comboId().equals(p.comboId())) return Optional.empty();
+        ActionCycleDef def = catalog.cycle(p.comboId(), weaponId).orElse(null);
+        if (def == null) return Optional.empty();
 
-        return Optional.of(p.start() ? new ActionRequest.Start(def.actionId()) : ActionRequest.Tick.INSTANCE);
+        return Optional.of(
+                p.start()
+                        ? new ActionRequest.Start(def.actionId())
+                        : ActionRequest.Tick.INSTANCE
+        );
     }
 }

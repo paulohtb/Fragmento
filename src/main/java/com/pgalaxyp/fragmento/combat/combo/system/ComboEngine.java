@@ -3,10 +3,11 @@ package com.pgalaxyp.fragmento.combat.combo.system;
 import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
-import com.pgalaxyp.fragmento.combat.combo.system.internal.ComboResolver;
+import com.pgalaxyp.fragmento.combat.combo.system.internal.*;
 import java.util.*;
 
 public final class ComboEngine implements ComboService {
+
     private final ComboResolver resolver = new ComboResolver();
 
     @Override
@@ -20,19 +21,23 @@ public final class ComboEngine implements ComboService {
         if (next.isEmpty()) return ComboResult.reject();
 
         int index = next.get();
-        boolean start = index == 0;
-        boolean end = index == pattern.size() - 1;
-        ComboStep step = pattern.step(index);
-
-        return new ComboResult.Progress(comboId, index, pattern.size(), step, start, end);
+        return new ComboResult.Progress(
+                comboId,
+                index,
+                pattern.size(),
+                pattern.step(index),
+                index == 0,
+                index == pattern.size() - 1
+        );
     }
 
     @Override
-    public ComboState start(ComboId comboId, ComboPattern pattern) { return new ComboState(comboId, 0, pattern.size()); }
+    public ComboState start(ComboId comboId, ComboPattern pattern) {
+        return new ComboState(comboId, 0, pattern.size());
+    }
 
     @Override
     public Optional<ComboState> advanceState(ComboState state, int stepsTotal) {
-        if (state.stepIndex() + 1 >= stepsTotal) return Optional.empty();
-        return Optional.of(state.advance());
+        return state.stepIndex() + 1 >= stepsTotal ? Optional.empty() : Optional.of(state.advance());
     }
 }

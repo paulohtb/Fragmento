@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.core.def;
+package com.pgalaxyp.fragmento.combat.effect.model;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;

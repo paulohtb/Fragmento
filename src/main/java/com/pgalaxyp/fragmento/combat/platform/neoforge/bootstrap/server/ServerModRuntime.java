@@ -5,6 +5,7 @@ import com.pgalaxyp.fragmento.combat.combo.skill.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
 import com.pgalaxyp.fragmento.combat.combo.system.*;
 import com.pgalaxyp.fragmento.combat.content.*;
+import com.pgalaxyp.fragmento.combat.content.defaults.DefaultContent;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -40,7 +41,7 @@ public final class ServerModRuntime implements ServerIntentReceiverPort {
         ComboSkillResolver comboSkills = new ComboSkillResolver(List.of());
         var combo = new ComboEngine();
         var cycles = new ActionCycleEngine(content.cycles());
-        var actions = new DefaultActionService(content::action);
+        var actions = new DefaultActionService(id -> content.actions().action(id));
         var effects = new EffectEngine(content, damage, snapshots, targeting.service());
 
         engine = new GameEngine(queue, content, comboTracker, comboSkills, combo, cycles, actions, effects, new NfWorldCommands(server), new NfEventSink(), new NfSnapshotSink(), new GameState(new FrameContext(0, 0), new TreeMap<>()));

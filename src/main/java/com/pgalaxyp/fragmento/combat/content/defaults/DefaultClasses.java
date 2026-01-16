@@ -3,9 +3,9 @@ package com.pgalaxyp.fragmento.combat.content.defaults;
 import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import java.util.*;
 
-final class DefaultWeapons {
+final class DefaultClasses {
 
-    static WeaponCatalog create() {
-        return new WeaponCatalog(Set.of(DefaultIds.WEAPON_FLUTE));
+    static ClassCatalog create() {
+        return new ClassCatalog(Set.of(DefaultIds.CLASS_DEFAULT));
     }
 }

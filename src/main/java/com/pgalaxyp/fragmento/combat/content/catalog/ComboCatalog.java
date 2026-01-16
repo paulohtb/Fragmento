@@ -4,13 +4,17 @@ import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
-public interface ComboCatalog {
+public final class ComboCatalog {
 
-    Optional<Entry> baseFor(WeaponId weaponId);
+    public record Entry(ComboId comboId, ComboPattern pattern) {}
 
-    record Entry(ComboId comboId, ComboPattern pattern) {
-        public Entry {
-            if (comboId == null || pattern == null) { throw new IllegalArgumentException(); }
-        }
+    private final Map<WeaponId, Entry> base;
+
+    public ComboCatalog(Map<WeaponId, Entry> base) {
+        this.base = Map.copyOf(base);
+    }
+
+    public Optional<Entry> baseFor(WeaponId weaponId) {
+        return Optional.ofNullable(base.get(weaponId));
     }
 }

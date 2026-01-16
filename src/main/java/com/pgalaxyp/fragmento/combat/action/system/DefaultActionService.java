@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.function.*;
 
 public final class DefaultActionService implements ActionService {
+
     private final Function<ActionId, Optional<ActionDef>> definitions;
     private final ActionStore store = new ActionStore();
 
@@ -17,6 +18,7 @@ public final class DefaultActionService implements ActionService {
 
     @Override
     public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
+
         if (request instanceof ActionRequest.Start(var actionId)) {
             if (store.hasActive(actorId)) return ActionOutcome.reject();
 
@@ -44,10 +46,7 @@ public final class DefaultActionService implements ActionService {
         };
     }
 
-    @Override
-    public boolean hasActive(ActorId actorId) { return store.hasActive(actorId); }
-    @Override
-    public void clear(ActorId actorId) { store.clear(actorId); }
-    @Override
-    public void clearAll() { store.clearAll(); }
+    @Override public boolean hasActive(ActorId actorId) { return store.hasActive(actorId); }
+    @Override public void clear(ActorId actorId) { store.clear(actorId); }
+    @Override public void clearAll() { store.clearAll(); }
 }

@@ -1,21 +1,12 @@
 package com.pgalaxyp.fragmento.combat.content;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.action.model.*;
 import com.pgalaxyp.fragmento.combat.content.catalog.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
-import java.util.*;
 
-public record GameContent(NavigableMap<ActionId, ActionDef> actions, NavigableMap<WeaponId, WeaponDef> weapons, EffectCatalog effects, ComboCatalog combos, ActionCycleCatalog cycles) {
-    public GameContent {
-        actions = Collections.unmodifiableNavigableMap(new TreeMap<>(Objects.requireNonNull(actions)));
-        weapons = Collections.unmodifiableNavigableMap(new TreeMap<>(Objects.requireNonNull(weapons)));
-        effects = Objects.requireNonNull(effects);
-        combos = Objects.requireNonNull(combos);
-        cycles = Objects.requireNonNull(cycles);
-    }
-
-    public Optional<ActionDef> action(ActionId id) { return Optional.ofNullable(actions.get(id)); }
-    public Optional<WeaponDef> weapon(WeaponId id) { return Optional.ofNullable(weapons.get(id)); }
-}
+public record GameContent(
+        ActionCatalog actions,
+        ComboCatalog combos,
+        EffectCatalog effects,
+        ActionCycleCatalog cycles,
+        WeaponCatalog weapons,
+        ClassCatalog classes
+) {}

@@ -1,4 +1,4 @@
-﻿package com.pgalaxyp.fragmento.combat.action.api;
+package com.pgalaxyp.fragmento.combat.action.api;
 
 import com.pgalaxyp.fragmento.combat.effect.model.*;
 import java.util.*;
@@ -12,9 +12,6 @@ public sealed interface ActionOutcome permits ActionOutcome.Success, ActionOutco
 
     enum Reject implements ActionOutcome { INSTANCE }
 
-    static ActionOutcome success(List<EffectIntent> intents, boolean finished) {
-        return new Success(intents, finished);
-    }
     static ActionOutcome finished(List<EffectIntent> intents) {
         return new Success(intents, true);
     }
@@ -146,21 +143,24 @@ import com.pgalaxyp.fragmento.combat.action.model.*;
 import java.util.*;
 
 public final class InstantActionRuntime implements ActionRuntime {
+
     private final InstantActionPlan plan;
-    private long startFrame = Long.MIN_VALUE;
     private boolean done;
 
-    public InstantActionRuntime(InstantActionPlan plan) { this.plan = Objects.requireNonNull(plan); }
+    public InstantActionRuntime(InstantActionPlan plan) {
+        this.plan = Objects.requireNonNull(plan);
+    }
 
     @Override
     public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
         if (done) return ActionOutcome.finished(List.of());
+
         if (request instanceof ActionRequest.Cancel) {
             done = true;
             return ActionOutcome.finished(List.of());
         }
+
         if (request instanceof ActionRequest.Start) {
-            startFrame = frameId;
             done = true;
             return ActionOutcome.finished(List.of(plan.intent()));
         }
@@ -174,13 +174,12 @@ package com.pgalaxyp.fragmento.combat.action.runtime;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
 import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.effect.model.*;
 import java.util.*;
 
 public final class TimedSequenceActionRuntime implements ActionRuntime {
+
     private final List<EffectStep> steps;
     private final int windowFrames;
-    private long startFrame = Long.MIN_VALUE;
     private long lastEmitFrame = Long.MIN_VALUE;
     private int nextIndex;
     private boolean done;
@@ -193,33 +192,28 @@ public final class TimedSequenceActionRuntime implements ActionRuntime {
     @Override
     public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
         if (done) return ActionOutcome.finished(List.of());
+
         if (request instanceof ActionRequest.Cancel) {
             done = true;
             return ActionOutcome.finished(List.of());
         }
+
         if (request instanceof ActionRequest.Start) {
-            startFrame = frameId;
             lastEmitFrame = frameId;
             nextIndex = 0;
             return emit(frameId);
         }
-        if (!(request instanceof ActionRequest.Tick)) {
-            return ActionOutcome.reject();
-        }
-        if (startFrame == Long.MIN_VALUE) {
-            return ActionOutcome.reject();
-        }
+
+        if (!(request instanceof ActionRequest.Tick)) return ActionOutcome.reject();
 
         long delta = frameId - lastEmitFrame;
-        if (delta < 0 || delta > windowFrames * 2L) {
+        if (delta < windowFrames) return ActionOutcome.running(List.of());
+        if (delta > windowFrames * 2L) {
             done = true;
             return ActionOutcome.finished(List.of());
         }
-        if (delta < windowFrames) {
-            return ActionOutcome.running(List.of());
-        }
-        lastEmitFrame = frameId;
 
+        lastEmitFrame = frameId;
         return emit(frameId);
     }
 
@@ -229,11 +223,13 @@ public final class TimedSequenceActionRuntime implements ActionRuntime {
             return ActionOutcome.finished(List.of());
         }
 
-        EffectIntent intent = steps.get(nextIndex++).intent();
+        var intent = steps.get(nextIndex++).intent();
         boolean finished = nextIndex >= steps.size();
         if (finished) done = true;
 
-        return ActionOutcome.success(List.of(intent), finished);
+        return finished
+                ? ActionOutcome.finished(List.of(intent))
+                : ActionOutcome.running(List.of(intent));
     }
 }
 
@@ -247,6 +243,7 @@ import java.util.*;
 import java.util.function.*;
 
 public final class DefaultActionService implements ActionService {
+
     private final Function<ActionId, Optional<ActionDef>> definitions;
     private final ActionStore store = new ActionStore();
 
@@ -256,6 +253,7 @@ public final class DefaultActionService implements ActionService {
 
     @Override
     public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
+
         if (request instanceof ActionRequest.Start(var actionId)) {
             if (store.hasActive(actorId)) return ActionOutcome.reject();
 
@@ -283,12 +281,9 @@ public final class DefaultActionService implements ActionService {
         };
     }
 
-    @Override
-    public boolean hasActive(ActorId actorId) { return store.hasActive(actorId); }
-    @Override
-    public void clear(ActorId actorId) { store.clear(actorId); }
-    @Override
-    public void clearAll() { store.clearAll(); }
+    @Override public boolean hasActive(ActorId actorId) { return store.hasActive(actorId); }
+    @Override public void clear(ActorId actorId) { store.clear(actorId); }
+    @Override public void clearAll() { store.clearAll(); }
 }
 
 package com.pgalaxyp.fragmento.combat.combo.api;
@@ -303,18 +298,19 @@ package com.pgalaxyp.fragmento.combat.combo.api;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 
 public sealed interface ComboResult permits ComboResult.Progress, ComboResult.Reject {
-    record Progress(ComboId comboId, int stepIndex, int stepsTotal, ComboStep step, boolean start, boolean end) implements ComboResult {
-        public Progress {
-            if (comboId == null || step == null) throw new IllegalArgumentException();
-            if (stepIndex < 0 || stepsTotal <= 0 || stepIndex >= stepsTotal) throw new IllegalArgumentException();
-            if (step.index() != stepIndex) throw new IllegalArgumentException();
-            if (start && stepIndex != 0) throw new IllegalArgumentException();
-            if (end && stepIndex != stepsTotal - 1) throw new IllegalArgumentException();
-        }
-    }
 
-    record Reject() implements ComboResult {}
-    static ComboResult reject() { return new Reject(); }
+    record Progress(
+            ComboId comboId,
+            int stepIndex,
+            int stepsTotal,
+            ComboStep step,
+            boolean start,
+            boolean end
+    ) implements ComboResult {}
+
+    enum Reject implements ComboResult { INSTANCE }
+
+    static ComboResult reject() { return Reject.INSTANCE; }
 }
 
 package com.pgalaxyp.fragmento.combat.combo.api;
@@ -495,10 +491,11 @@ package com.pgalaxyp.fragmento.combat.combo.system;
 import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
-import com.pgalaxyp.fragmento.combat.combo.system.internal.ComboResolver;
+import com.pgalaxyp.fragmento.combat.combo.system.internal.*;
 import java.util.*;
 
 public final class ComboEngine implements ComboService {
+
     private final ComboResolver resolver = new ComboResolver();
 
     @Override
@@ -512,20 +509,24 @@ public final class ComboEngine implements ComboService {
         if (next.isEmpty()) return ComboResult.reject();
 
         int index = next.get();
-        boolean start = index == 0;
-        boolean end = index == pattern.size() - 1;
-        ComboStep step = pattern.step(index);
-
-        return new ComboResult.Progress(comboId, index, pattern.size(), step, start, end);
+        return new ComboResult.Progress(
+                comboId,
+                index,
+                pattern.size(),
+                pattern.step(index),
+                index == 0,
+                index == pattern.size() - 1
+        );
     }
 
     @Override
-    public ComboState start(ComboId comboId, ComboPattern pattern) { return new ComboState(comboId, 0, pattern.size()); }
+    public ComboState start(ComboId comboId, ComboPattern pattern) {
+        return new ComboState(comboId, 0, pattern.size());
+    }
 
     @Override
     public Optional<ComboState> advanceState(ComboState state, int stepsTotal) {
-        if (state.stepIndex() + 1 >= stepsTotal) return Optional.empty();
-        return Optional.of(state.advance());
+        return state.stepIndex() + 1 >= stepsTotal ? Optional.empty() : Optional.of(state.advance());
     }
 }
 
@@ -550,35 +551,61 @@ public final class ComboResolver {
     }
 }
 
-package com.pgalaxyp.fragmento.combat.content.bindings;
+package com.pgalaxyp.fragmento.combat.content.catalog;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.cycle.model.*;
+import com.pgalaxyp.fragmento.combat.action.model.*;
 import java.util.*;
 
-public interface ActionCycleCatalog {
-    Optional<ActionCycleDef> cycleFor(WeaponId weaponId);
-}
+public final class ActionCatalog {
 
-package com.pgalaxyp.fragmento.combat.content.bindings;
+    private final Map<ActionId, ActionDef> defs;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.cycle.model.*;
-import java.util.*;
-
-public final class DefaultActionCycleCatalog implements ActionCycleCatalog {
-    private final NavigableMap<WeaponId, ActionCycleDef> byWeapon = new TreeMap<>();
-
-    public void register(WeaponId weaponId, ActionCycleDef def) {
-        Objects.requireNonNull(weaponId);
-        Objects.requireNonNull(def);
-        if (byWeapon.putIfAbsent(weaponId, def) != null) throw new IllegalStateException();
+    public ActionCatalog(Map<ActionId, ActionDef> defs) {
+        this.defs = Map.copyOf(defs);
     }
 
-    @Override
-    public Optional<ActionCycleDef> cycleFor(WeaponId weaponId) {
-        Objects.requireNonNull(weaponId);
-        return Optional.ofNullable(byWeapon.get(weaponId));
+    public Optional<ActionDef> action(ActionId id) {
+        return Optional.ofNullable(defs.get(id));
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content.catalog;
+
+import com.pgalaxyp.fragmento.combat.cycle.model.*;
+import com.pgalaxyp.fragmento.combat.combo.model.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import java.util.*;
+
+public final class ActionCycleCatalog {
+
+    public record Key(ComboId comboId, WeaponId weaponId) {}
+
+    private final Map<Key, ActionCycleDef> defs;
+
+    public ActionCycleCatalog(Map<Key, ActionCycleDef> defs) {
+        this.defs = Map.copyOf(defs);
+    }
+
+    public Optional<ActionCycleDef> cycle(ComboId comboId, WeaponId weaponId) {
+        return Optional.ofNullable(defs.get(new Key(comboId, weaponId)));
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content.catalog;
+
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import java.util.*;
+
+public final class ClassCatalog {
+
+    private final Set<ClassId> classes;
+
+    public ClassCatalog(Set<ClassId> classes) {
+        this.classes = Set.copyOf(classes);
+    }
+
+    public boolean exists(ClassId id) {
+        return classes.contains(id);
     }
 }
 
@@ -588,259 +615,210 @@ import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
-public interface ComboCatalog {
+public final class ComboCatalog {
 
-    Optional<Entry> baseFor(WeaponId weaponId);
+    public record Entry(ComboId comboId, ComboPattern pattern) {}
 
-    record Entry(ComboId comboId, ComboPattern pattern) {
-        public Entry {
-            if (comboId == null || pattern == null) { throw new IllegalArgumentException(); }
-        }
-    }
-}
+    private final Map<WeaponId, Entry> base;
 
-package com.pgalaxyp.fragmento.combat.content.catalog;
-
-import com.pgalaxyp.fragmento.combat.combo.model.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import java.util.*;
-
-public final class DefaultComboCatalog implements ComboCatalog {
-
-    private final NavigableMap<WeaponId, Entry> byWeapon = new TreeMap<>();
-
-    public void register(WeaponId weaponId, ComboId comboId, ComboPattern pattern) {
-        if (weaponId == null || comboId == null || pattern == null) throw new IllegalArgumentException();
-        if (byWeapon.containsKey(weaponId)) throw new IllegalStateException();
-        byWeapon.put(weaponId, new Entry(comboId, pattern));
+    public ComboCatalog(Map<WeaponId, Entry> base) {
+        this.base = Map.copyOf(base);
     }
 
-    @Override
     public Optional<Entry> baseFor(WeaponId weaponId) {
-        if (weaponId == null) throw new IllegalArgumentException();
-        return Optional.ofNullable(byWeapon.get(weaponId));
+        return Optional.ofNullable(base.get(weaponId));
     }
 }
 
 package com.pgalaxyp.fragmento.combat.content.catalog;
 
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.EffectId;
+import com.pgalaxyp.fragmento.combat.effect.model.EffectDef;
 import java.util.*;
 
-public final class DefaultEffectCatalog implements EffectCatalog {
-    private final NavigableMap<EffectId, EffectDef> byId = new TreeMap<>();
+public final class EffectCatalog {
 
-    public void register(EffectDef def) {
-        Objects.requireNonNull(def);
-        if (byId.putIfAbsent(def.id(), def) != null) throw new IllegalStateException();
+    private final Map<EffectId, EffectDef> defs;
+
+    public EffectCatalog(Map<EffectId, EffectDef> defs) {
+        this.defs = Map.copyOf(defs);
     }
 
-    @Override
-    public Optional<EffectDef> effect(EffectId effectId) {
-        Objects.requireNonNull(effectId);
-        return Optional.ofNullable(byId.get(effectId));
+    public Optional<EffectDef> effect(EffectId id) {
+        return Optional.ofNullable(defs.get(id));
     }
-
-    public NavigableMap<EffectId, EffectDef> view() { return Collections.unmodifiableNavigableMap(byId); }
 }
 
 package com.pgalaxyp.fragmento.combat.content.catalog;
 
-import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
-public interface EffectCatalog {
-    Optional<EffectDef> effect(EffectId effectId);
+public final class WeaponCatalog {
+
+    private final Set<WeaponId> weapons;
+
+    public WeaponCatalog(Set<WeaponId> weapons) {
+        this.weapons = Set.copyOf(weapons);
+    }
+
+    public boolean exists(WeaponId id) {
+        return weapons.contains(id);
+    }
 }
 
 package com.pgalaxyp.fragmento.combat.content;
 
-import com.pgalaxyp.fragmento.combat.content.defaults.*;
-import com.pgalaxyp.fragmento.combat.content.registry.*;
+import com.pgalaxyp.fragmento.combat.action.model.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import java.util.*;
+
+final class DefaultActions {
+
+    static ActionCatalog create() {
+        ActionDef def = new ActionDef(
+                DefaultIds.ACTION_FLUTE_CAST,
+                new InstantActionPlan(new com.pgalaxyp.fragmento.combat.effect.model.EffectIntent(DefaultIds.EFFECT_FLUTE_MAGIC))
+        );
+
+        return new ActionCatalog(Map.of(def.id(), def));
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content;
+
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import java.util.*;
+
+final class DefaultClasses {
+
+    static ClassCatalog create() {
+        return new ClassCatalog(Set.of(DefaultIds.CLASS_DEFAULT));
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content;
+
+import com.pgalaxyp.fragmento.combat.combo.api.*;
+import com.pgalaxyp.fragmento.combat.combo.model.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import java.util.*;
+
+final class DefaultCombos {
+
+    static ComboCatalog create() {
+        ComboPattern pattern = new ComboPattern(List.of(
+                new ComboStep(0, ComboInput.PRIMARY)
+        ));
+
+        Map<WeaponId, ComboCatalog.Entry> map = Map.of(
+                DefaultIds.WEAPON_FLUTE,
+                new ComboCatalog.Entry(DefaultIds.COMBO_FLUTE, pattern)
+        );
+
+        return new ComboCatalog(map);
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content;
 
 public final class DefaultContent {
+
     public static GameContent create() {
-        ContentRegistry registry = new ContentRegistry();
-        DefaultWeapons.register(registry);
-        DefaultEffects.register(registry);
-        DefaultActions.register(registry);
-        DefaultCombos.register(registry);
-        DefaultCycles.register(registry);
-        return registry.build();
+        return new GameContent(
+                DefaultActions.create(),
+                DefaultCombos.create(),
+                DefaultEffects.create(),
+                DefaultCycles.create(),
+                DefaultWeapons.create(),
+                DefaultClasses.create()
+        );
     }
+
     private DefaultContent() {}
 }
 
-package com.pgalaxyp.fragmento.combat.content.defaults;
+package com.pgalaxyp.fragmento.combat.content;
 
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
-import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.effect.model.*;
-
-public final class DefaultActions {
-    public static void register(ContentRegistry registry) {
-        ActionId id = new ActionId("action.magic.basic");
-        registry.action(new ActionDef(id, new InstantActionPlan(EffectIntent.of(DefaultEffects.MAGIC))));
-    }
-    private DefaultActions() {}
-}
-
-package com.pgalaxyp.fragmento.combat.content.defaults;
-
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.combo.api.*;
-import com.pgalaxyp.fragmento.combat.combo.model.*;
-
-public final class DefaultCombos {
-    public static final ComboId BASIC = new ComboId("combo.basic.primary");
-    public static void register(ContentRegistry registry) {
-        WeaponId weapon = DefaultWeapons.FLUTE;
-        ComboPattern pattern = new ComboPattern(java.util.List.of(new ComboStep(0, ComboInput.PRIMARY)));
-        registry.combos().register(weapon, BASIC, pattern);
-    }
-    private DefaultCombos() {}
-}
-
-package com.pgalaxyp.fragmento.combat.content.defaults;
-
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.cycle.model.*;
-import com.pgalaxyp.fragmento.combat.action.model.*;
+import java.util.*;
 
-public final class DefaultCycles {
-    public static void register(ContentRegistry registry) {
-        registry.cycles().register(
-                DefaultWeapons.FLUTE,
-                new ActionCycleDef(DefaultCombos.BASIC, new ActionId("action.magic.basic"))
+final class DefaultCycles {
+
+    static ActionCycleCatalog create() {
+        ActionCycleDef def = new ActionCycleDef(
+                DefaultIds.COMBO_FLUTE,
+                DefaultIds.ACTION_FLUTE_CAST
         );
+
+        return new ActionCycleCatalog(Map.of(
+                new ActionCycleCatalog.Key(DefaultIds.COMBO_FLUTE, DefaultIds.WEAPON_FLUTE),
+                def
+        ));
     }
-    private DefaultCycles() {}
-}
-
-package com.pgalaxyp.fragmento.combat.content.defaults;
-
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.damage.domain.*;
-
-public final class DefaultEffects {
-    public static final EffectId MAGIC = new EffectId("effect.magic.basic");
-    public static void register(ContentRegistry registry) {
-        registry.effect(EffectDef.withVisual(
-                        MAGIC,
-                        new DamageSpec(2, DamageType.MAGIC, DamageElement.AIR)));
-    }
-    private DefaultEffects() {}
-}
-
-package com.pgalaxyp.fragmento.combat.content.defaults;
-
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.content.registry.*;
-
-public final class DefaultWeapons {
-    public static final WeaponId FLUTE = new WeaponId("weapon.flute");
-    public static void register(ContentRegistry registry) {
-        registry.weapon(WeaponDef.of(FLUTE));
-    }
-    private DefaultWeapons() {}
 }
 
 package com.pgalaxyp.fragmento.combat.content;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.action.model.*;
 import com.pgalaxyp.fragmento.combat.content.catalog.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
-import java.util.*;
-
-public record GameContent(NavigableMap<ActionId, ActionDef> actions, NavigableMap<WeaponId, WeaponDef> weapons, EffectCatalog effects, ComboCatalog combos, ActionCycleCatalog cycles) {
-    public GameContent {
-        actions = Collections.unmodifiableNavigableMap(new TreeMap<>(Objects.requireNonNull(actions)));
-        weapons = Collections.unmodifiableNavigableMap(new TreeMap<>(Objects.requireNonNull(weapons)));
-        effects = Objects.requireNonNull(effects);
-        combos = Objects.requireNonNull(combos);
-        cycles = Objects.requireNonNull(cycles);
-    }
-
-    public Optional<ActionDef> action(ActionId id) { return Optional.ofNullable(actions.get(id)); }
-    public Optional<WeaponDef> weapon(WeaponId id) { return Optional.ofNullable(weapons.get(id)); }
-}
-
-package com.pgalaxyp.fragmento.combat.content.registry;
-
-import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.content.catalog.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
-import java.util.*;
-
-public final class ContentRegistry {
-    private final NavigableMap<ActionId, ActionDef> actions = new TreeMap<>();
-    private final NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
-    private final DefaultEffectCatalog effects = new DefaultEffectCatalog();
-    private final DefaultComboCatalog combos = new DefaultComboCatalog();
-    private final DefaultActionCycleCatalog cycles = new DefaultActionCycleCatalog();
-
-    public void action(ActionDef def) { actions.put(Objects.requireNonNull(def).id(), def); }
-    public void weapon(WeaponDef def) { weapons.put(Objects.requireNonNull(def).id(), def); }
-    public void effect(EffectDef def) { effects.register(Objects.requireNonNull(def)); }
-
-    public DefaultComboCatalog combos() { return combos; }
-    public DefaultActionCycleCatalog cycles() { return cycles; }
-
-    public GameContent build() {
-        return new GameContent(actions, weapons, effects, combos, cycles);
-    }
-}
-
-package com.pgalaxyp.fragmento.combat.core.def;
-
-import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
-import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
-
-public record ClassDef(
-        ClassId id,
-        WeaponId startingWeaponId
-) {
-    public ClassDef {
-        if (id == null || startingWeaponId == null) {
-            throw new IllegalArgumentException();
-        }
-    }
-}
-
-package com.pgalaxyp.fragmento.combat.core.def;
-
-import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;
+import com.pgalaxyp.fragmento.combat.effect.model.*;
+import java.util.*;
 
-public record EffectDef(EffectId id, DamageSpec damage) {
-    public static EffectDef withVisual(EffectId id, DamageSpec damage) {
-        if (id == null || damage == null) { throw new IllegalArgumentException(); }
-        return new EffectDef(id, damage);
+final class DefaultEffects {
+
+    static EffectCatalog create() {
+        EffectDef def = new EffectDef(
+                DefaultIds.EFFECT_FLUTE_MAGIC,
+                new DamageSpec(4, DamageType.MAGIC, DamageElement.AIR)
+        );
+
+        return new EffectCatalog(Map.of(def.id(), def));
     }
 }
 
-package com.pgalaxyp.fragmento.combat.core.def;
+package com.pgalaxyp.fragmento.combat.content;
 
+import com.pgalaxyp.fragmento.combat.action.model.ActionId;
+import com.pgalaxyp.fragmento.combat.combo.model.ComboId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 
-public record WeaponDef(WeaponId id) {
-    public WeaponDef {
-        if (id == null) throw new IllegalArgumentException();
-    }
+public final class DefaultIds {
+    public static final ClassId CLASS_DEFAULT = new ClassId("class.default");
+    public static final WeaponId WEAPON_FLUTE = new WeaponId("weapon.flute");
+    public static final ComboId COMBO_FLUTE = new ComboId("combo.flute.basic");
+    public static final ActionId ACTION_FLUTE_CAST = new ActionId("action.flute.cast");
+    public static final EffectId EFFECT_FLUTE_MAGIC = new EffectId("effect.flute.magic");
 
-    public static WeaponDef of(WeaponId id) { return new WeaponDef(id); }
+    private DefaultIds() {}
 }
+
+package com.pgalaxyp.fragmento.combat.content;
+
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import java.util.*;
+
+final class DefaultWeapons {
+
+    static WeaponCatalog create() {
+        return new WeaponCatalog(Set.of(DefaultIds.WEAPON_FLUTE));
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.content;
+
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
+
+public record GameContent(
+        ActionCatalog actions,
+        ComboCatalog combos,
+        EffectCatalog effects,
+        ActionCycleCatalog cycles,
+        WeaponCatalog weapons,
+        ClassCatalog classes
+) {}
 
 package com.pgalaxyp.fragmento.combat.core.ids;
 
@@ -960,6 +938,7 @@ import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.combo.skill.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
+import com.pgalaxyp.fragmento.combat.content.defaults.DefaultIds;
 import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
@@ -974,18 +953,32 @@ import java.util.*;
 
 public final class GameRules {
 
-    public static RuleResult pass(FrameContext frame, GameState state, List<IntentEnvelope> intents, ComboCatalog combos, ComboTracker comboTracker, ComboSkillResolver comboSkills, ComboService combo, ActionCycleService cycles, ActionService actions, EffectService effects) {
+    public static RuleResult pass(
+            FrameContext frame,
+            GameState state,
+            List<IntentEnvelope> intents,
+            ComboCatalog combos,
+            ComboTracker comboTracker,
+            ComboSkillResolver comboSkills,
+            ComboService combo,
+            ActionCycleService cycles,
+            ActionService actions,
+            EffectService effects
+    ) {
+
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
 
         for (IntentEnvelope env : intents) {
+
             ActorId actorId = env.actorId();
+
             if (env.intent() instanceof ActorJoinIntent) {
                 if (state.findActor(actorId).isEmpty()) {
                     deltas.add(new ActorSpawned(
                             actorId,
-                            new ClassId("class.default"),
-                            new WeaponId("weapon.flute"),
+                            DefaultIds.CLASS_DEFAULT,
+                            DefaultIds.WEAPON_FLUTE,
                             20,
                             20
                     ));
@@ -1002,21 +995,26 @@ public final class GameRules {
             var entry = combos.baseFor(weaponId).orElse(null);
             if (entry == null) continue;
 
-            ComboId comboId = entry.comboId();
             ComboPattern pattern = comboSkills.resolve(actorId, weaponId, entry.pattern());
             Optional<ComboState> prev = comboTracker.get(actorId);
 
-            ComboResult result = combo.decide(comboId, pattern, p.input(), prev);
+            ComboResult result = combo.decide(entry.comboId(), pattern, p.input(), prev);
             if (!(result instanceof ComboResult.Progress progress)) continue;
 
-            Optional<ComboState> next = progress.end() ? Optional.empty() : combo.advanceState(prev.orElseGet(() -> combo.start(comboId, pattern)), progress.stepsTotal());
+            Optional<ComboState> next =
+                    progress.end()
+                            ? Optional.empty()
+                            : combo.advanceState(prev.orElseGet(() -> combo.start(entry.comboId(), pattern)), progress.stepsTotal());
 
-            if (next.isPresent()) comboTracker.put(actorId, next.get());
-            else comboTracker.clear(actorId);
+            next.ifPresentOrElse(
+                    s -> comboTracker.put(actorId, s),
+                    () -> comboTracker.clear(actorId)
+            );
 
-            ActionRequest req = cycles.translate(progress, actorId, weaponId, frame.frameId()).orElse(ActionRequest.Cancel.INSTANCE);
+            Optional<ActionRequest> reqOpt = cycles.translate(progress, actorId, weaponId, frame.frameId());
+            if (reqOpt.isEmpty()) continue;
 
-            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), req);
+            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), reqOpt.get());
             if (!(out instanceof ActionOutcome.Success s)) continue;
 
             for (EffectIntent intent : s.intents()) {
@@ -1171,15 +1169,17 @@ public record ActionCycleDef(ComboId comboId, ActionId actionId) {
 
 package com.pgalaxyp.fragmento.combat.cycle.system;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.cycle.api.*;
 import com.pgalaxyp.fragmento.combat.action.api.*;
-import com.pgalaxyp.fragmento.combat.cycle.model.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.cycle.model.ActionCycleDef;
+
 import java.util.*;
 
 public final class ActionCycleEngine implements ActionCycleService {
+
     private final ActionCycleCatalog catalog;
 
     public ActionCycleEngine(ActionCycleCatalog catalog) {
@@ -1190,10 +1190,14 @@ public final class ActionCycleEngine implements ActionCycleService {
     public Optional<ActionRequest> translate(ComboResult comboResult, ActorId actorId, WeaponId weaponId, long frameId) {
         if (!(comboResult instanceof ComboResult.Progress p)) return Optional.empty();
 
-        ActionCycleDef def = catalog.cycleFor(weaponId).orElse(null);
-        if (def == null || !def.comboId().equals(p.comboId())) return Optional.empty();
+        ActionCycleDef def = catalog.cycle(p.comboId(), weaponId).orElse(null);
+        if (def == null) return Optional.empty();
 
-        return Optional.of(p.start() ? new ActionRequest.Start(def.actionId()) : ActionRequest.Tick.INSTANCE);
+        return Optional.of(
+                p.start()
+                        ? new ActionRequest.Start(def.actionId())
+                        : ActionRequest.Tick.INSTANCE
+        );
     }
 }
 
@@ -1426,6 +1430,18 @@ public interface EffectService {
 package com.pgalaxyp.fragmento.combat.effect.model;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.damage.domain.*;
+
+public record EffectDef(EffectId id, DamageSpec damage) {
+    public static EffectDef withVisual(EffectId id, DamageSpec damage) {
+        if (id == null || damage == null) { throw new IllegalArgumentException(); }
+        return new EffectDef(id, damage);
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.effect.model;
+
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public record EffectIntent(EffectId effectId) {
     public EffectIntent { if (effectId == null) throw new IllegalArgumentException(); }
@@ -1450,7 +1466,6 @@ public record EffectOutcome(List<StateDelta> deltas, List<DomainEvent> events) {
 package com.pgalaxyp.fragmento.combat.effect.system;
 
 import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -1460,10 +1475,12 @@ import com.pgalaxyp.fragmento.combat.damage.snapshot.*;
 import com.pgalaxyp.fragmento.combat.effect.api.*;
 import com.pgalaxyp.fragmento.combat.effect.model.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
-import com.pgalaxyp.fragmento.combat.targeting.system.*;
+import com.pgalaxyp.fragmento.combat.targeting.system.TargetingContext;
+
 import java.util.*;
 
 public final class EffectEngine implements EffectService {
+
     private final GameContent content;
     private final DamageService damage;
     private final DamageSnapshotProvider snapshots;
@@ -1478,6 +1495,7 @@ public final class EffectEngine implements EffectService {
 
     @Override
     public EffectOutcome apply(FrameContext frame, GameState state, EffectIntent intent, ActorId source) {
+
         EffectDef def = content.effects().effect(intent.effectId()).orElse(null);
         if (def == null) return EffectOutcome.empty();
 
@@ -1490,7 +1508,10 @@ public final class EffectEngine implements EffectService {
         DamageSnapshot snap = snapshots.snapshot(state, source, targetId);
         DamageResult result = damage.resolve(new DamageRequest(source, targetId, spec), snap);
 
-        return new EffectOutcome(List.of(new com.pgalaxyp.fragmento.combat.delta.DamageApplied(targetId, result.finalHearts())), List.of());
+        return new EffectOutcome(
+                List.of(new com.pgalaxyp.fragmento.combat.delta.DamageApplied(targetId, result.finalHearts())),
+                List.of()
+        );
     }
 }
 
@@ -1771,7 +1792,14 @@ package com.pgalaxyp.fragmento.combat.event;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 
-public record HomingMagicVisualEvent(long frameId, int localIndex, ActorId sourceActorId, ActorId targetActorId, int lifetimeFrames) {
+public record HomingMagicVisualEvent(
+        long frameId,
+        int localIndex,
+        ActorId sourceActorId,
+        ActorId targetActorId,
+        int lifetimeFrames
+) implements DomainEvent {
+
     public HomingMagicVisualEvent {
         if (frameId < 0 || localIndex < 0) throw new IllegalArgumentException();
         if (sourceActorId == null || targetActorId == null) throw new IllegalArgumentException();
@@ -2470,18 +2498,18 @@ public final class ClientGameEvents {
 
 package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client;
 
-import com.pgalaxyp.fragmento.combat.content.*;
+import com.pgalaxyp.fragmento.combat.content.defaults.DefaultIds;
 import com.pgalaxyp.fragmento.combat.input.minecraft.*;
-import com.pgalaxyp.fragmento.combat.content.defaults.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.items.*;
 import net.neoforged.bus.api.*;
 import net.neoforged.fml.event.lifecycle.*;
 
 public final class ClientModEvents {
+
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent evt) {
         ItemWeaponBinding mapping = new ItemWeaponBinding();
-        mapping.register(ModItemsRegistry.FLUTE.get(), DefaultWeapons.FLUTE);
+        mapping.register(ModItemsRegistry.FLUTE.get(), DefaultIds.WEAPON_FLUTE);
     }
 
     private ClientModEvents() {}
@@ -2643,7 +2671,7 @@ public final class ServerModRuntime implements ServerIntentReceiverPort {
         ComboSkillResolver comboSkills = new ComboSkillResolver(List.of());
         var combo = new ComboEngine();
         var cycles = new ActionCycleEngine(content.cycles());
-        var actions = new DefaultActionService(content::action);
+        var actions = new DefaultActionService(id -> content.actions().action(id));
         var effects = new EffectEngine(content, damage, snapshots, targeting.service());
 
         engine = new GameEngine(queue, content, comboTracker, comboSkills, combo, cycles, actions, effects, new NfWorldCommands(server), new NfEventSink(), new NfSnapshotSink(), new GameState(new FrameContext(0, 0), new TreeMap<>()));
@@ -2816,25 +2844,22 @@ import java.util.*;
 import java.nio.charset.*;
 
 public final class NfCodec {
+
     private static final int VERSION = 2;
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
     private static final int MSG_EVENTS = 3;
     private static final int INTENT_JOIN = 1;
     private static final int INTENT_PERFORM = 2;
-    private static final int EVENT_AUDIT = 1;
-    private static final int EVENT_HOMING_MAGIC = 2;
+    private static final int EVENT_HOMING_MAGIC = 1;
 
     public static byte[] encodeIntent(IntentEnvelope env) {
-        if (env == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
 
             out.writeInt(VERSION);
             out.writeInt(MSG_INTENT);
-
             writeUuid(out, env.actorId().uuid());
             writeIntent(out, env.intent());
             Long hint = env.clientFrameHint();
@@ -2843,12 +2868,12 @@ public final class NfCodec {
             out.flush();
 
             return outBytes.toByteArray();
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static IntentEnvelope decodeIntent(byte[] data) {
-        if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
@@ -2857,89 +2882,80 @@ public final class NfCodec {
             ActorId actorId = new ActorId(readUuid(in));
             DomainIntent intent = readIntent(in);
             Long hint = in.readBoolean() ? in.readLong() : null;
-
             return new IntentEnvelope(actorId, intent, hint);
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static byte[] encodeSnapshot(GameSnapshot snapshot) {
-        if (snapshot == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
 
             out.writeInt(VERSION);
             out.writeInt(MSG_SNAPSHOT);
-
             writeFrame(out, snapshot.frame());
             out.writeInt(snapshot.actors().size());
+
             for (var e : snapshot.actors().entrySet()) {
                 writeActorId(out, e.getKey());
                 writeActorState(out, e.getValue());
             }
 
             out.flush();
-
             return outBytes.toByteArray();
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static GameSnapshot decodeSnapshot(byte[] data) {
-        if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_SNAPSHOT) throw new IllegalArgumentException();
 
             FrameContext frame = readFrame(in);
             int size = in.readInt();
-            if (size < 0) throw new IllegalArgumentException();
-
             TreeMap<ActorId, ActorState> actors = new TreeMap<>();
             for (int i = 0; i < size; i++) actors.put(readActorId(in), readActorState(in));
-
             return new GameSnapshot(frame, actors);
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static byte[] encodeEvents(List<DomainEvent> events) {
-        if (events == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
 
             out.writeInt(VERSION);
             out.writeInt(MSG_EVENTS);
-
             out.writeInt(events.size());
             for (DomainEvent e : events) writeEvent(out, e);
 
             out.flush();
-
             return outBytes.toByteArray();
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static List<DomainEvent> decodeEvents(byte[] data) {
-        if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_EVENTS) throw new IllegalArgumentException();
 
             int size = in.readInt();
-            if (size < 0) throw new IllegalArgumentException();
-
             ArrayList<DomainEvent> out = new ArrayList<>(size);
             for (int i = 0; i < size; i++) out.add(readEvent(in));
-
             return List.copyOf(out);
-        } catch (Exception e) { throw new IllegalArgumentException(); }
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
+        }
     }
 
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
@@ -2954,42 +2970,32 @@ public final class NfCodec {
     private static DomainIntent readIntent(DataInputStream in) throws Exception {
         return switch (in.readInt()) {
             case INTENT_JOIN -> new ActorJoinIntent();
-            case INTENT_PERFORM -> {
-                int ord = in.readInt();
-                ComboInput[] vals = ComboInput.values();
-                if (ord < 0 || ord >= vals.length) throw new IllegalArgumentException();
-                yield new PerformActionIntent(vals[ord]);
-            }
+            case INTENT_PERFORM -> new PerformActionIntent(ComboInput.values()[in.readInt()]);
             default -> throw new IllegalArgumentException();
         };
     }
 
-    private static void writeEvent(DataOutputStream output, DomainEvent event) throws Exception {
-        if (event instanceof AuditEvent(var message)) {
-            output.writeInt(EVENT_AUDIT);
-            writeString(output, message);
-            return;
-        }
-        if (event instanceof HomingMagicVisualEvent(long frameId, int localIndex, QueryId queryId, ActorId source, ActorId target, int lifetimeFrames)) {
-            output.writeInt(EVENT_HOMING_MAGIC);
-            output.writeLong(frameId);
-            output.writeInt(localIndex);
-            output.writeLong(queryId.value());
-            writeActorId(output, source);
-            writeActorId(output, target);
-            output.writeInt(lifetimeFrames);
+    private static void writeEvent(DataOutputStream out, DomainEvent event) throws Exception {
+        if (event instanceof HomingMagicVisualEvent hm) {
+            out.writeInt(EVENT_HOMING_MAGIC);
+            out.writeLong(hm.frameId());
+            out.writeInt(hm.localIndex());
+            writeActorId(out, hm.sourceActorId());
+            writeActorId(out, hm.targetActorId());
+            out.writeInt(hm.lifetimeFrames());
             return;
         }
         throw new IllegalArgumentException();
     }
 
-    private static DomainEvent readEvent(DataInputStream input) throws Exception {
-        int t = input.readInt();
-        if (t == EVENT_AUDIT) return new AuditEvent(readString(input));
-        if (t == EVENT_HOMING_MAGIC) {
-            return new HomingMagicVisualEvent(input.readLong(), input.readInt(), new QueryId(input.readLong()), readActorId(input), readActorId(input), input.readInt());
-        }
-        throw new IllegalArgumentException();
+    private static DomainEvent readEvent(DataInputStream in) throws Exception {
+        if (in.readInt() != EVENT_HOMING_MAGIC) throw new IllegalArgumentException();
+        long frameId = in.readLong();
+        int local = in.readInt();
+        ActorId source = readActorId(in);
+        ActorId target = readActorId(in);
+        int lifetime = in.readInt();
+        return new HomingMagicVisualEvent(frameId, local, source, target, lifetime);
     }
 
     private static void writeFrame(DataOutputStream out, FrameContext frame) throws Exception {
@@ -2997,9 +3003,17 @@ public final class NfCodec {
         out.writeInt(frame.tickIndex());
     }
 
-    private static FrameContext readFrame(DataInputStream in) throws Exception { return new FrameContext(in.readLong(), in.readInt()); }
-    private static void writeActorId(DataOutputStream out, ActorId id) throws Exception { writeUuid(out, id.uuid()); }
-    private static ActorId readActorId(DataInputStream in) throws Exception { return new ActorId(readUuid(in)); }
+    private static FrameContext readFrame(DataInputStream in) throws Exception {
+        return new FrameContext(in.readLong(), in.readInt());
+    }
+
+    private static void writeActorId(DataOutputStream out, ActorId id) throws Exception {
+        writeUuid(out, id.uuid());
+    }
+
+    private static ActorId readActorId(DataInputStream in) throws Exception {
+        return new ActorId(readUuid(in));
+    }
 
     private static void writeActorState(DataOutputStream out, ActorState st) throws Exception {
         writeString(out, st.classId().value());
@@ -3022,7 +3036,9 @@ public final class NfCodec {
         out.writeLong(uuid.getLeastSignificantBits());
     }
 
-    private static UUID readUuid(DataInputStream in) throws Exception { return new UUID(in.readLong(), in.readLong()); }
+    private static UUID readUuid(DataInputStream in) throws Exception {
+        return new UUID(in.readLong(), in.readLong());
+    }
 
     private static void writeString(DataOutputStream out, String s) throws Exception {
         byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
@@ -3032,9 +3048,7 @@ public final class NfCodec {
 
     private static String readString(DataInputStream in) throws Exception {
         int len = in.readInt();
-        if (len < 0 || len > 1_000_000) throw new IllegalArgumentException();
         byte[] bytes = in.readNBytes(len);
-        if (bytes.length != len) throw new IllegalArgumentException();
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
@@ -3399,7 +3413,18 @@ public record ActorTarget(ActorId actorId) implements Target {
 
 package com.pgalaxyp.fragmento.combat.targeting.api;
 
-public sealed interface Target permits ActorTarget {}
+public record PointTarget(Vec3d position) implements Target {
+
+    public PointTarget {
+        if (position == null) {
+            throw new IllegalArgumentException();
+        }
+    }
+}
+
+package com.pgalaxyp.fragmento.combat.targeting.api;
+
+public sealed interface Target permits ActorTarget, PointTarget {}
 
 package com.pgalaxyp.fragmento.combat.targeting.api;
 

@@ -1,16 +1,18 @@
 package com.pgalaxyp.fragmento.combat.content.defaults;
 
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;
+import com.pgalaxyp.fragmento.combat.effect.model.*;
+import java.util.*;
 
-public final class DefaultEffects {
-    public static final EffectId MAGIC = new EffectId("effect.magic.basic");
-    public static void register(ContentRegistry registry) {
-        registry.effect(EffectDef.withVisual(
-                        MAGIC,
-                        new DamageSpec(2, DamageType.MAGIC, DamageElement.AIR)));
+final class DefaultEffects {
+
+    static EffectCatalog create() {
+        EffectDef def = new EffectDef(
+                DefaultIds.EFFECT_FLUTE_MAGIC,
+                new DamageSpec(4, DamageType.MAGIC, DamageElement.AIR)
+        );
+
+        return new EffectCatalog(Map.of(def.id(), def));
     }
-    private DefaultEffects() {}
 }

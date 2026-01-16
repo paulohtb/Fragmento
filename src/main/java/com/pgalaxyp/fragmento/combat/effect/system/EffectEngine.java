@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.combat.effect.system;
 
 import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -11,10 +10,12 @@ import com.pgalaxyp.fragmento.combat.damage.snapshot.*;
 import com.pgalaxyp.fragmento.combat.effect.api.*;
 import com.pgalaxyp.fragmento.combat.effect.model.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
-import com.pgalaxyp.fragmento.combat.targeting.system.*;
+import com.pgalaxyp.fragmento.combat.targeting.system.TargetingContext;
+
 import java.util.*;
 
 public final class EffectEngine implements EffectService {
+
     private final GameContent content;
     private final DamageService damage;
     private final DamageSnapshotProvider snapshots;
@@ -29,6 +30,7 @@ public final class EffectEngine implements EffectService {
 
     @Override
     public EffectOutcome apply(FrameContext frame, GameState state, EffectIntent intent, ActorId source) {
+
         EffectDef def = content.effects().effect(intent.effectId()).orElse(null);
         if (def == null) return EffectOutcome.empty();
 
@@ -41,6 +43,9 @@ public final class EffectEngine implements EffectService {
         DamageSnapshot snap = snapshots.snapshot(state, source, targetId);
         DamageResult result = damage.resolve(new DamageRequest(source, targetId, spec), snap);
 
-        return new EffectOutcome(List.of(new com.pgalaxyp.fragmento.combat.delta.DamageApplied(targetId, result.finalHearts())), List.of());
+        return new EffectOutcome(
+                List.of(new com.pgalaxyp.fragmento.combat.delta.DamageApplied(targetId, result.finalHearts())),
+                List.of()
+        );
     }
 }

@@ -1,15 +1,20 @@
 package com.pgalaxyp.fragmento.combat.content.defaults;
 
-import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
+import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.cycle.model.*;
-import com.pgalaxyp.fragmento.combat.action.model.*;
+import java.util.*;
 
-public final class DefaultCycles {
-    public static void register(ContentRegistry registry) {
-        registry.cycles().register(
-                DefaultWeapons.FLUTE,
-                new ActionCycleDef(DefaultCombos.BASIC, new ActionId("action.magic.basic"))
+final class DefaultCycles {
+
+    static ActionCycleCatalog create() {
+        ActionCycleDef def = new ActionCycleDef(
+                DefaultIds.COMBO_FLUTE,
+                DefaultIds.ACTION_FLUTE_CAST
         );
+
+        return new ActionCycleCatalog(Map.of(
+                new ActionCycleCatalog.Key(DefaultIds.COMBO_FLUTE, DefaultIds.WEAPON_FLUTE),
+                def
+        ));
     }
-    private DefaultCycles() {}
 }
