@@ -5,7 +5,8 @@ import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.combo.skill.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
-import com.pgalaxyp.fragmento.combat.content.catalog.*;
+import com.pgalaxyp.fragmento.combat.content.*;
+import com.pgalaxyp.fragmento.combat.content.SpawnDefaults;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -19,21 +20,29 @@ import java.util.*;
 
 public final class GameRules {
 
-    public static RuleResult pass(FrameContext frame, GameState state, List<IntentEnvelope> intents, ComboCatalog combos, ComboTracker comboTracker, ComboSkillResolver comboSkills, ComboService combo, ActionCycleService cycles, ActionService actions, EffectService effects) {
+    public static RuleResult pass(
+            FrameContext frame,
+            GameState state,
+            List<IntentEnvelope> intents,
+            GameContent content,
+            ComboTracker comboTracker,
+            ComboSkillResolver comboSkills,
+            ComboService combo,
+            ActionCycleService cycles,
+            ActionService actions,
+            EffectService effects
+    ) {
         List<StateDelta> deltas = new ArrayList<>();
         List<DomainEvent> events = new ArrayList<>();
+        SpawnDefaults defaults = content.defaults();
+        Set<ActorId> actionTouchedThisFrame = new HashSet<>();
 
         for (IntentEnvelope env : intents) {
             ActorId actorId = env.actorId();
+
             if (env.intent() instanceof ActorJoinIntent) {
                 if (state.findActor(actorId).isEmpty()) {
-                    deltas.add(new ActorSpawned(
-                            actorId,
-                            new ClassId("class.default"),
-                            new WeaponId("weapon.flute"),
-                            20,
-                            20
-                    ));
+                    deltas.add(new ActorSpawned(actorId, defaults.classId(), defaults.startingWeaponId(), defaults.healthHearts(), defaults.maxHealthHearts()));
                 }
                 continue;
             }
@@ -41,10 +50,12 @@ public final class GameRules {
             if (!(env.intent() instanceof PerformActionIntent p)) continue;
 
             ActorState actor = state.findActor(actorId).orElse(null);
-            if (actor == null || actor.equippedWeaponId().isEmpty()) continue;
+            if (actor == null) continue;
 
-            WeaponId weaponId = actor.equippedWeaponId().get();
-            var entry = combos.baseFor(weaponId).orElse(null);
+            WeaponId weaponId = actor.equippedWeaponId().orElse(null);
+            if (weaponId == null) continue;
+
+            var entry = content.combos().baseFor(weaponId).orElse(null);
             if (entry == null) continue;
 
             ComboId comboId = entry.comboId();
@@ -52,26 +63,55 @@ public final class GameRules {
             Optional<ComboState> prev = comboTracker.get(actorId);
 
             ComboResult result = combo.decide(comboId, pattern, p.input(), prev);
+
+            if (result instanceof ComboResult.Reset) {
+                comboTracker.clear(actorId);
+                continue;
+            }
+
             if (!(result instanceof ComboResult.Progress progress)) continue;
 
-            Optional<ComboState> next = progress.end() ? Optional.empty() : combo.advanceState(prev.orElseGet(() -> combo.start(comboId, pattern)), progress.stepsTotal());
+            if (progress.end()) comboTracker.clear(actorId);
+            else comboTracker.put(actorId, new ComboState(progress.comboId(), progress.stepIndex(), progress.stepsTotal()));
 
-            if (next.isPresent()) comboTracker.put(actorId, next.get());
-            else comboTracker.clear(actorId);
+            Optional<ActionRequest> reqOpt = cycles.translate(progress, actorId, weaponId, frame.frameId());
+            if (reqOpt.isEmpty()) continue;
 
-            ActionRequest req = cycles.translate(progress, actorId, weaponId, frame.frameId()).orElse(ActionRequest.Cancel.INSTANCE);
+            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), reqOpt.get());
+            actionTouchedThisFrame.add(actorId);
+            applyActionOutcome(frame, state, out, actorId, effects, deltas, events);
+        }
 
-            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), req);
-            if (!(out instanceof ActionOutcome.Success s)) continue;
+        for (var e : state.actors().entrySet()) {
+            ActorId actorId = e.getKey();
+            if (actionTouchedThisFrame.contains(actorId)) continue;
+            if (!actions.hasActive(actorId)) continue;
 
-            for (EffectIntent intent : s.intents()) {
-                EffectOutcome eo = effects.apply(frame, state, intent, actorId);
-                deltas.addAll(eo.deltas());
-                events.addAll(eo.events());
-            }
+            WeaponId weaponId = e.getValue().equippedWeaponId().orElse(null);
+            if (weaponId == null) continue;
+
+            ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), ActionRequest.Tick.INSTANCE);
+            applyActionOutcome(frame, state, out, actorId, effects, deltas, events);
         }
 
         return new RuleResult(deltas, events);
+    }
+
+    private static void applyActionOutcome(
+            FrameContext frame,
+            GameState state,
+            ActionOutcome out,
+            ActorId source,
+            EffectService effects,
+            List<StateDelta> deltas,
+            List<DomainEvent> events
+    ) {
+        if (!(out instanceof ActionOutcome.Success s)) return;
+        for (EffectIntent intent : s.intents()) {
+            EffectOutcome eo = effects.apply(frame, state, intent, source);
+            deltas.addAll(eo.deltas());
+            events.addAll(eo.events());
+        }
     }
 
     private GameRules() {}

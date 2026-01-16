@@ -53,10 +53,8 @@ public final class GameEngine {
         FrameContext frame = new FrameContext(nextFrameId, tickIndex);
         nextFrameId = Math.addExact(nextFrameId, 1L);
 
-        long frameSeed = seedForFrame(frame.frameId());
         List<IntentEnvelope> drained = intents.drain();
-
-        RuleResult r = GameRules.pass(frame, state, drained, content.combos(), comboTracker, comboSkills, combo, cycles, actions, effects);
+        RuleResult r = GameRules.pass(frame, state, drained, content, comboTracker, comboSkills, combo, cycles, actions, effects);
 
         List<StateDelta> merged = StateDeltaMerger.mergeStable(r.deltas(), List.of());
         GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), merged);
@@ -71,12 +69,5 @@ public final class GameEngine {
         eventSink.publish(frame, events);
 
         return new FrameOutput(frame, snapshot, events);
-    }
-
-    private static long seedForFrame(long frameId) {
-        long z = Math.addExact(frameId, 0x9e3779b97f4a7c15L);
-        z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L;
-        z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL;
-        return z ^ (z >>> 31);
     }
 }

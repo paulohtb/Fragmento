@@ -6,6 +6,4 @@ import java.util.*;
 
 public interface ComboService {
     ComboResult decide(ComboId comboId, ComboPattern pattern, ComboInput input, Optional<ComboState> previous);
-    ComboState start(ComboId comboId, ComboPattern pattern);
-    Optional<ComboState> advanceState(ComboState state, int stepsTotal);
 }

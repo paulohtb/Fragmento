@@ -1,29 +1,29 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.net.codec;
 
+import com.pgalaxyp.fragmento.combat.combo.api.*;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.core.state.*;
+import com.pgalaxyp.fragmento.combat.core.time.*;
 import com.pgalaxyp.fragmento.combat.event.*;
 import com.pgalaxyp.fragmento.combat.intent.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.ports.dto.*;
-import com.pgalaxyp.fragmento.combat.combo.api.*;
-import com.pgalaxyp.fragmento.combat.core.time.*;
-import com.pgalaxyp.fragmento.combat.core.state.*;
 import java.io.*;
-import java.util.*;
 import java.nio.charset.*;
+import java.util.*;
 
 public final class NfCodec {
     private static final int VERSION = 2;
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
     private static final int MSG_EVENTS = 3;
+
     private static final int INTENT_JOIN = 1;
     private static final int INTENT_PERFORM = 2;
-    private static final int EVENT_AUDIT = 1;
-    private static final int EVENT_HOMING_MAGIC = 2;
+
+    private static final int EVENT_HOMING_MAGIC = 1;
 
     public static byte[] encodeIntent(IntentEnvelope env) {
         if (env == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
@@ -44,7 +44,6 @@ public final class NfCodec {
 
     public static IntentEnvelope decodeIntent(byte[] data) {
         if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
@@ -60,7 +59,6 @@ public final class NfCodec {
 
     public static byte[] encodeSnapshot(GameSnapshot snapshot) {
         if (snapshot == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
@@ -76,17 +74,14 @@ public final class NfCodec {
             }
 
             out.flush();
-
             return outBytes.toByteArray();
         } catch (Exception e) { throw new IllegalArgumentException(); }
     }
 
     public static GameSnapshot decodeSnapshot(byte[] data) {
         if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_SNAPSHOT) throw new IllegalArgumentException();
 
@@ -96,14 +91,12 @@ public final class NfCodec {
 
             TreeMap<ActorId, ActorState> actors = new TreeMap<>();
             for (int i = 0; i < size; i++) actors.put(readActorId(in), readActorState(in));
-
             return new GameSnapshot(frame, actors);
         } catch (Exception e) { throw new IllegalArgumentException(); }
     }
 
     public static byte[] encodeEvents(List<DomainEvent> events) {
         if (events == null) throw new IllegalArgumentException();
-
         try {
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(outBytes);
@@ -113,7 +106,6 @@ public final class NfCodec {
 
             out.writeInt(events.size());
             for (DomainEvent e : events) writeEvent(out, e);
-
             out.flush();
 
             return outBytes.toByteArray();
@@ -122,7 +114,6 @@ public final class NfCodec {
 
     public static List<DomainEvent> decodeEvents(byte[] data) {
         if (data == null) throw new IllegalArgumentException();
-
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
             if (in.readInt() != VERSION) throw new IllegalArgumentException();
@@ -133,7 +124,6 @@ public final class NfCodec {
 
             ArrayList<DomainEvent> out = new ArrayList<>(size);
             for (int i = 0; i < size; i++) out.add(readEvent(in));
-
             return List.copyOf(out);
         } catch (Exception e) { throw new IllegalArgumentException(); }
     }
@@ -141,10 +131,14 @@ public final class NfCodec {
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
         if (intent instanceof ActorJoinIntent) {
             out.writeInt(INTENT_JOIN);
-        } else if (intent instanceof PerformActionIntent(var input)) {
+            return;
+        }
+        if (intent instanceof PerformActionIntent(var input)) {
             out.writeInt(INTENT_PERFORM);
             out.writeInt(input.ordinal());
-        } else throw new IllegalArgumentException();
+            return;
+        }
+        throw new IllegalArgumentException();
     }
 
     private static DomainIntent readIntent(DataInputStream in) throws Exception {
@@ -160,32 +154,24 @@ public final class NfCodec {
         };
     }
 
-    private static void writeEvent(DataOutputStream output, DomainEvent event) throws Exception {
-        if (event instanceof AuditEvent(var message)) {
-            output.writeInt(EVENT_AUDIT);
-            writeString(output, message);
-            return;
-        }
-        if (event instanceof HomingMagicVisualEvent(long frameId, int localIndex, QueryId queryId, ActorId source, ActorId target, int lifetimeFrames)) {
-            output.writeInt(EVENT_HOMING_MAGIC);
-            output.writeLong(frameId);
-            output.writeInt(localIndex);
-            output.writeLong(queryId.value());
-            writeActorId(output, source);
-            writeActorId(output, target);
-            output.writeInt(lifetimeFrames);
+    private static void writeEvent(DataOutputStream out, DomainEvent event) throws Exception {
+        if (event instanceof HomingMagicVisualEvent hm) {
+            out.writeInt(EVENT_HOMING_MAGIC);
+            out.writeLong(hm.frameId());
+            out.writeInt(hm.localIndex());
+            writeActorId(out, hm.sourceActorId());
+            writeActorId(out, hm.targetActorId());
+            out.writeInt(hm.lifetimeFrames());
             return;
         }
         throw new IllegalArgumentException();
     }
 
-    private static DomainEvent readEvent(DataInputStream input) throws Exception {
-        int t = input.readInt();
-        if (t == EVENT_AUDIT) return new AuditEvent(readString(input));
-        if (t == EVENT_HOMING_MAGIC) {
-            return new HomingMagicVisualEvent(input.readLong(), input.readInt(), new QueryId(input.readLong()), readActorId(input), readActorId(input), input.readInt());
-        }
-        throw new IllegalArgumentException();
+    private static DomainEvent readEvent(DataInputStream in) throws Exception {
+        return switch (in.readInt()) {
+            case EVENT_HOMING_MAGIC -> new HomingMagicVisualEvent(in.readLong(), in.readInt(), readActorId(in), readActorId(in), in.readInt());
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     private static void writeFrame(DataOutputStream out, FrameContext frame) throws Exception {

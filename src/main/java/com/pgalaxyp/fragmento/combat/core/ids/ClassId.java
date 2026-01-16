@@ -1,15 +1,8 @@
 package com.pgalaxyp.fragmento.combat.core.ids;
 
-public record ClassId(String value) implements Comparable<ClassId> {
-    public ClassId {
-        value = IdValidation.normalizedKey(value);
-    }
+import java.util.*;
 
-    @Override
-    public int compareTo(ClassId other) {
-        if (other == null) {
-            throw new IllegalArgumentException();
-        }
-        return value.compareTo(other.value);
-    }
+public record ClassId(String value) implements Comparable<ClassId> {
+    public ClassId { value = IdValidation.normalizedKey(value); }
+    @Override public int compareTo(ClassId o) { return value.compareTo(Objects.requireNonNull(o).value); }
 }

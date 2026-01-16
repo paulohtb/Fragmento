@@ -1,15 +1,8 @@
 package com.pgalaxyp.fragmento.combat.core.ids;
 
-public record EffectId(String value) implements Comparable<EffectId> {
-    public EffectId {
-        value = IdValidation.normalizedKey(value);
-    }
+import java.util.*;
 
-    @Override
-    public int compareTo(EffectId other) {
-        if (other == null) {
-            throw new IllegalArgumentException();
-        }
-        return value.compareTo(other.value);
-    }
+public record EffectId(String value) implements Comparable<EffectId> {
+    public EffectId { value = IdValidation.normalizedKey(value); }
+    @Override public int compareTo(EffectId o) { return value.compareTo(Objects.requireNonNull(o).value); }
 }

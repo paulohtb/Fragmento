@@ -1,9 +1,10 @@
 package com.pgalaxyp.fragmento.combat.input.minecraft;
 
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.input.api.*;
 import com.pgalaxyp.fragmento.combat.input.bridge.*;
 import com.pgalaxyp.fragmento.combat.input.system.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import java.util.*;
 import net.neoforged.bus.api.*;
 import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.event.entity.player.*;
@@ -19,10 +20,7 @@ public final class McInputHook {
     private InputDecision cachedDecision = InputDecision.passThrough();
 
     public McInputHook(InputSnapshotProvider snapshots, ActorInputContextProvider actors, FrameClock clock, InputController controller) {
-        if (snapshots == null || actors == null || clock == null || controller == null) {
-            throw new IllegalArgumentException();
-        }
-
+        if (snapshots == null || actors == null || clock == null || controller == null) throw new IllegalArgumentException();
         this.snapshots = snapshots;
         this.actors = actors;
         this.clock = clock;
@@ -30,10 +28,7 @@ public final class McInputHook {
     }
 
     public void registerClient(IEventBus bus) {
-        if (bus == null) {
-            throw new IllegalArgumentException();
-        }
-
+        if (bus == null) throw new IllegalArgumentException();
         bus.register(this);
     }
 
@@ -47,9 +42,7 @@ public final class McInputHook {
 
     @SubscribeEvent
     public void onAttackKey(InputEvent.InteractionKeyMappingTriggered event) {
-        if (!event.isAttack()) {
-            return;
-        }
+        if (!event.isAttack()) return;
 
         InputContext ctx = resolveContext();
         InputDecision decision = decisionForCurrentFrame(ctx);
@@ -64,29 +57,21 @@ public final class McInputHook {
     public void onAttackEntity(AttackEntityEvent event) {
         InputContext ctx = resolveContext();
         InputDecision decision = decisionForCurrentFrame(ctx);
-
-        if (decision.consumeVanilla()) {
-            event.setCanceled(true);
-        }
+        if (decision.consumeVanilla()) event.setCanceled(true);
     }
 
     @SubscribeEvent
     public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         InputContext ctx = resolveContext();
         InputDecision decision = decisionForCurrentFrame(ctx);
-
-        if (decision.consumeVanilla()) {
-            event.setCanceled(true);
-        }
+        if (decision.consumeVanilla()) event.setCanceled(true);
     }
 
     private InputDecision decisionForCurrentFrame(InputContext ctx) {
         long frameId = clock.frameId(ctx);
         ActorId actorId = ctx.actorIdOpt().orElse(null);
 
-        if (frameId == cachedFrameId && actorId == cachedActorId) {
-            return cachedDecision;
-        }
+        if (frameId == cachedFrameId && Objects.equals(actorId, cachedActorId)) return cachedDecision;
 
         InputDecision decision = controller.handle(ctx, SemanticInput.PRIMARY_ACTION);
         cachedFrameId = frameId;
@@ -100,7 +85,6 @@ public final class McInputHook {
         ActorId actorId = actors.localActorId().orElse(null);
         InputSnapshotView snapshot = snapshots.current();
         WeaponId weaponId = actorId != null ? actors.weaponInHandId(actorId, snapshot).orElse(null) : null;
-
         return new InputContext(actorId, snapshot, weaponId);
     }
 }

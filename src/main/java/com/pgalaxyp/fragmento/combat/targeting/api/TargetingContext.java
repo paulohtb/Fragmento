@@ -1,6 +1,5 @@
-package com.pgalaxyp.fragmento.combat.targeting.system;
+package com.pgalaxyp.fragmento.combat.targeting.api;
 
-import com.pgalaxyp.fragmento.combat.targeting.api.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.targeting.bridge.*;
 
