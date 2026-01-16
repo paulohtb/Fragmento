@@ -43,7 +43,7 @@ public final class ServerModRuntime implements ServerIntentReceiverPort {
         ComboSkillResolver comboSkills = new ComboSkillResolver(List.of());
         var combo = new ComboEngine();
         var cycles = new ActionCycleEngine(content.cycles());
-        var actions = new DefaultActionService(content::action);
+        var actions = new DefaultActionService(id -> content.actions().action(id));
         var effects = new EffectEngine(content, damage, snapshots, targeting.service());
 
         engine = new GameEngine(

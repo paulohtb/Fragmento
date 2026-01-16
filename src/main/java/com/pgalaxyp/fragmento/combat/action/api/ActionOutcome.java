@@ -12,9 +12,6 @@ public sealed interface ActionOutcome permits ActionOutcome.Success, ActionOutco
 
     enum Reject implements ActionOutcome { INSTANCE }
 
-    static ActionOutcome success(List<EffectIntent> intents, boolean finished) {
-        return new Success(intents, finished);
-    }
     static ActionOutcome finished(List<EffectIntent> intents) {
         return new Success(intents, true);
     }
