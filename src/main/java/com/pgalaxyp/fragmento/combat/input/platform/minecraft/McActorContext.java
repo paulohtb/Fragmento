@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.input.minecraft;
+package com.pgalaxyp.fragmento.combat.input.platform.minecraft;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.host.api.*;
@@ -20,9 +20,7 @@ public final class McActorContext implements ActorInputContextProvider {
     }
 
     @Override
-    public Optional<ActorId> localActorId() {
-        return localActorProvider.localActorId();
-    }
+    public Optional<ActorId> localActorId() { return localActorProvider.localActorId(); }
 
     @Override
     public Optional<WeaponId> weaponInHandId(ActorId actorId, InputSnapshotView snapshot) {
@@ -32,9 +30,7 @@ public final class McActorContext implements ActorInputContextProvider {
         LocalPlayer p = mc.player;
         if (p == null) return Optional.empty();
 
-        ActorId current = new ActorId(p.getUUID());
-        if (!current.equals(actorId)) return Optional.empty();
-
+        if (!new ActorId(p.getUUID()).equals(actorId)) return Optional.empty();
         ItemStack stack = p.getMainHandItem();
         return weaponBinding.resolve(stack);
     }

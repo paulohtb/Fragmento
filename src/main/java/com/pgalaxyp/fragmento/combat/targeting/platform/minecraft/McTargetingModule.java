@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.combat.targeting.minecraft;
+package com.pgalaxyp.fragmento.combat.targeting.platform.minecraft;
 
-import com.pgalaxyp.fragmento.combat.targeting.api.TargetingWithWorld;
+import com.pgalaxyp.fragmento.combat.targeting.api.*;
 import com.pgalaxyp.fragmento.combat.targeting.bridge.*;
 import com.pgalaxyp.fragmento.combat.targeting.system.*;
 import net.minecraft.server.*;

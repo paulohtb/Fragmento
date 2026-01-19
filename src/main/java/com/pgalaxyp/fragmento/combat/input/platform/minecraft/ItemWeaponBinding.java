@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.input.minecraft;
+package com.pgalaxyp.fragmento.combat.input.platform.minecraft;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
@@ -12,13 +12,11 @@ public final class ItemWeaponBinding {
 
     public void register(Item item, WeaponId weaponId) {
         if (item == null || weaponId == null) throw new IllegalArgumentException();
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
-        byItemId.put(key, weaponId);
+        byItemId.put(BuiltInRegistries.ITEM.getKey(item), weaponId);
     }
 
     public Optional<WeaponId> resolve(ItemStack stack) {
         if (stack == null) throw new IllegalArgumentException();
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        return Optional.ofNullable(byItemId.get(key));
+        return Optional.ofNullable(byItemId.get(BuiltInRegistries.ITEM.getKey(stack.getItem())));
     }
 }

@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.targeting.minecraft;
+package com.pgalaxyp.fragmento.combat.targeting.platform.minecraft;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
@@ -9,7 +9,7 @@ import net.minecraft.server.*;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.projectile.*;
-import net.minecraft.world.level.*;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.*;
 
 public final class McWorldRaycast implements WorldRaycastAccess {
@@ -21,9 +21,8 @@ public final class McWorldRaycast implements WorldRaycastAccess {
     public Optional<ViewRay> viewRay(ActorId casterId) {
         LivingEntity caster = findLivingByActorId(Objects.requireNonNull(casterId));
         if (caster == null) return Optional.empty();
-
-        Vec3 o = caster.getEyePosition(1.0f);
-        Vec3 d = caster.getViewVector(1.0f);
+        var o = caster.getEyePosition(1.0f);
+        var d = caster.getViewVector(1.0f);
         return Optional.of(new ViewRay(new Vec3d(o.x, o.y, o.z), new Vec3d(d.x, d.y, d.z)));
     }
 
@@ -72,7 +71,6 @@ public final class McWorldRaycast implements WorldRaycastAccess {
         UUID uuid = actorId.uuid();
         Entity player = server.getPlayerList().getPlayer(uuid);
         if (player instanceof LivingEntity le) return le;
-
         for (ServerLevel level : server.getAllLevels()) {
             Entity e = level.getEntity(uuid);
             if (e instanceof LivingEntity le) return le;

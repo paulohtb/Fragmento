@@ -1,12 +1,13 @@
 package com.pgalaxyp.fragmento.combat.action.runtime;
 
 import com.pgalaxyp.fragmento.combat.action.api.*;
+import com.pgalaxyp.fragmento.combat.action.emit.*;
 import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.effect.model.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
 public final class TimedSequenceActionRuntime implements ActionRuntime {
+
     private final List<EffectStep> steps;
     private final int windowFrames;
     private long lastEmitFrame = Long.MIN_VALUE;
@@ -15,7 +16,6 @@ public final class TimedSequenceActionRuntime implements ActionRuntime {
     private boolean done;
 
     public TimedSequenceActionRuntime(TimedSequenceActionPlan plan) {
-        Objects.requireNonNull(plan);
         this.steps = plan.steps();
         this.windowFrames = plan.windowFrames();
     }
@@ -32,8 +32,7 @@ public final class TimedSequenceActionRuntime implements ActionRuntime {
             return emit();
         }
 
-        if (!(request instanceof ActionRequest.Tick)) return ActionOutcome.reject();
-        if (!started) return ActionOutcome.reject();
+        if (!(request instanceof ActionRequest.Tick) || !started) return ActionOutcome.reject();
 
         long delta = frameId - lastEmitFrame;
         if (delta < 0 || delta > windowFrames * 2L) { done = true; return ActionOutcome.finished(List.of()); }
@@ -45,9 +44,10 @@ public final class TimedSequenceActionRuntime implements ActionRuntime {
 
     private ActionOutcome emit() {
         if (nextIndex >= steps.size()) { done = true; return ActionOutcome.finished(List.of()); }
-        EffectIntent intent = steps.get(nextIndex++).intent();
+        var intent = steps.get(nextIndex++).intent();
         boolean finished = nextIndex >= steps.size();
         if (finished) done = true;
-        return ActionOutcome.success(List.of(intent), finished);
+        var em = EffectIntentEmission.of(intent);
+        return finished ? ActionOutcome.finished(List.of(em)) : ActionOutcome.running(List.of(em));
     }
 }

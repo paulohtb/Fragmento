@@ -5,7 +5,7 @@ import com.pgalaxyp.fragmento.combat.combo.skill.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
 import com.pgalaxyp.fragmento.combat.combo.system.*;
 import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.content.defaults.DefaultContent;
+import com.pgalaxyp.fragmento.combat.content.defaults.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -17,11 +17,10 @@ import com.pgalaxyp.fragmento.combat.engine.*;
 import com.pgalaxyp.fragmento.combat.engine.intent.*;
 import com.pgalaxyp.fragmento.combat.intent.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.net.wire.*;
-import com.pgalaxyp.fragmento.combat.platform.neoforge.world.NfWorldCommands;
+import com.pgalaxyp.fragmento.combat.platform.neoforge.world.*;
 import com.pgalaxyp.fragmento.combat.ports.*;
+import com.pgalaxyp.fragmento.combat.targeting.platform.minecraft.*;
 import java.util.*;
-
-import com.pgalaxyp.fragmento.combat.targeting.minecraft.McTargetingModule;
 import net.minecraft.server.*;
 
 public final class ServerModRuntime implements ServerIntentReceiverPort {
@@ -43,7 +42,7 @@ public final class ServerModRuntime implements ServerIntentReceiverPort {
         ComboSkillResolver comboSkills = new ComboSkillResolver(List.of());
         var combo = new ComboEngine();
         var cycles = new ActionCycleEngine(content.cycles());
-        var actions = new DefaultActionService(id -> content.actions().action(id));
+        var actions = new DefaultActionService(content::action);
         var effects = new EffectEngine(content, damage, snapshots, targeting.service());
 
         engine = new GameEngine(

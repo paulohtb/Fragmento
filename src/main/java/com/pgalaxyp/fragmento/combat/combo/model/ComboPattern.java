@@ -7,7 +7,6 @@ public record ComboPattern(List<ComboStep> steps) {
     public ComboPattern {
         if (steps == null || steps.isEmpty()) throw new IllegalArgumentException();
         steps = List.copyOf(steps);
-
         for (int i = 0; i < steps.size(); i++) {
             ComboStep step = steps.get(i);
             if (step == null || step.index() != i) throw new IllegalArgumentException();

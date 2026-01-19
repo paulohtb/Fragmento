@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.combat.content;
 
 import com.pgalaxyp.fragmento.combat.action.model.*;
-import com.pgalaxyp.fragmento.combat.content.bindings.*;
 import com.pgalaxyp.fragmento.combat.content.catalog.*;
 import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;

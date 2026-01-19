@@ -1,8 +1,7 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client;
 
 import com.pgalaxyp.fragmento.combat.content.defaults.*;
-import com.pgalaxyp.fragmento.combat.input.minecraft.ItemWeaponBinding;
-import com.pgalaxyp.fragmento.combat.input.minecraft.McInputModule;
+import com.pgalaxyp.fragmento.combat.input.platform.minecraft.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.input.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.items.*;
@@ -24,7 +23,7 @@ public final class ClientModEvents {
             ClientModRuntime.install();
 
             ItemWeaponBinding mapping = new ItemWeaponBinding();
-            mapping.register(ModItemsRegistry.FLUTE.get(), DefaultWeapons.FLUTE);
+            mapping.register(ModItemsRegistry.FLUTE.get(), DefaultIds.WEAPON_FLUTE);
 
             var module = McInputModule.createClient(
                     mapping,

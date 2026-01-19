@@ -1,7 +1,6 @@
 package com.pgalaxyp.fragmento.combat.effect.system;
 
 import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -13,10 +12,10 @@ import com.pgalaxyp.fragmento.combat.effect.api.*;
 import com.pgalaxyp.fragmento.combat.effect.model.*;
 import com.pgalaxyp.fragmento.combat.event.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
-
 import java.util.*;
 
 public final class EffectEngine implements EffectService {
+
     private final GameContent content;
     private final DamageService damage;
     private final DamageSnapshotProvider snapshots;
@@ -46,7 +45,19 @@ public final class EffectEngine implements EffectService {
         List<StateDelta> deltas = List.of(new DamageApplied(targetId, result.finalHearts()));
         if (!def.hasVisual()) return new EffectOutcome(deltas, List.of());
 
-        DomainEvent ev = new HomingMagicVisualEvent(frame.frameId(), 0, source, targetId, def.visualLifetimeFrames());
+        DomainEvent ev = new EffectVisualEvent(frame.frameId(), 0, intent.effectId(), source, targetId, def.visualLifetimeFrames());
         return new EffectOutcome(deltas, List.of(ev));
+    }
+
+    @Override
+    public EffectOutcome applyAll(FrameContext frame, GameState state, Iterable<EffectIntent> intents, ActorId source) {
+        List<StateDelta> deltas = new ArrayList<>();
+        List<DomainEvent> events = new ArrayList<>();
+        for (EffectIntent intent : intents) {
+            EffectOutcome out = apply(frame, state, intent, source);
+            deltas.addAll(out.deltas());
+            events.addAll(out.events());
+        }
+        return new EffectOutcome(deltas, events);
     }
 }

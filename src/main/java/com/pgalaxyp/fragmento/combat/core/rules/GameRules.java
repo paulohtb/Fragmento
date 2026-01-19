@@ -1,12 +1,12 @@
 package com.pgalaxyp.fragmento.combat.core.rules;
 
 import com.pgalaxyp.fragmento.combat.action.api.*;
+import com.pgalaxyp.fragmento.combat.action.emit.*;
 import com.pgalaxyp.fragmento.combat.combo.api.*;
 import com.pgalaxyp.fragmento.combat.combo.model.*;
 import com.pgalaxyp.fragmento.combat.combo.skill.*;
 import com.pgalaxyp.fragmento.combat.combo.state.*;
 import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.content.SpawnDefaults;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
@@ -79,7 +79,12 @@ public final class GameRules {
 
             ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), reqOpt.get());
             actionTouchedThisFrame.add(actorId);
-            applyActionOutcome(frame, state, out, actorId, effects, deltas, events);
+
+            if (out instanceof ActionOutcome.Success s) {
+                var eo = effects.applyAll(frame, state, toEffectIntents(s.emissions()), actorId);
+                deltas.addAll(eo.deltas());
+                events.addAll(eo.events());
+            }
         }
 
         for (var e : state.actors().entrySet()) {
@@ -91,27 +96,21 @@ public final class GameRules {
             if (weaponId == null) continue;
 
             ActionOutcome out = actions.handle(actorId, weaponId, frame.frameId(), ActionRequest.Tick.INSTANCE);
-            applyActionOutcome(frame, state, out, actorId, effects, deltas, events);
+            if (out instanceof ActionOutcome.Success s) {
+                var eo = effects.applyAll(frame, state, toEffectIntents(s.emissions()), actorId);
+                deltas.addAll(eo.deltas());
+                events.addAll(eo.events());
+            }
         }
 
         return new RuleResult(deltas, events);
     }
 
-    private static void applyActionOutcome(
-            FrameContext frame,
-            GameState state,
-            ActionOutcome out,
-            ActorId source,
-            EffectService effects,
-            List<StateDelta> deltas,
-            List<DomainEvent> events
-    ) {
-        if (!(out instanceof ActionOutcome.Success s)) return;
-        for (EffectIntent intent : s.intents()) {
-            EffectOutcome eo = effects.apply(frame, state, intent, source);
-            deltas.addAll(eo.deltas());
-            events.addAll(eo.events());
-        }
+    private static List<EffectIntent> toEffectIntents(List<ActionEmission> emissions) {
+        if (emissions.isEmpty()) return List.of();
+        ArrayList<EffectIntent> out = new ArrayList<>(emissions.size());
+        for (var e : emissions) if (e instanceof EffectIntentEmission ei) out.add(ei.intent());
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     private GameRules() {}

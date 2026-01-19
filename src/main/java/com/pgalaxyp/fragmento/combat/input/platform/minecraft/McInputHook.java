@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.input.minecraft;
+package com.pgalaxyp.fragmento.combat.input.platform.minecraft;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.input.api.*;
@@ -43,10 +43,7 @@ public final class McInputHook {
     @SubscribeEvent
     public void onAttackKey(InputEvent.InteractionKeyMappingTriggered event) {
         if (!event.isAttack()) return;
-
-        InputContext ctx = resolveContext();
-        InputDecision decision = decisionForCurrentFrame(ctx);
-
+        InputDecision decision = decisionForCurrentFrame(resolveContext());
         if (decision.consumeVanilla()) {
             event.setCanceled(true);
             event.setSwingHand(false);
@@ -55,29 +52,23 @@ public final class McInputHook {
 
     @SubscribeEvent
     public void onAttackEntity(AttackEntityEvent event) {
-        InputContext ctx = resolveContext();
-        InputDecision decision = decisionForCurrentFrame(ctx);
-        if (decision.consumeVanilla()) event.setCanceled(true);
+        if (decisionForCurrentFrame(resolveContext()).consumeVanilla()) event.setCanceled(true);
     }
 
     @SubscribeEvent
     public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        InputContext ctx = resolveContext();
-        InputDecision decision = decisionForCurrentFrame(ctx);
-        if (decision.consumeVanilla()) event.setCanceled(true);
+        if (decisionForCurrentFrame(resolveContext()).consumeVanilla()) event.setCanceled(true);
     }
 
     private InputDecision decisionForCurrentFrame(InputContext ctx) {
         long frameId = clock.frameId(ctx);
         ActorId actorId = ctx.actorIdOpt().orElse(null);
-
         if (frameId == cachedFrameId && Objects.equals(actorId, cachedActorId)) return cachedDecision;
 
         InputDecision decision = controller.handle(ctx, SemanticInput.PRIMARY_ACTION);
         cachedFrameId = frameId;
         cachedActorId = actorId;
         cachedDecision = decision;
-
         return decision;
     }
 

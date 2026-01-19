@@ -1,11 +1,13 @@
 package com.pgalaxyp.fragmento.combat.action.runtime;
 
 import com.pgalaxyp.fragmento.combat.action.api.*;
+import com.pgalaxyp.fragmento.combat.action.emit.*;
 import com.pgalaxyp.fragmento.combat.action.model.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
 
 public final class InstantActionRuntime implements ActionRuntime {
+
     private final InstantActionPlan plan;
     private boolean done;
 
@@ -15,7 +17,7 @@ public final class InstantActionRuntime implements ActionRuntime {
     public ActionOutcome handle(ActorId actorId, WeaponId weaponId, long frameId, ActionRequest request) {
         if (done) return ActionOutcome.finished(List.of());
         if (request instanceof ActionRequest.Cancel) { done = true; return ActionOutcome.finished(List.of()); }
-        if (request instanceof ActionRequest.Start) { done = true; return ActionOutcome.finished(List.of(plan.intent())); }
+        if (request instanceof ActionRequest.Start) { done = true; return ActionOutcome.finished(List.of(EffectIntentEmission.of(plan.intent()))); }
         return ActionOutcome.reject();
     }
 }
