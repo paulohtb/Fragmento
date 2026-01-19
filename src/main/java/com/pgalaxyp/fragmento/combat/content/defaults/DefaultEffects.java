@@ -6,7 +6,8 @@ import com.pgalaxyp.fragmento.combat.effect.model.*;
 
 public final class DefaultEffects {
     public static void register(ContentRegistry registry) {
-        registry.effect(EffectDef.withVisual(DefaultIds.EFFECT_FLUTE_MAGIC, new DamageSpec(4, DamageType.MAGIC, DamageElement.AIR)));
+        var dmg = new DamageSpec(4, DamageType.MAGIC, DamageElement.AIR);
+        registry.effect(EffectDef.of(DefaultIds.EFFECT_FLUTE_MAGIC, dmg));
     }
     private DefaultEffects() {}
 }

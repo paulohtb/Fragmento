@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Copyright © 2015-2021 the original authors.
+# Copyright © 2015 the original authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@
 #         * functions;
 #         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
 #           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
-#         * compound command having a testable exit status, especially «case»;
-#         * various built-in command including «command», «set», and «ulimit».
+#         * compound commands having a testable exit status, especially «case»;
+#         * various built-in commands including «command», «set», and «ulimit».
 #
 #   Important for patching:
 #

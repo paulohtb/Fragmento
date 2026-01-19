@@ -3,7 +3,6 @@ package com.pgalaxyp.fragmento.combat.input.platform.minecraft;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.input.api.*;
 import com.pgalaxyp.fragmento.combat.input.bridge.*;
-import com.pgalaxyp.fragmento.combat.input.system.*;
 import java.util.*;
 import net.neoforged.bus.api.*;
 import net.neoforged.neoforge.client.event.*;
@@ -13,17 +12,16 @@ public final class McInputHook {
 
     private final InputSnapshotProvider snapshots;
     private final ActorInputContextProvider actors;
-    private final FrameClock clock;
     private final InputController controller;
+
     private long cachedFrameId = Long.MIN_VALUE;
     private ActorId cachedActorId;
     private InputDecision cachedDecision = InputDecision.passThrough();
 
-    public McInputHook(InputSnapshotProvider snapshots, ActorInputContextProvider actors, FrameClock clock, InputController controller) {
-        if (snapshots == null || actors == null || clock == null || controller == null) throw new IllegalArgumentException();
+    public McInputHook(InputSnapshotProvider snapshots, ActorInputContextProvider actors, InputController controller) {
+        if (snapshots == null || actors == null || controller == null) throw new IllegalArgumentException();
         this.snapshots = snapshots;
         this.actors = actors;
-        this.clock = clock;
         this.controller = controller;
     }
 
@@ -34,7 +32,6 @@ public final class McInputHook {
 
     @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event) {
-        clock.tick();
         cachedFrameId = Long.MIN_VALUE;
         cachedActorId = null;
         cachedDecision = InputDecision.passThrough();
@@ -61,7 +58,7 @@ public final class McInputHook {
     }
 
     private InputDecision decisionForCurrentFrame(InputContext ctx) {
-        long frameId = clock.frameId(ctx);
+        long frameId = ctx.snapshot().frameIdOrZero();
         ActorId actorId = ctx.actorIdOpt().orElse(null);
         if (frameId == cachedFrameId && Objects.equals(actorId, cachedActorId)) return cachedDecision;
 

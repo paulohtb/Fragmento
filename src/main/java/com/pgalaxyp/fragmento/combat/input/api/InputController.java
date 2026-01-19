@@ -8,15 +8,11 @@ import com.pgalaxyp.fragmento.combat.intent.*;
 import java.util.*;
 
 public final class InputController {
-    private final InputStateMachine stateMachine;
     private final InputConsumptionPolicy consumptionPolicy;
-    private final FrameClock clock;
     private final InputIntentSink emitter;
 
-    public InputController(InputStateMachine stateMachine, InputConsumptionPolicy consumptionPolicy, FrameClock clock, InputIntentSink emitter) {
-        this.stateMachine = Objects.requireNonNull(stateMachine);
+    public InputController(InputConsumptionPolicy consumptionPolicy, InputIntentSink emitter) {
         this.consumptionPolicy = Objects.requireNonNull(consumptionPolicy);
-        this.clock = Objects.requireNonNull(clock);
         this.emitter = Objects.requireNonNull(emitter);
     }
 
@@ -29,9 +25,6 @@ public final class InputController {
 
         ActorId actorId = context.actorId();
         if (actorId == null) return new InputDecision(consumeVanilla);
-
-        long frameId = clock.frameId(context);
-        if (stateMachine.decidePrimaryAction(actorId, frameId) != InputStateMachine.Decision.ALLOWED) return new InputDecision(consumeVanilla);
 
         InputSnapshotView snapshot = context.snapshot();
         if (!snapshot.isPresent() || !context.hasWeaponInHand()) return new InputDecision(consumeVanilla);

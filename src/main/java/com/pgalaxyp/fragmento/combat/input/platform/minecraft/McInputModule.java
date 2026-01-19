@@ -25,11 +25,9 @@ public final class McInputModule {
         if (mapping == null || localActorProvider == null || snapshots == null || emitter == null) throw new IllegalArgumentException();
         if (primaryDebounceFrames <= 0) throw new IllegalArgumentException();
         ActorInputContextProvider actors = new McActorContext(mapping, localActorProvider);
-        InputStateMachine sm = new InputStateMachine(primaryDebounceFrames);
         InputConsumptionPolicy consume = new InputConsumptionPolicy();
-        FrameClock clock = new LocalFrameClock();
-        InputController controller = new InputController(sm, consume, clock, emitter);
-        return new ClientModule(new McInputHook(snapshots, actors, clock, controller));
+        InputController controller = new InputController(consume, emitter);
+        return new ClientModule(new McInputHook(snapshots, actors, controller));
     }
 
     private McInputModule() {}

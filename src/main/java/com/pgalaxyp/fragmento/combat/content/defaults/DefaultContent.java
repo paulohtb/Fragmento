@@ -9,9 +9,7 @@ public final class DefaultContent {
         DefaultWeapons.register(registry);
         DefaultClasses.register(registry);
         DefaultEffects.register(registry);
-        DefaultActions.register(registry);
         DefaultCombos.register(registry);
-        DefaultCycles.register(registry);
         return registry.build();
     }
     private DefaultContent() {}

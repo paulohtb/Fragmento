@@ -1,4 +1,3 @@
 package com.pgalaxyp.fragmento.combat.delta;
 
-public sealed interface StateDelta
-        permits ActorSpawned, DamageApplied {}
+public sealed interface StateDelta permits ActorSpawned, DamageApplied, AbilityStarted, AbilityEnded {}

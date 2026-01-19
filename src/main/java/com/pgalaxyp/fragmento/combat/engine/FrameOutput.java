@@ -1,16 +1,12 @@
 package com.pgalaxyp.fragmento.combat.engine;
 
 import com.pgalaxyp.fragmento.combat.core.time.*;
-import com.pgalaxyp.fragmento.combat.ports.dto.*;
-import com.pgalaxyp.fragmento.combat.event.*;
+import com.pgalaxyp.fragmento.combat.transport.snapshot.api.*;
 import java.util.*;
 
-public record FrameOutput(FrameContext frame, GameSnapshot snapshot, List<DomainEvent> events) {
-
+public record FrameOutput(FrameContext frame, GameSnapshot snapshot) {
     public FrameOutput {
-        Objects.requireNonNull(frame, "frame cannot be null");
-        Objects.requireNonNull(snapshot, "snapshot cannot be null");
-        Objects.requireNonNull(events, "events cannot be null");
-        events = List.copyOf(events);
+        Objects.requireNonNull(frame);
+        Objects.requireNonNull(snapshot);
     }
 }

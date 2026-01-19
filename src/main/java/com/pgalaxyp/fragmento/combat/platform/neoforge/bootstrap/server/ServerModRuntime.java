@@ -1,29 +1,29 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.server;
 
-import com.pgalaxyp.fragmento.combat.action.system.*;
-import com.pgalaxyp.fragmento.combat.combo.skill.*;
-import com.pgalaxyp.fragmento.combat.combo.state.*;
+import com.pgalaxyp.fragmento.combat.ability.system.*;
+import com.pgalaxyp.fragmento.combat.actor.system.*;
 import com.pgalaxyp.fragmento.combat.combo.system.*;
 import com.pgalaxyp.fragmento.combat.content.*;
 import com.pgalaxyp.fragmento.combat.content.defaults.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
-import com.pgalaxyp.fragmento.combat.cycle.system.*;
 import com.pgalaxyp.fragmento.combat.damage.integration.*;
 import com.pgalaxyp.fragmento.combat.damage.system.*;
 import com.pgalaxyp.fragmento.combat.effect.system.*;
 import com.pgalaxyp.fragmento.combat.engine.*;
 import com.pgalaxyp.fragmento.combat.engine.intent.*;
+import com.pgalaxyp.fragmento.combat.engine.system.*;
 import com.pgalaxyp.fragmento.combat.intent.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.net.wire.*;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.world.*;
-import com.pgalaxyp.fragmento.combat.ports.*;
+import com.pgalaxyp.fragmento.combat.skill.system.*;
 import com.pgalaxyp.fragmento.combat.targeting.platform.minecraft.*;
 import java.util.*;
 import net.minecraft.server.*;
 
-public final class ServerModRuntime implements ServerIntentReceiverPort {
+public final class ServerModRuntime implements com.pgalaxyp.fragmento.combat.ports.ServerIntentReceiverPort {
+
     private static volatile ServerModRuntime active;
     public static void activate(ServerModRuntime rt) { active = rt; NfRuntimeRefs.setServerReceiver(rt); }
     public static void deactivate() { active = null; NfRuntimeRefs.clearServerReceiver(); }
@@ -35,29 +35,42 @@ public final class ServerModRuntime implements ServerIntentReceiverPort {
 
     public ServerModRuntime(MinecraftServer server) {
         GameContent content = DefaultContent.create();
-        var targeting = McTargetingModule.createServer(server);
-        var damage = new DefaultDamageService();
-        var snapshots = new DefaultSnapshotProvider();
-        ComboTracker comboTracker = new InMemoryComboTracker();
-        ComboSkillResolver comboSkills = new ComboSkillResolver(List.of());
-        var combo = new ComboEngine();
-        var cycles = new ActionCycleEngine(content.cycles());
-        var actions = new DefaultActionService(content::action);
-        var effects = new EffectEngine(content, damage, snapshots, targeting.service());
+
+        var targeting = McTargetingModule.createServer(server).service();
+        var effects = new EffectEngine(content, new DefaultDamageService(), new DefaultSnapshotProvider());
+        var abilities = new AbilityService(
+                Map.of(
+                        DefaultIds.ABILITY_FLUTE,
+                        new com.pgalaxyp.fragmento.combat.ability.api.AbilityDef(
+                                DefaultIds.ABILITY_FLUTE,
+                                15,
+                                DefaultIds.EFFECT_FLUTE_MAGIC,
+                                new com.pgalaxyp.fragmento.combat.targeting.api.TargetingSpec(
+                                        com.pgalaxyp.fragmento.combat.targeting.api.TargetingMode.RAYCAST_SINGLE,
+                                        8.0,
+                                        com.pgalaxyp.fragmento.combat.targeting.api.TargetingFallback.SELF
+                                )
+                        )
+                ),
+                targeting,
+                effects
+        );
+
+        CombatFlowProcessor flow = new CombatFlowProcessor(
+                content,
+                new DefaultActorService(),
+                new ComboEngine(),
+                DefaultSkillResolver.create(),
+                abilities
+        );
 
         engine = new GameEngine(
                 queue,
                 content,
-                comboTracker,
-                comboSkills,
-                combo,
-                cycles,
-                actions,
-                effects,
+                flow,
                 new NfWorldCommands(server),
-                new NfEventSink(),
                 new NfSnapshotSink(),
-                new GameState(new FrameContext(0, 0), new TreeMap<>())
+                GameState.empty(new FrameContext(0, 0))
         );
     }
 
