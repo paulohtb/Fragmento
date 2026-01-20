@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.ability.api;
 
 import com.pgalaxyp.fragmento.combat.core.ids.IdValidation;
-import java.util.*;
+import java.util.Objects;
 
 public record AbilityId(String value) implements Comparable<AbilityId> {
     public AbilityId { value = IdValidation.normalizedKey(value); }

@@ -1,51 +1,37 @@
 package com.pgalaxyp.fragmento.combat.engine.commit;
 
-import com.pgalaxyp.fragmento.combat.ability.api.*;
+import com.pgalaxyp.fragmento.combat.delta.*;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.delta.*;
 import java.util.*;
 
 public final class StateDeltaApplier {
-
     public static GameState applyAll(GameState base, Iterable<StateDelta> deltas) {
         if (base == null || deltas == null) throw new IllegalArgumentException();
 
         NavigableMap<ActorId, ActorState> actors = new TreeMap<>(base.actors());
-        NavigableMap<ActorId, NavigableMap<AbilityId, Long>> cooldowns = new TreeMap<>();
-        for (var e : base.cooldowns().entrySet()) cooldowns.put(e.getKey(), new TreeMap<>(e.getValue()));
 
         for (StateDelta delta : deltas) {
             if (delta == null) throw new IllegalArgumentException();
-            applyOne(actors, cooldowns, delta);
+            applyOne(actors, delta);
         }
 
-        return new GameState(base.frame(), actors, cooldowns);
+        return new GameState(base.frame(), actors);
     }
 
-    private static void applyOne(Map<ActorId, ActorState> actors, Map<ActorId, NavigableMap<AbilityId, Long>> cooldowns, StateDelta delta) {
-        if (delta instanceof ActorSpawned s) {
-            ActorId actorId = s.actorId();
+    private static void applyOne(Map<ActorId, ActorState> actors, StateDelta delta) {
+        if (delta instanceof ActorSpawned(ActorId actorId, ClassId classId, WeaponId equippedWeaponId, int healthHearts, int maxHealthHearts)) {
             if (actors.containsKey(actorId)) return;
-            actors.put(actorId, ActorState.withEquippedWeapon(s.classId(), s.equippedWeaponId(), s.healthHearts(), s.maxHealthHearts()));
+            actors.put(actorId, ActorState.withEquippedWeapon(classId, equippedWeaponId, healthHearts, maxHealthHearts));
             return;
         }
 
-        if (delta instanceof DamageApplied da) {
-            ActorId targetActorId = da.targetActorId();
+        if (delta instanceof DamageApplied(ActorId targetActorId, int hearts)) {
             ActorState prev = actors.get(targetActorId);
             if (prev == null) return;
-            int nextHealth = Math.addExact(prev.healthHearts(), Math.negateExact(da.hearts()));
+            int nextHealth = Math.addExact(prev.healthHearts(), Math.negateExact(hearts));
             if (nextHealth < 0) nextHealth = 0;
             actors.put(targetActorId, new ActorState(prev.classId(), prev.equippedWeaponId(), nextHealth, prev.maxHealthHearts()));
-            return;
-        }
-
-        if (delta instanceof CooldownStarted cs) {
-            NavigableMap<AbilityId, Long> byAbility = cooldowns.computeIfAbsent(cs.actorId(), a -> new TreeMap<>());
-            Long prev = byAbility.get(cs.abilityId());
-            long next = cs.endFrame();
-            if (prev == null || next > prev) byAbility.put(cs.abilityId(), next);
         }
     }
 

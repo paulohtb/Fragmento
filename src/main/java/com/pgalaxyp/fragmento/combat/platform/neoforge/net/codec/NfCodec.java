@@ -1,23 +1,30 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.net.codec;
 
-import com.pgalaxyp.fragmento.combat.ability.api.*;
-import com.pgalaxyp.fragmento.combat.ability.model.*;
-import com.pgalaxyp.fragmento.combat.combo.api.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.core.time.*;
-import com.pgalaxyp.fragmento.combat.intent.*;
-import com.pgalaxyp.fragmento.combat.transport.snapshot.api.*;
-import java.io.*;
-import java.nio.charset.*;
-import java.util.*;
+import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
+import com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
+import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
+import com.pgalaxyp.fragmento.combat.core.net.BinaryIo;
+import com.pgalaxyp.fragmento.combat.core.state.ActorState;
+import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.intent.ActorJoinIntent;
+import com.pgalaxyp.fragmento.combat.intent.DomainIntent;
+import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.combat.intent.PerformActionIntent;
+import com.pgalaxyp.fragmento.combat.transport.snapshot.api.GameSnapshot;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.util.TreeMap;
 
 public final class NfCodec {
-
     private static final int VERSION = 9;
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
-
     private static final int INTENT_JOIN = 1;
     private static final int INTENT_PERFORM = 2;
 
@@ -26,7 +33,7 @@ public final class NfCodec {
         try (var outBytes = new ByteArrayOutputStream(); var out = new DataOutputStream(outBytes)) {
             out.writeInt(VERSION);
             out.writeInt(MSG_INTENT);
-            writeUuid(out, env.actorId().uuid());
+            BinaryIo.writeUuid(out, env.actorId().uuid());
             writeIntent(out, env.intent());
             Long hint = env.clientFrameHint();
             out.writeBoolean(hint != null);
@@ -44,7 +51,7 @@ public final class NfCodec {
             int ver = in.readInt();
             if (ver != 5 && ver != 6 && ver != 7 && ver != 8 && ver != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_INTENT) throw new IllegalArgumentException();
-            ActorId actorId = new ActorId(readUuid(in));
+            ActorId actorId = new ActorId(BinaryIo.readUuid(in));
             DomainIntent intent = readIntent(in, ver);
             Long hint = in.readBoolean() ? in.readLong() : null;
             return new IntentEnvelope(actorId, intent, hint);
@@ -62,20 +69,19 @@ public final class NfCodec {
 
             out.writeInt(snapshot.actors().size());
             for (var e : snapshot.actors().entrySet()) {
-                writeActorId(out, e.getKey());
+                BinaryIo.writeUuid(out, e.getKey().uuid());
                 writeActorState(out, e.getValue());
             }
 
-            out.writeInt(snapshot.activeAbilities().size());
-            for (AbilityInstanceView v : snapshot.activeAbilities()) writeAbilityView(out, v);
+            AbilityFrameView abilities = snapshot.abilities();
 
-            out.writeInt(snapshot.execution().size());
-            for (var e : snapshot.execution().entrySet()) {
-                writeActorId(out, e.getKey());
-                ActorExecutionState st = e.getValue();
-                out.writeInt(st.phase().ordinal());
-                out.writeBoolean(st.ability() != null);
-                if (st.ability() != null) writeAbilityViewCompact(out, st.ability());
+            out.writeInt(abilities.active().size());
+            for (AbilitySnapshot v : abilities.active()) AbilityBinaryCodec.writeSnapshotFull(out, v);
+
+            out.writeInt(abilities.execution().size());
+            for (var e : abilities.execution().entrySet()) {
+                BinaryIo.writeUuid(out, e.getKey().uuid());
+                AbilityBinaryCodec.writeExecutionState(out, e.getValue());
             }
 
             out.flush();
@@ -91,32 +97,28 @@ public final class NfCodec {
             int ver = in.readInt();
             if (ver != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_SNAPSHOT) throw new IllegalArgumentException();
+
             FrameContext frame = readFrame(in);
 
             int size = in.readInt();
             if (size < 0) throw new IllegalArgumentException();
             var actors = new TreeMap<ActorId, ActorState>();
-            for (int i = 0; i < size; i++) actors.put(readActorId(in), readActorState(in));
+            for (int i = 0; i < size; i++) actors.put(new ActorId(BinaryIo.readUuid(in)), readActorState(in));
 
-            int abilities = in.readInt();
-            if (abilities < 0) throw new IllegalArgumentException();
-            var views = new ArrayList<AbilityInstanceView>(abilities);
-            for (int i = 0; i < abilities; i++) views.add(readAbilityView(in));
+            int abilitiesSize = in.readInt();
+            if (abilitiesSize < 0) throw new IllegalArgumentException();
+            var active = new ArrayList<AbilitySnapshot>(abilitiesSize);
+            for (int i = 0; i < abilitiesSize; i++) active.add(AbilityBinaryCodec.readSnapshotFull(in));
 
             int execSize = in.readInt();
             if (execSize < 0) throw new IllegalArgumentException();
-            var exec = new TreeMap<ActorId, ActorExecutionState>();
-            ActorExecutionPhase[] phases = ActorExecutionPhase.values();
+            var exec = new TreeMap<ActorId, com.pgalaxyp.fragmento.combat.ability.api.AbilityExecutionState>();
             for (int i = 0; i < execSize; i++) {
-                ActorId actorId = readActorId(in);
-                int ord = in.readInt();
-                if (ord < 0 || ord >= phases.length) throw new IllegalArgumentException();
-                ActorExecutionPhase phase = phases[ord];
-                AbilityInstanceView ability = in.readBoolean() ? readAbilityViewCompact(in, actorId) : null;
-                exec.put(actorId, new ActorExecutionState(phase, ability));
+                ActorId actorId = new ActorId(BinaryIo.readUuid(in));
+                exec.put(actorId, AbilityBinaryCodec.readExecutionState(in, actorId));
             }
 
-            return new GameSnapshot(frame, actors, views, exec);
+            return new GameSnapshot(frame, actors, new AbilityFrameView(active, exec));
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }
@@ -146,34 +148,6 @@ public final class NfCodec {
         };
     }
 
-    private static void writeAbilityView(DataOutputStream out, AbilityInstanceView v) throws Exception {
-        writeString(out, v.abilityId().value());
-        writeActorId(out, v.actorId());
-        out.writeLong(v.startFrame());
-        out.writeLong(v.endFrame());
-    }
-
-    private static AbilityInstanceView readAbilityView(DataInputStream in) throws Exception {
-        AbilityId id = new AbilityId(readString(in));
-        ActorId actor = readActorId(in);
-        long start = in.readLong();
-        long end = in.readLong();
-        return new AbilityInstanceView(id, actor, start, end);
-    }
-
-    private static void writeAbilityViewCompact(DataOutputStream out, AbilityInstanceView v) throws Exception {
-        writeString(out, v.abilityId().value());
-        out.writeLong(v.startFrame());
-        out.writeLong(v.endFrame());
-    }
-
-    private static AbilityInstanceView readAbilityViewCompact(DataInputStream in, ActorId actor) throws Exception {
-        AbilityId id = new AbilityId(readString(in));
-        long start = in.readLong();
-        long end = in.readLong();
-        return new AbilityInstanceView(id, actor, start, end);
-    }
-
     private static void writeFrame(DataOutputStream out, FrameContext frame) throws Exception {
         out.writeLong(frame.frameId());
         out.writeInt(frame.tickIndex());
@@ -183,51 +157,20 @@ public final class NfCodec {
         return new FrameContext(in.readLong(), in.readInt());
     }
 
-    private static void writeActorId(DataOutputStream out, ActorId id) throws Exception {
-        writeUuid(out, id.uuid());
-    }
-
-    private static ActorId readActorId(DataInputStream in) throws Exception {
-        return new ActorId(readUuid(in));
-    }
-
     private static void writeActorState(DataOutputStream out, ActorState st) throws Exception {
-        writeString(out, st.classId().value());
+        BinaryIo.writeString(out, st.classId().value());
         out.writeBoolean(st.equippedWeaponId().isPresent());
-        if (st.equippedWeaponId().isPresent()) writeString(out, st.equippedWeaponId().get().value());
+        if (st.equippedWeaponId().isPresent()) BinaryIo.writeString(out, st.equippedWeaponId().get().value());
         out.writeInt(st.healthHearts());
         out.writeInt(st.maxHealthHearts());
     }
 
     private static ActorState readActorState(DataInputStream in) throws Exception {
-        ClassId classId = new ClassId(readString(in));
-        Optional<WeaponId> weapon = in.readBoolean() ? Optional.of(new WeaponId(readString(in))) : Optional.empty();
+        ClassId classId = new ClassId(BinaryIo.readString(in));
+        Optional<WeaponId> weapon = in.readBoolean() ? Optional.of(new WeaponId(BinaryIo.readString(in))) : Optional.empty();
         int hp = in.readInt();
         int max = in.readInt();
         return new ActorState(classId, weapon, hp, max);
-    }
-
-    private static void writeUuid(DataOutputStream out, UUID uuid) throws Exception {
-        out.writeLong(uuid.getMostSignificantBits());
-        out.writeLong(uuid.getLeastSignificantBits());
-    }
-
-    private static UUID readUuid(DataInputStream in) throws Exception {
-        return new UUID(in.readLong(), in.readLong());
-    }
-
-    private static void writeString(DataOutputStream out, String s) throws Exception {
-        byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
-        out.writeInt(bytes.length);
-        out.write(bytes);
-    }
-
-    private static String readString(DataInputStream in) throws Exception {
-        int len = in.readInt();
-        if (len < 0 || len > 1_000_000) throw new IllegalArgumentException();
-        byte[] bytes = in.readNBytes(len);
-        if (bytes.length != len) throw new IllegalArgumentException();
-        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private NfCodec() {}

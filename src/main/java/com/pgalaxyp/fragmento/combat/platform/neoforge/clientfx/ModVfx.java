@@ -1,17 +1,16 @@
 package com.pgalaxyp.fragmento.combat.platform.neoforge.clientfx;
 
 import com.mojang.blaze3d.vertex.*;
-import com.pgalaxyp.fragmento.combat.ability.model.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client.*;
-import com.pgalaxyp.fragmento.combat.transport.snapshot.api.*;
-import net.minecraft.client.*;
-import net.minecraft.client.renderer.*;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.phys.*;
+import com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.platform.neoforge.bootstrap.client.ClientModRuntime;
+import com.pgalaxyp.fragmento.combat.transport.snapshot.api.GameSnapshot;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class ModVfx {
-
     public static void clientTick() {}
 
     public static void render(PoseStack poseStack, float partialTick) {
@@ -25,23 +24,20 @@ public final class ModVfx {
         long frameId = snap.frame().frameId();
 
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer vc = buffers.getBuffer(ModRenderTypes.HOMING_MAGIC);
 
-        for (AbilityInstanceView a : snap.activeAbilities()) {
+        for (AbilitySnapshot a : snap.abilities().active()) {
             Entity src = findEntityByActorId(a.actorId());
             if (src == null) continue;
 
             double sx = src.getX(), sy = src.getY() + src.getEyeHeight(), sz = src.getZ();
-            double ex = sx, ey = sy + 1.5, ez = sz;
+            double ey = sy + 1.5;
 
             double rsx = sx - camPos.x, rsy = sy - camPos.y, rsz = sz - camPos.z;
-            double rex = ex - camPos.x, rey = ey - camPos.y, rez = ez - camPos.z;
+            double rex = sx - camPos.x, rey = ey - camPos.y, rez = sz - camPos.z;
 
-            float life = Math.max(1f, (float) (a.endFrame() - a.startFrame()));
-            float age = (float) (frameId - a.startFrame()) + partialTick;
-            float t = Math.min(1f, Math.max(0f, age / life));
-            int alpha = (int) ((1f - t) * 255f);
+            int alpha = AbilityVisuals.fadeAlpha255(a, frameId, partialTick);
 
             var pose = poseStack.last();
             vc.addVertex(pose, (float) rsx, (float) rsy, (float) rsz).setColor(120, 200, 255, alpha);

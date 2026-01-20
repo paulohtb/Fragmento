@@ -14,7 +14,7 @@ public final class ContentRegistry {
     private final NavigableMap<WeaponId, WeaponDef> weapons = new TreeMap<>();
     private final Map<EffectId, EffectDef> effects = new TreeMap<>();
     private final Map<WeaponId, ComboCatalog.Entry> combos = new TreeMap<>();
-    private final Map<ComboId, List<AbilityId>> comboAbilities = new TreeMap<>();
+    private final Map<ComboId, List<AbilityId>> actions = new TreeMap<>();
     private SpawnDefaults defaults;
 
     public void weapon(WeaponDef def) {
@@ -29,10 +29,10 @@ public final class ContentRegistry {
         if (combos.putIfAbsent(weaponId, new ComboCatalog.Entry(comboId, pattern)) != null) throw new IllegalStateException();
     }
 
-    public void comboAbilities(ComboId comboId, List<AbilityId> abilitiesByStep) {
+    public void comboStepAbilities(ComboId comboId, List<AbilityId> abilitiesByStep) {
         var list = List.copyOf(abilitiesByStep);
         if (list.isEmpty()) throw new IllegalArgumentException();
-        if (comboAbilities.putIfAbsent(comboId, list) != null) throw new IllegalStateException();
+        if (actions.putIfAbsent(comboId, list) != null) throw new IllegalStateException();
     }
 
     public void defaults(SpawnDefaults defaults) { this.defaults = defaults; }
@@ -42,7 +42,7 @@ public final class ContentRegistry {
                 weapons,
                 new EffectCatalog(effects),
                 new ComboCatalog(combos),
-                new ComboAbilityCatalog(comboAbilities),
+                new ActionCatalog(actions),
                 Objects.requireNonNull(defaults)
         );
     }

@@ -15,7 +15,7 @@ public final class DefaultCombos {
 
         registry.comboBase(DefaultIds.WEAPON_FLUTE, DefaultIds.COMBO_FLUTE_BASIC, pattern);
 
-        registry.comboAbilities(
+        registry.comboStepAbilities(
                 DefaultIds.COMBO_FLUTE_BASIC,
                 List.of(
                         DefaultIds.ABILITY_FLUTE,

@@ -9,14 +9,14 @@ public record GameContent(
         NavigableMap<WeaponId, WeaponDef> weapons,
         EffectCatalog effects,
         ComboCatalog combos,
-        ComboAbilityCatalog comboAbilities,
+        ActionCatalog actions,
         SpawnDefaults defaults
 ) {
     public GameContent {
         weapons = Collections.unmodifiableNavigableMap(new TreeMap<>(Objects.requireNonNull(weapons)));
         effects = Objects.requireNonNull(effects);
         combos = Objects.requireNonNull(combos);
-        comboAbilities = Objects.requireNonNull(comboAbilities);
+        actions = Objects.requireNonNull(actions);
         defaults = Objects.requireNonNull(defaults);
     }
 
