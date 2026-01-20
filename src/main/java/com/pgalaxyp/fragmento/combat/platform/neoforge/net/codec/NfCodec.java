@@ -14,7 +14,7 @@ import java.util.*;
 
 public final class NfCodec {
 
-    private static final int VERSION = 8;
+    private static final int VERSION = 9;
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
 
@@ -42,7 +42,7 @@ public final class NfCodec {
         if (data == null) throw new IllegalArgumentException();
         try (var in = new DataInputStream(new ByteArrayInputStream(data))) {
             int ver = in.readInt();
-            if (ver != 5 && ver != 6 && ver != 7 && ver != VERSION) throw new IllegalArgumentException();
+            if (ver != 5 && ver != 6 && ver != 7 && ver != 8 && ver != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_INTENT) throw new IllegalArgumentException();
             ActorId actorId = new ActorId(readUuid(in));
             DomainIntent intent = readIntent(in, ver);
@@ -69,6 +69,15 @@ public final class NfCodec {
             out.writeInt(snapshot.activeAbilities().size());
             for (AbilityInstanceView v : snapshot.activeAbilities()) writeAbilityView(out, v);
 
+            out.writeInt(snapshot.execution().size());
+            for (var e : snapshot.execution().entrySet()) {
+                writeActorId(out, e.getKey());
+                ActorExecutionState st = e.getValue();
+                out.writeInt(st.phase().ordinal());
+                out.writeBoolean(st.ability() != null);
+                if (st.ability() != null) writeAbilityViewCompact(out, st.ability());
+            }
+
             out.flush();
             return outBytes.toByteArray();
         } catch (Exception e) {
@@ -94,22 +103,28 @@ public final class NfCodec {
             var views = new ArrayList<AbilityInstanceView>(abilities);
             for (int i = 0; i < abilities; i++) views.add(readAbilityView(in));
 
-            return new GameSnapshot(frame, actors, views);
+            int execSize = in.readInt();
+            if (execSize < 0) throw new IllegalArgumentException();
+            var exec = new TreeMap<ActorId, ActorExecutionState>();
+            ActorExecutionPhase[] phases = ActorExecutionPhase.values();
+            for (int i = 0; i < execSize; i++) {
+                ActorId actorId = readActorId(in);
+                int ord = in.readInt();
+                if (ord < 0 || ord >= phases.length) throw new IllegalArgumentException();
+                ActorExecutionPhase phase = phases[ord];
+                AbilityInstanceView ability = in.readBoolean() ? readAbilityViewCompact(in, actorId) : null;
+                exec.put(actorId, new ActorExecutionState(phase, ability));
+            }
+
+            return new GameSnapshot(frame, actors, views, exec);
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }
     }
 
     private static void writeIntent(DataOutputStream out, DomainIntent intent) throws Exception {
-        if (intent instanceof ActorJoinIntent) {
-            out.writeInt(INTENT_JOIN);
-            return;
-        }
-        if (intent instanceof PerformActionIntent(var input)) {
-            out.writeInt(INTENT_PERFORM);
-            out.writeInt(input.ordinal());
-            return;
-        }
+        if (intent instanceof ActorJoinIntent) { out.writeInt(INTENT_JOIN); return; }
+        if (intent instanceof PerformActionIntent(var input)) { out.writeInt(INTENT_PERFORM); out.writeInt(input.ordinal()); return; }
         throw new IllegalArgumentException();
     }
 
@@ -141,6 +156,19 @@ public final class NfCodec {
     private static AbilityInstanceView readAbilityView(DataInputStream in) throws Exception {
         AbilityId id = new AbilityId(readString(in));
         ActorId actor = readActorId(in);
+        long start = in.readLong();
+        long end = in.readLong();
+        return new AbilityInstanceView(id, actor, start, end);
+    }
+
+    private static void writeAbilityViewCompact(DataOutputStream out, AbilityInstanceView v) throws Exception {
+        writeString(out, v.abilityId().value());
+        out.writeLong(v.startFrame());
+        out.writeLong(v.endFrame());
+    }
+
+    private static AbilityInstanceView readAbilityViewCompact(DataInputStream in, ActorId actor) throws Exception {
+        AbilityId id = new AbilityId(readString(in));
         long start = in.readLong();
         long end = in.readLong();
         return new AbilityInstanceView(id, actor, start, end);

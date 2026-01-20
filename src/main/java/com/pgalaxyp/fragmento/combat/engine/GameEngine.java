@@ -37,12 +37,12 @@ public final class GameEngine {
         CombatFlowProcessor.FlowOutput fo = flow.process(frame, state, intents.drain());
         List<StateDelta> deltas = fo.deltas();
 
-        GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors(), state.buffs()), deltas);
+        GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors(), state.cooldowns()), deltas);
         state = committed;
 
         world.apply(frame, committed, content, deltas);
 
-        GameSnapshot snap = new GameSnapshot(frame, committed.actors(), fo.activeAbilities());
+        GameSnapshot snap = new GameSnapshot(frame, committed.actors(), fo.activeAbilities(), fo.execution());
         snapshots.publish(snap);
 
         return new FrameOutput(frame, snap);

@@ -24,12 +24,8 @@ public final class InputController {
         if (input != SemanticInput.PRIMARY_ACTION) return new InputDecision(consumeVanilla);
 
         ActorId actorId = context.actorId();
-        if (actorId == null) return new InputDecision(consumeVanilla);
+        if (actorId != null) emitter.emit(actorId, new PerformActionIntent(ComboInput.PRIMARY), context.snapshot().frameIdOrZero());
 
-        InputSnapshotView snapshot = context.snapshot();
-        if (!snapshot.isPresent() || !context.hasWeaponInHand()) return new InputDecision(consumeVanilla);
-
-        emitter.emit(actorId, new PerformActionIntent(ComboInput.PRIMARY), snapshot.frameIdOrZero());
         return new InputDecision(consumeVanilla);
     }
 }

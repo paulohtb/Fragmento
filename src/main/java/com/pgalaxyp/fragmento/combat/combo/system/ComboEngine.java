@@ -9,51 +9,49 @@ public final class ComboEngine implements ComboService {
     private final Map<ActorId, ComboState> byActor = new HashMap<>();
 
     @Override
-    public ComboResult decide(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input) {
+    public ComboDecision decide(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input) {
         Objects.requireNonNull(actorId);
         Objects.requireNonNull(comboId);
         Objects.requireNonNull(pattern);
         Objects.requireNonNull(input);
 
         ComboState prev = byActor.get(actorId);
-
         if (prev == null) return startOrReject(actorId, comboId, pattern, input);
 
         if (!prev.comboId.equals(comboId) || prev.stepsTotal != pattern.size()) {
-            byActor.remove(actorId);
-            return startOrReset(actorId, comboId, pattern, input);
+            return startOrReset(actorId, comboId, pattern, input, () -> byActor.remove(actorId));
         }
 
         int next = prev.stepIndex + 1;
         if (next < pattern.size() && pattern.step(next).input() == input) {
-            return progress(actorId, comboId, pattern, next);
+            return proposed(actorId, comboId, pattern, next);
         }
 
         if (pattern.step(0).input() == input) {
-            return progress(actorId, comboId, pattern, 0);
+            return proposed(actorId, comboId, pattern, 0);
         }
 
-        byActor.remove(actorId);
-        return ComboResult.reset(comboId);
+        return ComboDecision.reset(comboId, () -> byActor.remove(actorId));
     }
 
-    private ComboResult startOrReject(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input) {
-        return pattern.step(0).input() == input ? progress(actorId, comboId, pattern, 0) : ComboResult.reject();
+    private ComboDecision startOrReject(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input) {
+        return pattern.step(0).input() == input ? proposed(actorId, comboId, pattern, 0) : ComboDecision.reject();
     }
 
-    private ComboResult startOrReset(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input) {
-        return pattern.step(0).input() == input ? progress(actorId, comboId, pattern, 0) : ComboResult.reset(comboId);
+    private ComboDecision startOrReset(ActorId actorId, ComboId comboId, ComboPattern pattern, ComboInput input, Runnable clear) {
+        return pattern.step(0).input() == input ? proposed(actorId, comboId, pattern, 0) : ComboDecision.reset(comboId, clear);
     }
 
-    private ComboResult progress(ActorId actorId, ComboId comboId, ComboPattern pattern, int index) {
+    private ComboDecision.Proposed proposed(ActorId actorId, ComboId comboId, ComboPattern pattern, int index) {
         boolean start = index == 0;
         boolean end = index == pattern.size() - 1;
         ComboStep step = pattern.step(index);
 
-        if (end) byActor.remove(actorId);
-        else byActor.put(actorId, new ComboState(comboId, index, pattern.size()));
+        Runnable commit = end
+                ? () -> byActor.remove(actorId)
+                : () -> byActor.put(actorId, new ComboState(comboId, index, pattern.size()));
 
-        return new ComboResult.Progress(comboId, index, pattern.size(), step, start, end);
+        return new ComboDecision.Proposed(comboId, index, pattern.size(), step, start, end, commit);
     }
 
     private record ComboState(ComboId comboId, int stepIndex, int stepsTotal) {

@@ -13,6 +13,11 @@ public final class AbilityStore {
         return a != null && a.activeAt(frame);
     }
 
+    public boolean hasLocked(ActorId actorId, long frame) {
+        AbilityInstance a = active.get(actorId);
+        return a != null && a.lockedAt(frame);
+    }
+
     public Optional<AbilityInstance> activeOf(ActorId actorId, long frame) {
         AbilityInstance a = active.get(actorId);
         return a != null && a.activeAt(frame) ? Optional.of(a) : Optional.empty();
@@ -20,7 +25,7 @@ public final class AbilityStore {
 
     public void put(AbilityInstance instance) { active.put(instance.actorId(), instance); }
 
-    public void evictExpired(long frame) { active.entrySet().removeIf(e -> !e.getValue().activeAt(frame)); }
+    public void evictExpired(long frame) { active.entrySet().removeIf(e -> frame > e.getValue().endFrame()); }
 
     public List<AbilityInstance> activeAll(long frame) {
         if (active.isEmpty()) return List.of();

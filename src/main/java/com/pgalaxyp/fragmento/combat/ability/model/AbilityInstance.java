@@ -17,4 +17,6 @@ public record AbilityInstance(
     }
 
     public boolean activeAt(long frame) { return frame >= startFrame && frame < endFrame; }
+
+    public boolean lockedAt(long frame) { return frame >= startFrame && frame <= endFrame; }
 }

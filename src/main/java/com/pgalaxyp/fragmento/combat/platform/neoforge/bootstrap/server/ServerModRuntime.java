@@ -44,6 +44,7 @@ public final class ServerModRuntime implements com.pgalaxyp.fragmento.combat.por
                         new com.pgalaxyp.fragmento.combat.ability.api.AbilityDef(
                                 DefaultIds.ABILITY_FLUTE,
                                 15,
+                                0,
                                 DefaultIds.EFFECT_FLUTE_MAGIC,
                                 new com.pgalaxyp.fragmento.combat.targeting.api.TargetingSpec(
                                         com.pgalaxyp.fragmento.combat.targeting.api.TargetingMode.RAYCAST_SINGLE,
