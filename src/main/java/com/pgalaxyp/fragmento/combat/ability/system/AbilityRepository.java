@@ -7,7 +7,6 @@ import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import java.util.*;
 
 final class AbilityRepository {
-
     private final Map<ActorId, Active> activeByActor = new HashMap<>();
     private final Map<ActorId, NavigableMap<AbilityId, Long>> cooldownEndByActor = new HashMap<>();
 
@@ -17,15 +16,21 @@ final class AbilityRepository {
         return Optional.of(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
     }
 
-    List<AbilitySnapshot> activeAll(long frameId) {
-        if (activeByActor.isEmpty()) return List.of();
-        var out = new ArrayList<AbilitySnapshot>(activeByActor.size());
-        for (var e : activeByActor.entrySet()) {
-            Active a = e.getValue();
+    List<AbilitySnapshot> activeAll(Collection<ActorId> actorIds, long frameId) {
+        if (actorIds == null) throw new IllegalArgumentException();
+        if (frameId < 0) throw new IllegalArgumentException();
+        if (actorIds.isEmpty() || activeByActor.isEmpty()) return List.of();
+
+        var out = new ArrayList<AbilitySnapshot>();
+        for (ActorId actorId : actorIds) {
+            if (actorId == null) throw new IllegalArgumentException();
+            Active a = activeByActor.get(actorId);
+            if (a == null) continue;
             if (frameId >= a.startFrame && frameId < a.endFrameExclusive) {
-                out.add(new AbilitySnapshot(a.abilityId, e.getKey(), a.startFrame, a.endFrameExclusive));
+                out.add(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
             }
         }
+
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
@@ -59,7 +64,9 @@ final class AbilityRepository {
             Active a = e.getValue();
             if (frameId >= a.endFrameExclusive) {
                 it.remove();
-                out.add(new AbilityEvent.Ended(new AbilitySnapshot(a.abilityId, e.getKey(), a.startFrame, a.endFrameExclusive)));
+                out.add(new AbilityEvent.Ended(
+                        new AbilitySnapshot(a.abilityId, e.getKey(), a.startFrame, a.endFrameExclusive)
+                ));
             }
         }
 

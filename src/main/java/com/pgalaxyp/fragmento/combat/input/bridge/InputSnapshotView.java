@@ -2,7 +2,8 @@ package com.pgalaxyp.fragmento.combat.input.bridge;
 
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.transport.snapshot.api.*;
+import com.pgalaxyp.fragmento.combat.transport.GameSnapshot;
+
 import java.util.*;
 
 public final class InputSnapshotView {

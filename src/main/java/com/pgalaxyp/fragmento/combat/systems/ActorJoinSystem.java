@@ -1,31 +1,32 @@
 package com.pgalaxyp.fragmento.combat.systems;
 
-import com.pgalaxyp.fragmento.combat.actor.api.ActorService;
-import com.pgalaxyp.fragmento.combat.content.GameContent;
+import com.pgalaxyp.fragmento.combat.actor.ActorService;
+import com.pgalaxyp.fragmento.combat.core.def.SpawnDefaultsProvider;
+import com.pgalaxyp.fragmento.combat.delta.StateDelta;
+import com.pgalaxyp.fragmento.combat.events.actor.ActorJoinRequested;
+import com.pgalaxyp.fragmento.combat.events.actor.ActorJoined;
+import com.pgalaxyp.fragmento.combat.flow.FrameBus;
+import com.pgalaxyp.fragmento.combat.flow.FrameSystem;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
-import com.pgalaxyp.fragmento.combat.events.actor.ActorJoined;
-import com.pgalaxyp.fragmento.combat.events.actor.ActorJoinRequested;
-import com.pgalaxyp.fragmento.combat.flow.*;
-import com.pgalaxyp.fragmento.combat.intent.*;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 
 public final class ActorJoinSystem implements FrameSystem {
     private final ActorService actors;
-    private final GameContent content;
+    private final SpawnDefaultsProvider defaults;
 
-    public ActorJoinSystem(ActorService actors, GameContent content) {
+    public ActorJoinSystem(ActorService actors, SpawnDefaultsProvider defaults) {
         this.actors = Objects.requireNonNull(actors);
-        this.content = Objects.requireNonNull(content);
+        this.defaults = Objects.requireNonNull(defaults);
     }
 
     @Override
     public void tick(FrameContext frame, GameState state, FrameBus bus) {
-        for (IntentEnvelope env : bus.intents(IntentEnvelope.class)) {
-            if (!(env.intent() instanceof ActorJoinIntent)) continue;
-            bus.publish(new ActorJoinRequested(env.actorId()));
-            for (var d : actors.onJoin(env.actorId(), state, content.defaults())) bus.emit(d);
-            bus.publish(new ActorJoined(env.actorId()));
+        for (ActorJoinRequested req : bus.events(ActorJoinRequested.class)) {
+            List<StateDelta> deltas = actors.onJoin(req.actorId(), state, defaults.defaultsFor(req.actorId()));
+            for (StateDelta d : deltas) bus.emit(d);
+            bus.publish(new ActorJoined(req.actorId()));
         }
     }
 }

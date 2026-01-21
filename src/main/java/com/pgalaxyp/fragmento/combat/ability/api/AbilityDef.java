@@ -4,13 +4,7 @@ import com.pgalaxyp.fragmento.combat.core.ids.EffectId;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetingSpec;
 import java.util.Objects;
 
-public record AbilityDef(
-        AbilityId id,
-        int durationFrames,
-        int cooldownFrames,
-        EffectId startEffect,
-        TargetingSpec targeting
-) {
+public record AbilityDef(AbilityId id, int durationFrames, int cooldownFrames, EffectId startEffect, TargetingSpec targeting) {
     public AbilityDef {
         Objects.requireNonNull(id);
         Objects.requireNonNull(startEffect);
@@ -24,6 +18,7 @@ public record AbilityDef(
     }
 
     public long cooldownEndExclusive(long startFrame) {
-        return cooldownFrames == 0 ? -1L : Math.addExact(startFrame, cooldownFrames);
+        if (cooldownFrames == 0) return -1L;
+        return Math.addExact(startFrame, cooldownFrames);
     }
 }

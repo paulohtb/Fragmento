@@ -18,10 +18,6 @@ public final class DefaultSkillResolver implements SkillResolver {
         this.rules = List.copyOf(copy);
     }
 
-    public static DefaultSkillResolver create() {
-        return new DefaultSkillResolver(List.of());
-    }
-
     public static DefaultSkillResolver of(List<SkillRule> rules) {
         return new DefaultSkillResolver(rules);
     }
@@ -31,19 +27,18 @@ public final class DefaultSkillResolver implements SkillResolver {
     }
 
     @Override
-    public AbilityId resolveAbility(ActorId actorId, WeaponId weaponId, ComboId comboId, int stepIndex, AbilityId baseAbility, GameState state) {
+    public AbilityId resolveAbility(ActorId actorId, WeaponId weaponId, int stepIndex, AbilityId baseAbility, GameState state) {
         Objects.requireNonNull(actorId);
         Objects.requireNonNull(weaponId);
-        Objects.requireNonNull(comboId);
         Objects.requireNonNull(baseAbility);
         Objects.requireNonNull(state);
         if (stepIndex < 0) throw new IllegalArgumentException();
+
         for (SkillRule r : rules) {
-            if (r.matches(actorId, weaponId, comboId, stepIndex, baseAbility, state)) {
+            if (r.matches(actorId, weaponId, stepIndex, baseAbility, state)) {
                 return r.resultAbility();
             }
         }
-
         return baseAbility;
     }
 }

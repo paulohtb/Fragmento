@@ -1,72 +1,27 @@
 package com.pgalaxyp.fragmento.combat.combo.system;
 
-import com.pgalaxyp.fragmento.combat.combo.api.*;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.core.ids.*;
 import java.util.*;
-import java.util.function.BiConsumer;
 
 final class ComboRepository {
-    private final Map<ActorId, Active> activeByActor = new HashMap<>();
-    private final Map<ActorId, Long> lockEndInclusiveByActor = new HashMap<>();
+    private static final int MAX_GAP_FRAMES = 20;
+    private static final int MAX_STEP_INDEX = 1;
 
-    Optional<ComboSnapshot> activeOf(ActorId actorId, long frameId) {
-        Active a = activeByActor.get(actorId);
-        if (a == null || frameId < a.startedAtFrame || frameId >= a.expiresAtFrameExclusive) return Optional.empty();
-        return Optional.of(a.snapshot(actorId));
-    }
+    private record ComboState(WeaponId weaponId, int stepIndex, long lastFrame) { }
+    private final Map<ActorId, ComboState> byActor = new HashMap<>();
 
-    List<ComboSnapshot> activeAll(long frameId) {
-        if (activeByActor.isEmpty()) return List.of();
-        var out = new ArrayList<ComboSnapshot>(activeByActor.size());
-        for (var e : activeByActor.entrySet()) {
-            Active a = e.getValue();
-            if (frameId >= a.startedAtFrame && frameId < a.expiresAtFrameExclusive) out.add(a.snapshot(e.getKey()));
-        }
-        return List.copyOf(out);
-    }
+    int nextStep(ActorId actorId, WeaponId weaponId, long frameId) {
+        ComboState prev = byActor.get(actorId);
 
-    boolean isLocked(ActorId actorId, long frameId) {
-        Long end = lockEndInclusiveByActor.get(actorId);
-        return end != null && frameId <= end;
-    }
-
-    void lock(ActorId actorId, long lockEndInclusive) {
-        if (lockEndInclusive < 0) throw new IllegalArgumentException();
-        Long prev = lockEndInclusiveByActor.get(actorId);
-        if (prev == null || lockEndInclusive > prev) lockEndInclusiveByActor.put(actorId, lockEndInclusive);
-    }
-
-    void startOrUpdate(ActorId actorId, Active next) { activeByActor.put(actorId, next); }
-
-    void clear(ActorId actorId) {
-        activeByActor.remove(actorId);
-        lockEndInclusiveByActor.remove(actorId);
-    }
-
-    void cleanup(long frameId, BiConsumer<ActorId, Active> onExpired) {
-        if (activeByActor.isEmpty()) return;
-        var it = activeByActor.entrySet().iterator();
-        while (it.hasNext()) {
-            var e = it.next();
-            Active a = e.getValue();
-            if (frameId >= a.expiresAtFrameExclusive) {
-                it.remove();
-                onExpired.accept(e.getKey(), a);
-            }
-        }
-        lockEndInclusiveByActor.entrySet().removeIf(x -> x.getValue() != null && frameId > x.getValue());
-    }
-
-    record Active(ComboId comboId, int stepIndex, int stepsTotal, long startedAtFrame, long lastAcceptedFrame, long expiresAtFrameExclusive) {
-        Active {
-            Objects.requireNonNull(comboId);
-            if (stepIndex < 0 || stepsTotal <= 0 || stepIndex >= stepsTotal) throw new IllegalArgumentException();
-            if (startedAtFrame < 0 || lastAcceptedFrame < 0 || expiresAtFrameExclusive <= 0) throw new IllegalArgumentException();
-            if (lastAcceptedFrame < startedAtFrame) throw new IllegalArgumentException();
+        if (prev == null || !prev.weaponId.equals(weaponId) || Math.subtractExact(frameId, prev.lastFrame) > MAX_GAP_FRAMES) {
+            byActor.put(actorId, new ComboState(weaponId, 0, frameId));
+            return 0;
         }
 
-        ComboSnapshot snapshot(ActorId actorId) {
-            return new ComboSnapshot(actorId, comboId, stepIndex, stepsTotal, startedAtFrame, lastAcceptedFrame, expiresAtFrameExclusive);
-        }
+        int next = prev.stepIndex + 1;
+        if (next > MAX_STEP_INDEX) next = 0;
+
+        byActor.put(actorId, new ComboState(weaponId, next, frameId));
+        return next;
     }
 }

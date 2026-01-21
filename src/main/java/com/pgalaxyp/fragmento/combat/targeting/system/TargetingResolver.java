@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.targeting.system;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
-import java.util.*;
+import java.util.Optional;
 
 public final class TargetingResolver {
     private final SingleRaycastTargetingSystem raycastSingle = new SingleRaycastTargetingSystem();
@@ -11,9 +11,20 @@ public final class TargetingResolver {
         if (context == null) throw new IllegalArgumentException();
 
         Optional<ViewRay> rayOpt = context.world().viewRay(context.casterId());
+
         if (context.spec().mode() == TargetingMode.RAYCAST_SINGLE && rayOpt.isPresent()) {
             Optional<Target> targetOpt = raycastSingle.resolve(context, rayOpt.get());
-            if (targetOpt.isPresent()) return directResult(context.casterId(), targetOpt.get());
+            if (targetOpt.isPresent()) {
+                TargetResult direct = directResult(context.casterId(), targetOpt.get());
+                if (direct.actorTargetOpt().isPresent()) return direct;
+
+                if (context.spec().fallbackPolicy() == TargetingFallback.SELF) {
+                    ActorId self = context.casterId();
+                    return TargetResult.fallback(new ActorTarget(self), TargetingFallback.SELF, self);
+                }
+
+                return direct;
+            }
         }
 
         return fallbackResult(context, rayOpt.orElse(null));

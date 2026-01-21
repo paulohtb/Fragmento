@@ -7,14 +7,12 @@ public record AbilitySnapshot(AbilityId abilityId, ActorId actorId, long startFr
     public AbilitySnapshot {
         Objects.requireNonNull(abilityId);
         Objects.requireNonNull(actorId);
-        if (startFrame < 0 || endFrameExclusive <= startFrame) throw new IllegalArgumentException();
+        if (startFrame < 0 || endFrameExclusive <= startFrame) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public boolean activeAt(long frame) {
         return frame >= startFrame && frame < endFrameExclusive;
-    }
-
-    public boolean lockedAt(long frame) {
-        return activeAt(frame);
     }
 }

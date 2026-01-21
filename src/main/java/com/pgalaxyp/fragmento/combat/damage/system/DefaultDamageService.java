@@ -1,23 +1,19 @@
 package com.pgalaxyp.fragmento.combat.damage.system;
 
-import com.pgalaxyp.fragmento.combat.damage.api.*;
+import com.pgalaxyp.fragmento.combat.damage.api.DamageService;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;
-import com.pgalaxyp.fragmento.combat.damage.snapshot.*;
+import com.pgalaxyp.fragmento.combat.damage.snapshot.DamageSnapshot;
 
 public final class DefaultDamageService implements DamageService {
-
-    private final DamageResolver resolver;
-
-    public DefaultDamageService() {
-        this.resolver = new DamageResolver();
-    }
-
     @Override
     public DamageResult resolve(DamageRequest request, DamageSnapshot snapshot) {
         if (request == null || snapshot == null) {
             throw new IllegalArgumentException();
         }
 
-        return resolver.resolve(request, snapshot);
+        DamageSpec spec = request.spec();
+        int hearts = spec.baseHearts();
+
+        return new DamageResult(hearts, spec.type(), spec.element());
     }
 }
