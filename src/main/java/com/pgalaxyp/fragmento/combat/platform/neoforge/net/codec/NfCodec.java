@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.combat.platform.neoforge.net.codec;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot;
+import com.pgalaxyp.fragmento.combat.combo.api.ComboInput;
 import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
 import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
@@ -13,16 +14,11 @@ import com.pgalaxyp.fragmento.combat.intent.DomainIntent;
 import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
 import com.pgalaxyp.fragmento.combat.intent.PerformActionIntent;
 import com.pgalaxyp.fragmento.combat.transport.snapshot.api.GameSnapshot;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.util.ArrayList;
-import java.util.Optional;
-import java.util.TreeMap;
+import java.io.*;
+import java.util.*;
 
 public final class NfCodec {
-    private static final int VERSION = 9;
+    private static final int VERSION = 10;
     private static final int MSG_INTENT = 1;
     private static final int MSG_SNAPSHOT = 2;
     private static final int INTENT_JOIN = 1;
@@ -49,7 +45,7 @@ public final class NfCodec {
         if (data == null) throw new IllegalArgumentException();
         try (var in = new DataInputStream(new ByteArrayInputStream(data))) {
             int ver = in.readInt();
-            if (ver != 5 && ver != 6 && ver != 7 && ver != 8 && ver != VERSION) throw new IllegalArgumentException();
+            if (ver != 5 && ver != 6 && ver != 7 && ver != 8 && ver != 9 && ver != VERSION) throw new IllegalArgumentException();
             if (in.readInt() != MSG_INTENT) throw new IllegalArgumentException();
             ActorId actorId = new ActorId(BinaryIo.readUuid(in));
             DomainIntent intent = readIntent(in, ver);
@@ -74,15 +70,8 @@ public final class NfCodec {
             }
 
             AbilityFrameView abilities = snapshot.abilities();
-
             out.writeInt(abilities.active().size());
             for (AbilitySnapshot v : abilities.active()) AbilityBinaryCodec.writeSnapshotFull(out, v);
-
-            out.writeInt(abilities.execution().size());
-            for (var e : abilities.execution().entrySet()) {
-                BinaryIo.writeUuid(out, e.getKey().uuid());
-                AbilityBinaryCodec.writeExecutionState(out, e.getValue());
-            }
 
             out.flush();
             return outBytes.toByteArray();
@@ -110,15 +99,7 @@ public final class NfCodec {
             var active = new ArrayList<AbilitySnapshot>(abilitiesSize);
             for (int i = 0; i < abilitiesSize; i++) active.add(AbilityBinaryCodec.readSnapshotFull(in));
 
-            int execSize = in.readInt();
-            if (execSize < 0) throw new IllegalArgumentException();
-            var exec = new TreeMap<ActorId, com.pgalaxyp.fragmento.combat.ability.api.AbilityExecutionState>();
-            for (int i = 0; i < execSize; i++) {
-                ActorId actorId = new ActorId(BinaryIo.readUuid(in));
-                exec.put(actorId, AbilityBinaryCodec.readExecutionState(in, actorId));
-            }
-
-            return new GameSnapshot(frame, actors, new AbilityFrameView(active, exec));
+            return new GameSnapshot(frame, actors, new AbilityFrameView(active));
         } catch (Exception e) {
             throw new IllegalArgumentException();
         }

@@ -8,10 +8,6 @@ import java.util.*;
 public final class ComboEngine implements ComboPort {
     private final ComboRepository repo = new ComboRepository();
     private long cachedFrameId = Long.MIN_VALUE;
-    private final Map<ActorId, ComboSnapshot> startedThisFrame = new HashMap<>();
-    private final Map<ActorId, ComboSnapshot> steppedThisFrame = new HashMap<>();
-    private final Map<ActorId, ComboSnapshot> endedThisFrame = new HashMap<>();
-    private final Map<ActorId, ComboSnapshot> resetThisFrame = new HashMap<>();
 
     @Override
     public ComboOutcome tryInput(ComboIntent intent, FrameContext frame, ComboPattern pattern) {
@@ -97,36 +93,6 @@ public final class ComboEngine implements ComboPort {
     @Override public Optional<ComboSnapshot> activeOf(ActorId actorId, long frameId) { return repo.activeOf(actorId, frameId); }
     @Override public List<ComboSnapshot> activeAll(long frameId) { return repo.activeAll(frameId); }
     @Override public boolean isLocked(ActorId actorId, long frameId) { return repo.isLocked(actorId, frameId); }
-
-    @Override
-    public NavigableMap<ActorId, ComboExecutionState> executionStates(Collection<ActorId> actorIds, long frameId) {
-        Objects.requireNonNull(actorIds);
-        if (frameId < 0) throw new IllegalArgumentException();
-        ensureFrame(frameId);
-
-        var out = new TreeMap<ActorId, ComboExecutionState>();
-        for (ActorId actorId : actorIds) {
-            if (actorId == null) throw new IllegalArgumentException();
-
-            ComboSnapshot ended = endedThisFrame.get(actorId);
-            if (ended != null) { out.put(actorId, new ComboExecutionState(ComboExecutionPhase.COMBO_END, ended)); continue; }
-
-            ComboSnapshot started = startedThisFrame.get(actorId);
-            if (started != null) { out.put(actorId, new ComboExecutionState(ComboExecutionPhase.COMBO_START, started)); continue; }
-
-            ComboSnapshot stepped = steppedThisFrame.get(actorId);
-            if (stepped != null) { out.put(actorId, new ComboExecutionState(ComboExecutionPhase.COMBO_STEP, stepped)); continue; }
-
-            ComboSnapshot reset = resetThisFrame.get(actorId);
-            if (reset != null) { out.put(actorId, new ComboExecutionState(ComboExecutionPhase.COMBO_RESET, reset)); continue; }
-
-            ComboSnapshot active = repo.activeOf(actorId, frameId).orElse(null);
-            if (active != null) { out.put(actorId, new ComboExecutionState(ComboExecutionPhase.COMBO_STEP, active)); continue; }
-
-            out.put(actorId, new ComboExecutionState(ComboExecutionPhase.IDLE, null));
-        }
-        return Collections.unmodifiableNavigableMap(out);
-    }
 
     private ComboOutcome startOrReject(ActorId actorId, ComboId comboId, ComboInput input, long f, ComboPattern pattern) {
         return startOrReject(actorId, comboId, input, f, pattern, null);

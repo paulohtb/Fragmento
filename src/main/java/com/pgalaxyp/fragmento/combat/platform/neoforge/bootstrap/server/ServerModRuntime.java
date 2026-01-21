@@ -17,10 +17,11 @@ import com.pgalaxyp.fragmento.combat.engine.intent.IntentQueue;
 import com.pgalaxyp.fragmento.combat.flow.FlowPipeline;
 import com.pgalaxyp.fragmento.combat.intent.ActorJoinIntent;
 import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
+import com.pgalaxyp.fragmento.combat.orchestrator.DefaultCombatOrchestrator;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.net.wire.NfRuntimeRefs;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.net.wire.NfSnapshotSink;
 import com.pgalaxyp.fragmento.combat.platform.neoforge.world.NfWorldCommands;
-import com.pgalaxyp.fragmento.combat.skill.system.DefaultSkillResolver;
+import com.pgalaxyp.fragmento.combat.skill.api.SkillResolver;
 import com.pgalaxyp.fragmento.combat.systems.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetingFallback;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetingMode;
@@ -55,24 +56,32 @@ public final class ServerModRuntime implements com.pgalaxyp.fragmento.combat.por
                                 0,
                                 DefaultIds.EFFECT_FLUTE_MAGIC,
                                 new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 8.0, TargetingFallback.SELF)
+                        ),
+                        DefaultIds.ABILITY_FLUTE_FINISHER,
+                        new AbilityDef(
+                                DefaultIds.ABILITY_FLUTE_FINISHER,
+                                18,
+                                0,
+                                DefaultIds.EFFECT_FLUTE_FINISHER_MAGIC,
+                                new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 10.0, TargetingFallback.SELF)
                         )
                 ),
                 targeting
         );
 
         var combos = new ComboEngine();
-        var skills = DefaultSkillResolver.create();
+        SkillResolver skills = content.skills().resolver();
 
         var pipeline = new FlowPipeline(List.of(
                 new ActorJoinSystem(new DefaultActorService(), content),
                 new ActionIntentToComboInputSystem(content),
                 new ComboExecutionSystem(combos, content),
                 new ComboTickSystem(combos),
-                CombatOrchestratorSystem.plan(content, skills),
+                new DefaultCombatOrchestrator(content, skills),
                 new AbilityExecutionSystem(abilities),
                 new AbilityTickSystem(abilities),
-                CombatOrchestratorSystem.react(),
                 new EffectExecutionSystem(effects),
+                new DamageViewSystem(),
                 new AbilityViewSystem(abilities)
         ));
 
@@ -85,7 +94,10 @@ public final class ServerModRuntime implements com.pgalaxyp.fragmento.combat.por
         );
     }
 
-    @Override public void enqueue(IntentEnvelope envelope) { queue.push(envelope); }
+    @Override
+    public void enqueue(IntentEnvelope envelope) { queue.push(envelope); }
+
     public void onPlayerJoin(ActorId actorId) { enqueue(IntentEnvelope.of(actorId, new ActorJoinIntent())); }
+
     public void tick() { engine.step(tickIndex++); }
 }

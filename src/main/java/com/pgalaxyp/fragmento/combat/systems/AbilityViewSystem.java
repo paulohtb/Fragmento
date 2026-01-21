@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.systems;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
+import com.pgalaxyp.fragmento.combat.ability.system.AbilityCombatPort;
 import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
@@ -17,7 +18,6 @@ public final class AbilityViewSystem implements FrameSystem {
     @Override
     public void tick(FrameContext frame, GameState state, FrameBus bus) {
         Collection<ActorId> actorIds = state.actors().navigableKeySet();
-        AbilityFrameView view = abilities.view(actorIds, frame.frameId());
-        bus.view(AbilityFrameView.class, view);
+        bus.view(AbilityFrameView.class, abilities.view(actorIds, frame.frameId()));
     }
 }

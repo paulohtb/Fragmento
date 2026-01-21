@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.content.defaults;
 
-import com.pgalaxyp.fragmento.combat.content.*;
-import com.pgalaxyp.fragmento.combat.content.registry.*;
+import com.pgalaxyp.fragmento.combat.content.GameContent;
+import com.pgalaxyp.fragmento.combat.content.registry.ContentRegistry;
 
 public final class DefaultContent {
     public static GameContent create() {
@@ -10,7 +10,9 @@ public final class DefaultContent {
         DefaultClasses.register(registry);
         DefaultEffects.register(registry);
         DefaultCombos.register(registry);
+        DefaultSkills.register(registry);
         return registry.build();
     }
+
     private DefaultContent() {}
 }

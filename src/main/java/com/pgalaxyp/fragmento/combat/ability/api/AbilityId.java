@@ -5,5 +5,7 @@ import java.util.Objects;
 
 public record AbilityId(String value) implements Comparable<AbilityId> {
     public AbilityId { value = IdValidation.normalizedKey(value); }
-    @Override public int compareTo(AbilityId o) { return value.compareTo(Objects.requireNonNull(o).value); }
+
+    @Override
+    public int compareTo(AbilityId id) { return value.compareTo(Objects.requireNonNull(id).value); }
 }

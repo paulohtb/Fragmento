@@ -7,7 +7,7 @@ import com.pgalaxyp.fragmento.combat.engine.commit.StateDeltaApplier;
 import com.pgalaxyp.fragmento.combat.flow.FlowPipeline;
 import com.pgalaxyp.fragmento.combat.flow.FrameBus;
 import com.pgalaxyp.fragmento.combat.ports.*;
-import com.pgalaxyp.fragmento.combat.transport.snapshot.api.GameSnapshot;
+import com.pgalaxyp.fragmento.combat.transport.snapshot.api.*;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
 import java.util.*;
 
@@ -39,7 +39,9 @@ public final class GameEngine {
 
         world.apply(frame, committed, deltas);
 
-        AbilityFrameView abilities = bus.viewOpt(AbilityFrameView.class).orElseGet(() -> new AbilityFrameView(List.of(), new TreeMap<>()));
-        snapshots.publish(new GameSnapshot(frame, committed.actors(), abilities));
+        AbilityFrameView abilities = bus.viewOpt(AbilityFrameView.class).orElseGet(() -> new AbilityFrameView(List.of()));
+        DamageFrameView damage = bus.viewOpt(DamageFrameView.class).orElseGet(DamageFrameView::empty);
+
+        snapshots.publish(new GameSnapshot(frame, committed.actors(), abilities, damage));
     }
 }

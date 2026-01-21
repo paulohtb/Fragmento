@@ -4,11 +4,7 @@ import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetResult;
 import java.util.Objects;
 
-public sealed interface AbilityEvent permits
-        AbilityEvent.Started,
-        AbilityEvent.Ended,
-        AbilityEvent.Rejected {
-
+public sealed interface AbilityEvent permits AbilityEvent.Started, AbilityEvent.Ended, AbilityEvent.Rejected {
     record Started(AbilitySnapshot snapshot, EffectId startEffect, TargetResult targeting, ActorId source, ActorId target) implements AbilityEvent {
         public Started {
             Objects.requireNonNull(snapshot);
