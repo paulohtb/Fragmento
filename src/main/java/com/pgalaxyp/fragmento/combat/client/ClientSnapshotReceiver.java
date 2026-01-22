@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.client;
 
-import com.pgalaxyp.fragmento.combat.ports.ClientInboundPort;
+import com.pgalaxyp.fragmento.combat.transport.ClientInboundPort;
 import com.pgalaxyp.fragmento.combat.transport.GameSnapshot;
 import java.util.Objects;
 

@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.transport;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
-import com.pgalaxyp.fragmento.combat.core.state.ActorState;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import java.util.*;
 

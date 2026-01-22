@@ -3,7 +3,7 @@ package com.pgalaxyp.fragmento.combat.skill.api;
 import com.pgalaxyp.fragmento.combat.combo.system.ComboService;
 import com.pgalaxyp.fragmento.combat.flow.FrameSystem;
 import com.pgalaxyp.fragmento.combat.skill.system.DefaultSkillResolver;
-import com.pgalaxyp.fragmento.combat.systems.SkillResolutionSystem;
+import com.pgalaxyp.fragmento.combat.skill.system.SkillResolution;
 import java.util.*;
 
 public final class SkillModule {
@@ -18,7 +18,7 @@ public final class SkillModule {
 
         var resolver = DefaultSkillResolver.of(rules);
         var combos = new ComboService();
-        var system = new SkillResolutionSystem(resolver, combos);
+        var system = new SkillResolution(resolver, combos);
 
         return new SkillModule(system);
     }

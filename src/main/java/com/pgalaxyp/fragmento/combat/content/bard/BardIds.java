@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.combat.content.bard;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
 
 public final class BardIds {
     public static final ClassId BARD = new ClassId("bard");

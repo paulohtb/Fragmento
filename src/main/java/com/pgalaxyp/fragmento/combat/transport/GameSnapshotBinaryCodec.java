@@ -1,9 +1,10 @@
 package com.pgalaxyp.fragmento.combat.transport;
 
 import com.pgalaxyp.fragmento.combat.ability.api.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.core.net.BinaryIo;
-import com.pgalaxyp.fragmento.combat.core.state.ActorState;
+import com.pgalaxyp.fragmento.combat.actor.ActorState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import java.io.*;
 import java.util.*;

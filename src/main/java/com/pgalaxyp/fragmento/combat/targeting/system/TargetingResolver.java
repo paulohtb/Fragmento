@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.targeting.system;
 
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
 import java.util.Optional;
 

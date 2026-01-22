@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.combo.system;
 
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 
 public final class ComboService {

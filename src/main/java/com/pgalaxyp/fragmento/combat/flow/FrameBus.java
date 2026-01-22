@@ -1,39 +1,40 @@
 package com.pgalaxyp.fragmento.combat.flow;
 
-import com.pgalaxyp.fragmento.combat.delta.StateDelta;
 import java.util.*;
 import java.util.function.Predicate;
 
 public final class FrameBus {
-
     private final List<Object> intents;
     private final List<DomainEvent> events = new ArrayList<>();
-    private final List<StateDelta> deltas = new ArrayList<>();
     private final Map<Class<?>, Object> views = new HashMap<>();
 
     public FrameBus(List<?> intents) {
         this.intents = List.copyOf(Objects.requireNonNull(intents));
     }
 
-    public List<?> intents() { return intents; }
+    public List<?> intents() {
+        return intents;
+    }
 
     public <T> List<T> intents(Class<T> type) {
         return intents.stream().filter(type::isInstance).map(type::cast).toList();
     }
 
-    public void publish(DomainEvent event) { events.add(Objects.requireNonNull(event)); }
+    public void publish(DomainEvent event) {
+        events.add(Objects.requireNonNull(event));
+    }
 
-    public List<DomainEvent> events() { return List.copyOf(events); }
+    public List<DomainEvent> events() {
+        return List.copyOf(events);
+    }
 
     public <T extends DomainEvent> List<T> events(Class<T> type) {
         return events.stream().filter(type::isInstance).map(type::cast).toList();
     }
 
-    public void emit(StateDelta delta) { deltas.add(Objects.requireNonNull(delta)); }
-
-    public List<StateDelta> deltas() { return List.copyOf(deltas); }
-
-    public void clearEvents(Predicate<DomainEvent> filter) { events.removeIf(filter); }
+    public void clearEvents(Predicate<DomainEvent> filter) {
+        events.removeIf(filter);
+    }
 
     public <T> void view(Class<T> type, T value) {
         views.put(Objects.requireNonNull(type), Objects.requireNonNull(value));
@@ -42,9 +43,5 @@ public final class FrameBus {
     public <T> Optional<T> viewOpt(Class<T> type) {
         Object v = views.get(Objects.requireNonNull(type));
         return v == null ? Optional.empty() : Optional.of(type.cast(v));
-    }
-
-    public <T> T view(Class<T> type) {
-        return viewOpt(type).orElseThrow();
     }
 }

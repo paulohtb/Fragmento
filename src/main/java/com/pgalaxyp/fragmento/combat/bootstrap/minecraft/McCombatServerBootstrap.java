@@ -1,6 +1,11 @@
 package com.pgalaxyp.fragmento.combat.bootstrap.minecraft;
 
 import com.pgalaxyp.fragmento.combat.ability.system.AbilityCombatEngine;
+import com.pgalaxyp.fragmento.combat.ability.system.AbilityInput;
+import com.pgalaxyp.fragmento.combat.ability.system.AbilityView;
+import com.pgalaxyp.fragmento.combat.actor.ActorJoinInputSystem;
+import com.pgalaxyp.fragmento.combat.actor.ActorJoinSystem;
+import com.pgalaxyp.fragmento.combat.actor.AutoActorJoinFromIntentsSystem;
 import com.pgalaxyp.fragmento.combat.actor.DefaultActorService;
 import com.pgalaxyp.fragmento.combat.content.bard.*;
 import com.pgalaxyp.fragmento.combat.core.def.SpawnDefaultsProvider;
@@ -9,13 +14,13 @@ import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import com.pgalaxyp.fragmento.combat.damage.integration.DefaultSnapshotProvider;
 import com.pgalaxyp.fragmento.combat.damage.system.DefaultDamageService;
 import com.pgalaxyp.fragmento.combat.effect.system.EffectEngine;
+import com.pgalaxyp.fragmento.combat.effect.system.EffectExecution;
 import com.pgalaxyp.fragmento.combat.engine.*;
 import com.pgalaxyp.fragmento.combat.flow.FlowPipeline;
 import com.pgalaxyp.fragmento.combat.orchestrator.DefaultCombatOrchestrator;
-import com.pgalaxyp.fragmento.combat.ports.SnapshotPort;
-import com.pgalaxyp.fragmento.combat.ports.WorldCommandPort;
+import com.pgalaxyp.fragmento.combat.transport.SnapshotPort;
+import com.pgalaxyp.fragmento.combat.world.port.WorldCommandPort;
 import com.pgalaxyp.fragmento.combat.skill.api.SkillModule;
-import com.pgalaxyp.fragmento.combat.systems.*;
 import com.pgalaxyp.fragmento.combat.targeting.platform.minecraft.McTargetingModule;
 import java.util.List;
 import java.util.Objects;
@@ -39,11 +44,11 @@ public final class McCombatServerBootstrap {
                 new ActorJoinInputSystem(),
                 new AutoActorJoinFromIntentsSystem(),
                 new ActorJoinSystem(actors, spawnDefaults),
-                new AbilityInputSystem(),
+                new AbilityInput(),
                 skillModule.system(),
                 new DefaultCombatOrchestrator(abilityEngine),
-                new EffectExecutionSystem(effects),
-                new AbilityViewSystem(abilityEngine)
+                new EffectExecution(effects),
+                new AbilityView(abilityEngine)
         ));
         var intentQueue = new IntentQueue();
         var intents = new ServerIntentQueue(intentQueue);

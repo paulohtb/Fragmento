@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.core.state;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorState;
 import com.pgalaxyp.fragmento.combat.core.time.*;
 import java.util.*;
 

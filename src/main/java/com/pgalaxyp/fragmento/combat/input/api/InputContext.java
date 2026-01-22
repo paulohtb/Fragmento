@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.input.api;
 
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.input.bridge.*;
 import java.util.*;

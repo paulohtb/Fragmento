@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.ability.api;
 
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import java.util.Objects;
 
 public record AbilitySnapshot(AbilityId abilityId, ActorId actorId, long startFrame, long endFrameExclusive) {

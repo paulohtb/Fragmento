@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.engine;
 
 import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.combat.ports.IntentSourcePort;
-import com.pgalaxyp.fragmento.combat.ports.ServerIntentReceiverPort;
+import com.pgalaxyp.fragmento.combat.input.port.IntentSourcePort;
+import com.pgalaxyp.fragmento.combat.input.port.ServerIntentReceiverPort;
 import java.util.List;
 import java.util.Objects;
 

@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.targeting.api;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
+
 import java.util.*;
 
 public record TargetResult(Target target, TargetingFallback appliedFallback, ActorId actorTargetId) {

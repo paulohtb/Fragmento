@@ -1,11 +1,13 @@
 package com.pgalaxyp.fragmento.combat.content.bard;
 
-import com.pgalaxyp.fragmento.combat.effect.model.*;
+import com.pgalaxyp.fragmento.combat.effect.api.EffectDef;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;
+import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
+
 import java.util.Map;
 
 public final class BardEffects {
-    public static Map<com.pgalaxyp.fragmento.combat.core.ids.EffectId, EffectDef> effects() {
+    public static Map<EffectId, EffectDef> effects() {
         return Map.of(
                 BardIds.FLUTE_NOTE_DAMAGE,
                 EffectDef.of(

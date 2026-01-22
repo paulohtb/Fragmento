@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.input.system;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityId;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
 import com.pgalaxyp.fragmento.combat.input.api.InputContext;
 import com.pgalaxyp.fragmento.combat.input.api.InputDecision;

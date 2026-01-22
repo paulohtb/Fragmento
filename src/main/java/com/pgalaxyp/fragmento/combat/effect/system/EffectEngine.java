@@ -1,14 +1,14 @@
 package com.pgalaxyp.fragmento.combat.effect.system;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 import com.pgalaxyp.fragmento.combat.core.time.*;
+import com.pgalaxyp.fragmento.combat.damage.DamageApplied;
 import com.pgalaxyp.fragmento.combat.damage.api.*;
 import com.pgalaxyp.fragmento.combat.damage.domain.*;
 import com.pgalaxyp.fragmento.combat.damage.snapshot.*;
-import com.pgalaxyp.fragmento.combat.delta.*;
 import com.pgalaxyp.fragmento.combat.effect.api.*;
-import com.pgalaxyp.fragmento.combat.effect.model.*;
+
 import java.util.*;
 
 public final class EffectEngine implements EffectService {

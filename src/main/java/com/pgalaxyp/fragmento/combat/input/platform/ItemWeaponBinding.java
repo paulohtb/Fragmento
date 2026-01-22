@@ -1,22 +1,40 @@
 package com.pgalaxyp.fragmento.combat.input.platform;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import java.util.*;
-import net.minecraft.core.registries.*;
-import net.minecraft.resources.*;
-import net.minecraft.world.item.*;
+import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public final class ItemWeaponBinding {
 
-    private final NavigableMap<ResourceLocation, WeaponId> byItemId = new TreeMap<>();
+    private final Map<Item, WeaponId> resolved = new HashMap<>();
+    private final Map<Supplier<Item>, WeaponId> pending = new HashMap<>();
 
-    public void register(Item item, WeaponId weaponId) {
+    public void register(Supplier<Item> item, WeaponId weaponId) {
         if (item == null || weaponId == null) throw new IllegalArgumentException();
-        byItemId.put(BuiltInRegistries.ITEM.getKey(item), weaponId);
+        pending.put(item, weaponId);
     }
 
     public Optional<WeaponId> resolve(ItemStack stack) {
         if (stack == null) throw new IllegalArgumentException();
-        return Optional.ofNullable(byItemId.get(BuiltInRegistries.ITEM.getKey(stack.getItem())));
+        Item item = stack.getItem();
+
+        WeaponId direct = resolved.get(item);
+        if (direct != null) return Optional.of(direct);
+
+        if (!pending.isEmpty()) {
+            pending.entrySet().removeIf(e -> {
+                Item resolvedItem = e.getKey().get();
+                if (resolvedItem == null) return false;
+                resolved.put(resolvedItem, e.getValue());
+                return true;
+            });
+            return Optional.ofNullable(resolved.get(item));
+        }
+
+        return Optional.empty();
     }
 }

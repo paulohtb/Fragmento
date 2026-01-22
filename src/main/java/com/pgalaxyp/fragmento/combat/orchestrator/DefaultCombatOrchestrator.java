@@ -1,18 +1,16 @@
 package com.pgalaxyp.fragmento.combat.orchestrator;
 
 import com.pgalaxyp.fragmento.combat.ability.api.*;
-import com.pgalaxyp.fragmento.combat.delta.StateDelta;
-import com.pgalaxyp.fragmento.combat.flow.FrameBus;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
-import com.pgalaxyp.fragmento.combat.ability.system.AbilityCombatPort;
-import com.pgalaxyp.fragmento.combat.ability.system.AbilityCombatResult;
-import com.pgalaxyp.fragmento.combat.events.ability.*;
+import com.pgalaxyp.fragmento.combat.ability.event.*;
+import com.pgalaxyp.fragmento.combat.ability.port.AbilityCombatPort;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
-import com.pgalaxyp.fragmento.combat.events.effect.EffectTriggered;
+import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
+import com.pgalaxyp.fragmento.combat.effect.event.EffectTriggered;
+import com.pgalaxyp.fragmento.combat.flow.FrameBus;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetResult;
-import com.pgalaxyp.fragmento.combat.core.ids.EffectId;
-import java.util.*;
+import java.util.Objects;
 
 public final class DefaultCombatOrchestrator implements CombatOrchestrator {
     private final AbilityCombatPort abilities;
@@ -23,38 +21,31 @@ public final class DefaultCombatOrchestrator implements CombatOrchestrator {
 
     @Override
     public void tick(FrameContext frame, GameState state, FrameBus bus) {
-        List<AbilityResolved> resolvedList = bus.events(AbilityResolved.class);
+        Objects.requireNonNull(frame);
+        Objects.requireNonNull(state);
+        Objects.requireNonNull(bus);
 
-        for (AbilityResolved resolved : resolvedList) {
-            AbilityIntent intent = new AbilityIntent(resolved.actorId(), resolved.abilityId());
-            AbilityCombatResult result = abilities.tryExecute(intent, frame, state);
-            publishAbilityEvents(bus, result.events());
-            emitDeltas(bus, result.deltas());
+        for (AbilityResolved r : bus.events(AbilityResolved.class)) {
+            var result = abilities.tryExecute(new AbilityIntent(r.actorId(), r.abilityId()), frame, state);
+            result.events().forEach(e -> publish(bus, e));
         }
 
-        AbilityCombatResult tickResult = abilities.tick(frame, state);
-        publishAbilityEvents(bus, tickResult.events());
-        emitDeltas(bus, tickResult.deltas());
+        abilities.tick(frame, state).events().forEach(e -> publish(bus, e));
     }
 
-    private static void publishAbilityEvents(FrameBus bus, List<AbilityEvent> events) {
-        for (AbilityEvent event : events) {
-            if (event instanceof AbilityEvent.Started(AbilitySnapshot snapshot, EffectId startEffect, TargetResult targeting, ActorId source, ActorId target)) {
-                bus.publish(new AbilityStarted(snapshot.actorId(), snapshot, startEffect, targeting, source, target));
-                bus.publish(new EffectTriggered(startEffect, source, target));
-                continue;
-            }
-            if (event instanceof AbilityEvent.Ended(AbilitySnapshot snapshot)) {
-                bus.publish(new AbilityEnded(snapshot.actorId(), snapshot));
-                continue;
-            }
-            if (event instanceof AbilityEvent.Rejected(ActorId actorId, AbilityId abilityId, AbilityRejectReason reason)) {
-                bus.publish(new AbilityRejected(actorId, abilityId, reason));
-            }
+    private static void publish(FrameBus bus, AbilityEvent event) {
+        if (event instanceof AbilityEvent.Started(AbilitySnapshot snapshot1, EffectId startEffect, TargetResult targeting, ActorId source, ActorId target)) {
+            var a = snapshot1.actorId();
+            bus.publish(new AbilityStarted(a, snapshot1, startEffect, targeting, source, target));
+            bus.publish(new EffectTriggered(startEffect, source, target));
+            return;
         }
-    }
-
-    private static void emitDeltas(FrameBus bus, List<StateDelta> deltas) {
-        for (StateDelta delta : deltas) { bus.emit(delta); }
+        if (event instanceof AbilityEvent.Ended(com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot snapshot)) {
+            bus.publish(new AbilityEnded(snapshot.actorId(), snapshot));
+            return;
+        }
+        if (event instanceof AbilityEvent.Rejected(ActorId actorId, AbilityId abilityId, AbilityRejectReason reason)) {
+            bus.publish(new AbilityRejected(actorId, abilityId, reason));
+        }
     }
 }

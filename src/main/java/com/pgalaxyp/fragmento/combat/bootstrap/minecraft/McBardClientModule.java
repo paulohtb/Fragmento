@@ -1,21 +1,18 @@
 package com.pgalaxyp.fragmento.combat.bootstrap.minecraft;
 
-import com.pgalaxyp.fragmento.combat.content.bard.BardMinecraftBindings;
-import com.pgalaxyp.fragmento.combat.input.bridge.ActorInputContextProvider;
-import com.pgalaxyp.fragmento.combat.input.bridge.InputIntentSink;
-import com.pgalaxyp.fragmento.combat.input.bridge.InputSnapshotProvider;
+import com.pgalaxyp.fragmento.combat.input.bridge.*;
+import com.pgalaxyp.fragmento.combat.input.system.*;
+import com.pgalaxyp.fragmento.combat.content.bard.*;
 import com.pgalaxyp.fragmento.combat.input.platform.ItemWeaponBinding;
-import com.pgalaxyp.fragmento.combat.input.system.InputConsumptionPolicy;
-import com.pgalaxyp.fragmento.combat.input.system.PrimaryActionInputHandler;
-import com.pgalaxyp.fragmento.combat.content.bard.BardInputBindings;
 import java.util.Objects;
+import java.util.function.Supplier;
 import net.minecraft.world.item.Item;
 
 public final class McBardClientModule {
     private final ItemWeaponBinding weaponBinding;
     private final PrimaryActionInputHandler primaryHandler;
 
-    public McBardClientModule(Item fluteItem, ActorInputContextProvider actorContext, InputSnapshotProvider snapshots, InputIntentSink sink) {
+    public McBardClientModule(Supplier<Item> fluteItem, ActorInputContextProvider actorContext, InputSnapshotProvider snapshots, InputIntentSink sink) {
         Objects.requireNonNull(fluteItem);
         Objects.requireNonNull(actorContext);
         Objects.requireNonNull(snapshots);
@@ -23,6 +20,7 @@ public final class McBardClientModule {
 
         this.weaponBinding = new ItemWeaponBinding();
         BardMinecraftBindings.registerFlute(weaponBinding, fluteItem);
+
         this.primaryHandler = new PrimaryActionInputHandler(actorContext, snapshots, sink, new InputConsumptionPolicy(), BardInputBindings.primaryAbilityByWeapon());
     }
 

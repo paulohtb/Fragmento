@@ -1,13 +1,15 @@
 package com.pgalaxyp.fragmento.combat.ability.system;
 
 import com.pgalaxyp.fragmento.combat.ability.api.*;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.ability.port.AbilityCombatPort;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
 import java.util.*;
 
 public final class AbilityCombatEngine implements AbilityCombatPort {
+
     private final Map<AbilityId, AbilityDef> defs;
     private final TargetingWithWorld targeting;
     private final AbilityRepository repo = new AbilityRepository();
@@ -65,8 +67,7 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
                         target,
                         actorId,
                         resolvedTarget
-                )),
-                List.of()
+                ))
         );
     }
 
@@ -81,7 +82,7 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
 
         return events.isEmpty()
                 ? AbilityCombatResult.empty()
-                : new AbilityCombatResult(events, List.of());
+                : new AbilityCombatResult(events);
     }
 
     @Override
@@ -93,8 +94,7 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
 
     private static AbilityCombatResult reject(ActorId actorId, AbilityId abilityId, AbilityRejectReason reason) {
         return new AbilityCombatResult(
-                List.of(new AbilityEvent.Rejected(actorId, abilityId, reason)),
-                List.of()
+                List.of(new AbilityEvent.Rejected(actorId, abilityId, reason))
         );
     }
 }

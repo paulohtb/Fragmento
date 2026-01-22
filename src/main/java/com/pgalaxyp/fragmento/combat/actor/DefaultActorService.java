@@ -1,27 +1,18 @@
 package com.pgalaxyp.fragmento.combat.actor;
 
-import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.core.state.*;
-import com.pgalaxyp.fragmento.combat.delta.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class DefaultActorService implements ActorService {
+    private final Set<ActorId> tracked = ConcurrentHashMap.newKeySet();
 
     @Override
-    public List<StateDelta> onJoin(ActorId actorId, GameState state, SpawnDefaults defaults) {
-        Objects.requireNonNull(actorId);
-        Objects.requireNonNull(state);
-        Objects.requireNonNull(defaults);
+    public boolean track(ActorId actorId) {
+        return tracked.add(Objects.requireNonNull(actorId));
+    }
 
-        if (state.findActor(actorId).isPresent()) return List.of();
-
-        return List.of(new ActorSpawned(
-                actorId,
-                defaults.classId(),
-                defaults.startingWeaponId(),
-                defaults.healthHearts(),
-                defaults.maxHealthHearts()
-        ));
+    @Override
+    public boolean isTracked(ActorId actorId) {
+        return tracked.contains(Objects.requireNonNull(actorId));
     }
 }

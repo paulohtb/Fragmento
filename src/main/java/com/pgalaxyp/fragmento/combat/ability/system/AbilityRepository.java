@@ -3,7 +3,7 @@ package com.pgalaxyp.fragmento.combat.ability.system;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityEvent;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityId;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import java.util.*;
 
 final class AbilityRepository {

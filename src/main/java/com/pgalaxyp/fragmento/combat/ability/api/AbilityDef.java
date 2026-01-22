@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.ability.api;
 
-import com.pgalaxyp.fragmento.combat.core.ids.EffectId;
+import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetingSpec;
 import java.util.Objects;
 

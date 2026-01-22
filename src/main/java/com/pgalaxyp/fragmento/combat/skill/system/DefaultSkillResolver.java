@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.skill.system;
 
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
 import com.pgalaxyp.fragmento.combat.skill.api.*;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;

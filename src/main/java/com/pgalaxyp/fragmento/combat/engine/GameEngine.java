@@ -2,12 +2,12 @@ package com.pgalaxyp.fragmento.combat.engine;
 
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
-import com.pgalaxyp.fragmento.combat.delta.StateDelta;
-import com.pgalaxyp.fragmento.combat.flow.FlowPipeline;
-import com.pgalaxyp.fragmento.combat.flow.FrameBus;
-import com.pgalaxyp.fragmento.combat.ports.*;
+import com.pgalaxyp.fragmento.combat.flow.*;
+import com.pgalaxyp.fragmento.combat.input.port.IntentSourcePort;
 import com.pgalaxyp.fragmento.combat.transport.GameSnapshot;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
+import com.pgalaxyp.fragmento.combat.transport.SnapshotPort;
+import com.pgalaxyp.fragmento.combat.world.port.WorldCommandPort;
 import java.util.*;
 
 public final class GameEngine {
@@ -29,14 +29,14 @@ public final class GameEngine {
 
     public void step(int tickIndex) {
         FrameContext frame = new FrameContext(nextFrame++, tickIndex);
-
         FrameBus bus = pipeline.run(frame, state, intents.drain());
-        List<StateDelta> deltas = bus.deltas();
 
-        GameState committed = StateDeltaApplier.applyAll(new GameState(frame, state.actors()), deltas);
+        List<DomainEvent> events = bus.events();
+
+        GameState committed = DomainEventApplier.applyAll(new GameState(frame, state.actors()), events);
+
         state = committed;
-
-        world.apply(frame, committed, deltas);
+        world.apply(frame, committed, events);
 
         AbilityFrameView abilities = bus.viewOpt(AbilityFrameView.class).orElseGet(() -> new AbilityFrameView(List.of()));
 

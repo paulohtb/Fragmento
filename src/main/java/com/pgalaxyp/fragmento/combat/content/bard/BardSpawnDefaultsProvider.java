@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.content.bard;
 
 import com.pgalaxyp.fragmento.combat.core.def.*;
-import com.pgalaxyp.fragmento.combat.core.ids.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 
 public final class BardSpawnDefaultsProvider implements SpawnDefaultsProvider {
     private final SpawnDefaults defaults;

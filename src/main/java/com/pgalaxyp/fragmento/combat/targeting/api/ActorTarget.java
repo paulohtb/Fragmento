@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.targeting.api;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
 
 public record ActorTarget(ActorId actorId) implements Target {
 

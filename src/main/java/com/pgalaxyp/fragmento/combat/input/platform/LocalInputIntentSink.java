@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.combat.input.platform;
 
 import com.pgalaxyp.fragmento.combat.input.bridge.InputIntentSink;
 import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.combat.ports.ServerIntentReceiverPort;
+import com.pgalaxyp.fragmento.combat.input.port.ServerIntentReceiverPort;
 import java.util.Objects;
 
 public final class LocalInputIntentSink implements InputIntentSink {

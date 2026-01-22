@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.intent;
 
-import com.pgalaxyp.fragmento.combat.core.ids.*;
+import com.pgalaxyp.fragmento.combat.actor.ActorId;
+
 import java.util.*;
 
 public record IntentEnvelope(ActorId actorId, DomainIntent intent, Long clientFrameHint) {
