@@ -2,6 +2,7 @@ package com.pgalaxyp.fragmento.combat.ability.api;
 
 import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetingSpec;
+
 import java.util.Objects;
 
 public record AbilityDef(AbilityId id, int durationFrames, int cooldownFrames, EffectId startEffect, TargetingSpec targeting) {

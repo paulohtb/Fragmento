@@ -1,11 +1,10 @@
-package com.pgalaxyp.fragmento.combat.targeting.bridge;
+package com.pgalaxyp.fragmento.combat.targeting.port;
 
 import com.pgalaxyp.fragmento.combat.actor.ActorId;
-import com.pgalaxyp.fragmento.combat.targeting.api.*;
+import com.pgalaxyp.fragmento.combat.targeting.api.ViewRay;
+import java.util.Optional;
 
-import java.util.*;
-
-public interface WorldRaycastAccess {
+public interface TargetingPort {
     Optional<ViewRay> viewRay(ActorId casterId);
     Optional<RaycastHit> raycastFirstHit(ActorId casterId, ViewRay ray, double rangeBlocks);
 }

@@ -10,6 +10,7 @@ import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
 import com.pgalaxyp.fragmento.combat.effect.event.EffectTriggered;
 import com.pgalaxyp.fragmento.combat.flow.FrameBus;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetResult;
+
 import java.util.Objects;
 
 public final class DefaultCombatOrchestrator implements CombatOrchestrator {
@@ -35,17 +36,15 @@ public final class DefaultCombatOrchestrator implements CombatOrchestrator {
 
     private static void publish(FrameBus bus, AbilityEvent event) {
         if (event instanceof AbilityEvent.Started(AbilitySnapshot snapshot1, EffectId startEffect, TargetResult targeting, ActorId source, ActorId target)) {
-            var a = snapshot1.actorId();
-            bus.publish(new AbilityStarted(a, snapshot1, startEffect, targeting, source, target));
             bus.publish(new EffectTriggered(startEffect, source, target));
             return;
         }
         if (event instanceof AbilityEvent.Ended(com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot snapshot)) {
-            bus.publish(new AbilityEnded(snapshot.actorId(), snapshot));
             return;
         }
-        if (event instanceof AbilityEvent.Rejected(ActorId actorId, AbilityId abilityId, AbilityRejectReason reason)) {
-            bus.publish(new AbilityRejected(actorId, abilityId, reason));
-        }
+        AbilityEvent.Rejected rejected = (AbilityEvent.Rejected) event;
+        ActorId actorId = rejected.actorId();
+        AbilityId abilityId = rejected.abilityId();
+        AbilityRejectReason reason = rejected.reason();
     }
 }

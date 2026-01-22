@@ -23,10 +23,6 @@ public final class DefaultSkillResolver implements SkillResolver {
         return new DefaultSkillResolver(rules);
     }
 
-    public List<SkillRule> rules() {
-        return rules;
-    }
-
     @Override
     public AbilityId resolveAbility(ActorId actorId, WeaponId weaponId, int stepIndex, AbilityId baseAbility, GameState state) {
         Objects.requireNonNull(actorId);

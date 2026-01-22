@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.targeting.api;
 
-import java.util.*;
+import java.util.Objects;
 
 public record TargetingSpec(TargetingMode mode, double rangeBlocks, TargetingFallback fallbackPolicy) {
     public TargetingSpec {

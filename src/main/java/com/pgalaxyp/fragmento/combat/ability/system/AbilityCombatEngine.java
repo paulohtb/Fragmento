@@ -11,10 +11,10 @@ import java.util.*;
 public final class AbilityCombatEngine implements AbilityCombatPort {
 
     private final Map<AbilityId, AbilityDef> defs;
-    private final TargetingWithWorld targeting;
+    private final TargetingService targeting;
     private final AbilityRepository repo = new AbilityRepository();
 
-    public AbilityCombatEngine(Map<AbilityId, AbilityDef> defs, TargetingWithWorld targeting) {
+    public AbilityCombatEngine(Map<AbilityId, AbilityDef> defs, TargetingService targeting) {
         this.defs = Map.copyOf(Objects.requireNonNull(defs));
         this.targeting = Objects.requireNonNull(targeting);
     }
@@ -26,49 +26,27 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
         Objects.requireNonNull(state);
 
         AbilityDef def = defs.get(intent.abilityId());
-        if (def == null) {
-            return reject(intent.actorId(), intent.abilityId(), AbilityRejectReason.UNKNOWN_ABILITY);
-        }
+        if (def == null) return reject(intent.actorId(), intent.abilityId(), AbilityRejectReason.UNKNOWN_ABILITY);
 
         long f = frame.frameId();
         ActorId actorId = intent.actorId();
 
-        if (repo.activeOf(actorId, f).isPresent()) {
-            return reject(actorId, def.id(), AbilityRejectReason.LOCKED);
-        }
+        if (repo.activeOf(actorId, f).isPresent()) return reject(actorId, def.id(), AbilityRejectReason.LOCKED);
+        if (repo.cooldownActive(actorId, def.id(), f)) return reject(actorId, def.id(), AbilityRejectReason.COOLDOWN);
 
-        if (repo.cooldownActive(actorId, def.id(), f)) {
-            return reject(actorId, def.id(), AbilityRejectReason.COOLDOWN);
-        }
-
-        TargetResult target = targeting.resolve(
-                new TargetingContext(actorId, def.targeting(), targeting.world())
-        );
-
+        TargetResult target = targeting.resolve(new TargetingRequest(actorId, def.targeting()));
         ActorId resolvedTarget = target.actorTargetOpt().orElse(null);
-        if (resolvedTarget == null) {
-            return reject(actorId, def.id(), AbilityRejectReason.INVALID_TARGET);
-        }
+        if (resolvedTarget == null) return reject(actorId, def.id(), AbilityRejectReason.INVALID_TARGET);
 
         long endExclusive = def.endFrameExclusive(f);
         repo.putActive(actorId, def.id(), f, endExclusive);
 
         long cdEnd = def.cooldownEndExclusive(f);
-        if (cdEnd >= 0) {
-            repo.startCooldown(actorId, def.id(), cdEnd);
-        }
+        if (cdEnd >= 0) repo.startCooldown(actorId, def.id(), cdEnd);
 
         AbilitySnapshot snap = new AbilitySnapshot(def.id(), actorId, f, endExclusive);
 
-        return new AbilityCombatResult(
-                List.of(new AbilityEvent.Started(
-                        snap,
-                        def.startEffect(),
-                        target,
-                        actorId,
-                        resolvedTarget
-                ))
-        );
+        return new AbilityCombatResult(List.of(new AbilityEvent.Started(snap, def.startEffect(), target, actorId, resolvedTarget)));
     }
 
     @Override
@@ -80,9 +58,7 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
         List<AbilityEvent> events = repo.evictEndedAtOrBefore(f);
         repo.cleanupCooldowns(f);
 
-        return events.isEmpty()
-                ? AbilityCombatResult.empty()
-                : new AbilityCombatResult(events);
+        return events.isEmpty() ? AbilityCombatResult.empty() : new AbilityCombatResult(events);
     }
 
     @Override
@@ -93,8 +69,6 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
     }
 
     private static AbilityCombatResult reject(ActorId actorId, AbilityId abilityId, AbilityRejectReason reason) {
-        return new AbilityCombatResult(
-                List.of(new AbilityEvent.Rejected(actorId, abilityId, reason))
-        );
+        return new AbilityCombatResult(List.of(new AbilityEvent.Rejected(actorId, abilityId, reason)));
     }
 }

@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.combat.ability.api;
 import com.pgalaxyp.fragmento.combat.actor.ActorId;
 import com.pgalaxyp.fragmento.combat.effect.api.EffectId;
 import com.pgalaxyp.fragmento.combat.targeting.api.TargetResult;
+
 import java.util.Objects;
 
 public sealed interface AbilityEvent permits AbilityEvent.Started, AbilityEvent.Ended, AbilityEvent.Rejected {
