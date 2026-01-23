@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damage.domain;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 
 public record DamageRequest(ActorId sourceActorId, ActorId targetActorId, DamageSpec spec) {
 

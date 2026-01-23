@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.client;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
-import com.pgalaxyp.fragmento.combat.actor.ActorState;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorState;
 import com.pgalaxyp.fragmento.combat.transport.GameSnapshot;
 import java.util.HashMap;
 import java.util.Map;

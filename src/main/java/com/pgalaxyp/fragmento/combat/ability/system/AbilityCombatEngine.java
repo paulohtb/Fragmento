@@ -2,9 +2,9 @@ package com.pgalaxyp.fragmento.combat.ability.system;
 
 import com.pgalaxyp.fragmento.combat.ability.api.*;
 import com.pgalaxyp.fragmento.combat.ability.port.AbilityCombatPort;
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.targeting.api.*;
 import java.util.*;
 
@@ -35,8 +35,6 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
         if (repo.cooldownActive(actorId, def.id(), f)) return reject(actorId, def.id(), AbilityRejectReason.COOLDOWN);
 
         TargetResult target = targeting.resolve(new TargetingRequest(actorId, def.targeting()));
-        ActorId resolvedTarget = target.actorTargetOpt().orElse(null);
-        if (resolvedTarget == null) return reject(actorId, def.id(), AbilityRejectReason.INVALID_TARGET);
 
         long endExclusive = def.endFrameExclusive(f);
         repo.putActive(actorId, def.id(), f, endExclusive);
@@ -46,7 +44,7 @@ public final class AbilityCombatEngine implements AbilityCombatPort {
 
         AbilitySnapshot snap = new AbilitySnapshot(def.id(), actorId, f, endExclusive);
 
-        return new AbilityCombatResult(List.of(new AbilityEvent.Started(snap, def.startEffect(), target, actorId, resolvedTarget)));
+        return new AbilityCombatResult(List.of(new AbilityEvent.Started(snap, def.startEffect(), target, actorId)));
     }
 
     @Override

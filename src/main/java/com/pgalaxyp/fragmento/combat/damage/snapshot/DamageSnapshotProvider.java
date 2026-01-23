@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damage.snapshot;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.*;
 
 public interface DamageSnapshotProvider {

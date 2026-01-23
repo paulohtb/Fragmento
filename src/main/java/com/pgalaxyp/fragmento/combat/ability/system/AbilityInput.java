@@ -7,7 +7,7 @@ import com.pgalaxyp.fragmento.combat.flow.FrameBus;
 import com.pgalaxyp.fragmento.combat.flow.FrameSystem;
 import com.pgalaxyp.fragmento.combat.intent.AbilityUseIntent;
 import com.pgalaxyp.fragmento.combat.intent.IntentEnvelope;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 
 public final class AbilityInput implements FrameSystem {

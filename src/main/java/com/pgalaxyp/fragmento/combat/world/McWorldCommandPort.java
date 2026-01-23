@@ -1,6 +1,6 @@
-package com.pgalaxyp.fragmento.combat.world.port;
+package com.pgalaxyp.fragmento.combat.world;
 
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
 import com.pgalaxyp.fragmento.combat.damage.DamageApplied;
 import com.pgalaxyp.fragmento.combat.flow.DomainEvent;

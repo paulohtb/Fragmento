@@ -1,8 +1,9 @@
 package com.pgalaxyp.fragmento.combat.core.state;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
-import com.pgalaxyp.fragmento.combat.actor.ActorState;
-import com.pgalaxyp.fragmento.combat.core.time.*;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorState;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
+
 import java.util.*;
 
 public record GameState(FrameContext frame, NavigableMap<ActorId, ActorState> actors) {

@@ -1,19 +1,17 @@
 package com.pgalaxyp.fragmento.combat.content.api;
 
 import com.pgalaxyp.fragmento.combat.ability.api.*;
-import com.pgalaxyp.fragmento.combat.core.def.*;
 import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
 import com.pgalaxyp.fragmento.combat.effect.api.*;
 import com.pgalaxyp.fragmento.combat.skill.api.SkillRule;
 import java.util.*;
 
-public record ContentCatalog(Map<AbilityId, AbilityDef> abilities, Map<EffectId, EffectDef> effects, List<SkillRule> skills, Map<WeaponId, AbilityId> primaryBindings, SpawnDefaultsResolver spawnDefaults) {
+public record ContentCatalog(Map<AbilityId, AbilityDef> abilities, Map<EffectId, EffectDef> effects, List<SkillRule> skills, Map<WeaponId, AbilityId> primaryBindings) {
     public ContentCatalog {
         abilities = Map.copyOf(Objects.requireNonNull(abilities));
         effects = Map.copyOf(Objects.requireNonNull(effects));
         skills = List.copyOf(Objects.requireNonNull(skills));
         primaryBindings = Map.copyOf(Objects.requireNonNull(primaryBindings));
-        Objects.requireNonNull(spawnDefaults);
     }
 
     public static ContentCatalog of(List<? extends ContentPack> packs) {
@@ -23,7 +21,6 @@ public record ContentCatalog(Map<AbilityId, AbilityDef> abilities, Map<EffectId,
         var effects = new LinkedHashMap<EffectId, EffectDef>();
         var skills = new ArrayList<SkillRule>();
         var primary = new LinkedHashMap<WeaponId, AbilityId>();
-        var spawns = new ArrayList<SpawnDefaults>();
 
         for (ContentPack p : packs) {
             if (p == null) throw new IllegalArgumentException();
@@ -37,13 +34,9 @@ public record ContentCatalog(Map<AbilityId, AbilityDef> abilities, Map<EffectId,
                 if (e.getKey() == null || e.getValue() == null) throw new IllegalArgumentException();
                 putUnique(primary, e.getKey(), e.getValue(), "weaponId");
             }
-
-            p.spawnDefaults().forEach(d -> spawns.add(Objects.requireNonNull(d)));
         }
 
-        SpawnDefaultsResolver resolver = spawns.isEmpty() ? __ -> Optional.empty() : SpawnDefaultsResolvers.fixed(spawns.getFirst());
-
-        return new ContentCatalog(abilities, effects, skills, primary, resolver);
+        return new ContentCatalog(abilities, effects, skills, primary);
     }
 
     private static <K, V> void putUnique(Map<K, V> map, K key, V value, String label) {

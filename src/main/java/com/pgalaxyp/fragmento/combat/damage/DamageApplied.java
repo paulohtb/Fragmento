@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damage;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.flow.DomainEvent;
 import java.util.Objects;
 

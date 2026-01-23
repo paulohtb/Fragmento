@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.actor;
+package com.pgalaxyp.fragmento.combat.actor.api;
 
 import java.util.Optional;
 

@@ -1,13 +1,13 @@
 package com.pgalaxyp.fragmento.combat.engine;
 
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.flow.*;
 import com.pgalaxyp.fragmento.combat.input.port.IntentSourcePort;
 import com.pgalaxyp.fragmento.combat.transport.GameSnapshot;
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
 import com.pgalaxyp.fragmento.combat.transport.SnapshotPort;
-import com.pgalaxyp.fragmento.combat.world.port.WorldCommandPort;
+import com.pgalaxyp.fragmento.combat.world.WorldCommandPort;
 import java.util.*;
 
 public final class GameEngine {

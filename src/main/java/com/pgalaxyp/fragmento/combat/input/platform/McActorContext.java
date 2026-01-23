@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.input.platform;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.core.ids.*;
-import com.pgalaxyp.fragmento.combat.actor.LocalActorProvider;
+import com.pgalaxyp.fragmento.combat.actor.api.LocalActorProvider;
 import com.pgalaxyp.fragmento.combat.input.bridge.*;
 import java.util.*;
 import net.minecraft.client.*;

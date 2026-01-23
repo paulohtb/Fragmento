@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.core.time;
+package com.pgalaxyp.fragmento.combat.flow;
 
 public record FrameContext(
         long frameId,

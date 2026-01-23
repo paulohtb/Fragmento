@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.orchestrator;
+package com.pgalaxyp.fragmento.combat.combo;
 
 import com.pgalaxyp.fragmento.combat.flow.FrameSystem;
 

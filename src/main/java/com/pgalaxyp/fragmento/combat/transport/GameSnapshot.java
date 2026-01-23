@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.combat.transport;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
-import com.pgalaxyp.fragmento.combat.actor.ActorState;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorState;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import java.util.*;
 
 public record GameSnapshot(

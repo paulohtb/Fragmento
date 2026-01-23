@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.effect.system;
 
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.effect.api.EffectService;
 import com.pgalaxyp.fragmento.combat.effect.event.EffectTriggered;
 import com.pgalaxyp.fragmento.combat.flow.*;

@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.targeting.port;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.targeting.api.ViewRay;
 import java.util.Optional;
 

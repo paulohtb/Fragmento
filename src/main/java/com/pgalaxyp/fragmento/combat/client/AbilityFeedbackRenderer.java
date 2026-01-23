@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.client;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilitySnapshot;
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.particles.ParticleTypes;

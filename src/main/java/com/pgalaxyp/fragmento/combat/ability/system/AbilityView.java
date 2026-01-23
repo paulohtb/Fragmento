@@ -2,9 +2,9 @@ package com.pgalaxyp.fragmento.combat.ability.system;
 
 import com.pgalaxyp.fragmento.combat.ability.api.AbilityFrameView;
 import com.pgalaxyp.fragmento.combat.ability.port.AbilityCombatPort;
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.core.state.GameState;
-import com.pgalaxyp.fragmento.combat.core.time.FrameContext;
+import com.pgalaxyp.fragmento.combat.flow.FrameContext;
 import com.pgalaxyp.fragmento.combat.flow.*;
 import java.util.*;
 

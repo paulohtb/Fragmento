@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
-import com.pgalaxyp.fragmento.combat.actor.ActorId;
+import com.pgalaxyp.fragmento.combat.actor.api.ActorId;
 import com.pgalaxyp.fragmento.combat.client.AbilityFeedbackRenderer;
 import com.pgalaxyp.fragmento.combat.client.ClientInputSnapshotProvider;
 import com.pgalaxyp.fragmento.combat.client.ClientSnapshotReceiver;
@@ -34,7 +34,6 @@ public final class FragmentoClientEvents {
 
     private static final ClientSnapshotReceiver RECEIVER = new ClientSnapshotReceiver();
     private static volatile ClientRuntime runtime;
-    private static volatile boolean joinSent;
 
     public static ClientSnapshotReceiver clientReceiver() {
         return RECEIVER;
@@ -43,46 +42,29 @@ public final class FragmentoClientEvents {
     @SubscribeEvent
     public static void onKey(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
-            joinSent = false;
-            return;
-        }
+        if (mc.level == null) return;
 
         ClientRuntime r = runtime;
         if (r == null) runtime = r = ClientRuntime.create();
 
-        r.refreshSink();
+        r.sinkHolder.refresh();
 
         KeyMapping attack = mc.options.keyAttack;
         if (event.getKeyMapping() == attack) {
             InputDecision d = r.primaryHandler.onSemanticInput(SemanticInput.PRIMARY_ACTION);
-            if (d.consumeVanilla()) {
-                event.setCanceled(true);
-            }
+            if (d.consumeVanilla()) event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
-            joinSent = false;
-            return;
-        }
+        if (mc.level == null) return;
 
         ClientRuntime r = runtime;
         if (r == null) runtime = r = ClientRuntime.create();
 
-        r.refreshSink();
-
-        LocalPlayer player = mc.player;
-        if (player != null && !joinSent && r.sinkHolder.isActive()) {
-            r.sinkHolder.emit(
-                    new IntentEnvelope(new ActorId(player.getUUID()), new ActorJoinIntent(), null)
-            );
-            joinSent = true;
-        }
-
+        r.sinkHolder.refresh();
         r.tickHook.onClientTick();
     }
 
@@ -91,10 +73,6 @@ public final class FragmentoClientEvents {
             PrimaryActionInputHandler primaryHandler,
             ClientTickHook tickHook
     ) {
-        void refreshSink() {
-            sinkHolder.refresh();
-        }
-
         static ClientRuntime create() {
             var sinkHolder = new SinkHolder();
 
@@ -105,9 +83,7 @@ public final class FragmentoClientEvents {
                     weaponBinding,
                     () -> {
                         LocalPlayer p = Minecraft.getInstance().player;
-                        return p == null
-                                ? Optional.empty()
-                                : Optional.of(new ActorId(p.getUUID()));
+                        return p == null ? Optional.empty() : Optional.of(new ActorId(p.getUUID()));
                     }
             );
 
@@ -128,22 +104,21 @@ public final class FragmentoClientEvents {
     }
 
     private static final class SinkHolder implements InputIntentSink {
-        private volatile InputIntentSink delegate = envelope -> {};
-        private volatile boolean active;
+        private static final InputIntentSink NOOP = __ -> {};
+
+        private volatile InputIntentSink delegate = NOOP;
+        private volatile Object lastRef;
 
         void refresh() {
-            Object intentsObj = FragmentoMod.INTEGRATED_SERVER_INTENTS.get();
-            if (intentsObj instanceof ServerIntentReceiverPort srv) {
-                delegate = new LocalInputIntentSink(srv);
-                active = true;
-            } else {
-                delegate = envelope -> {};
-                active = false;
-            }
-        }
+            Object ref = FragmentoMod.INTEGRATED_SERVER_INTENTS.get();
+            if (ref == lastRef) return;
+            lastRef = ref;
 
-        boolean isActive() {
-            return active;
+            if (ref instanceof ServerIntentReceiverPort srv) {
+                delegate = new LocalInputIntentSink(srv);
+            } else {
+                delegate = NOOP;
+            }
         }
 
         @Override

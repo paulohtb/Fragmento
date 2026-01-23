@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.actor;
+package com.pgalaxyp.fragmento.combat.actor.api;
 
 import com.pgalaxyp.fragmento.combat.core.ids.ClassId;
 import com.pgalaxyp.fragmento.combat.core.ids.WeaponId;
