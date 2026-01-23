@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
-import com.pgalaxyp.fragmento.combat.content.minecraft.FragmentoMinecraftContent;
+import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import java.util.concurrent.atomic.AtomicReference;
