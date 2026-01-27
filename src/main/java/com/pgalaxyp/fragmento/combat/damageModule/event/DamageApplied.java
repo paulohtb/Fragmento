@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.damageModule.api;
+package com.pgalaxyp.fragmento.combat.damageModule.event;
 
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
 import com.pgalaxyp.fragmento.combat.random.FrameEvent;

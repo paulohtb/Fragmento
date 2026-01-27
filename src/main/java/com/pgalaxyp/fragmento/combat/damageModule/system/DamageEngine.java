@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damageModule.system;
 
+import com.pgalaxyp.fragmento.combat.damageModule.event.DamageApplied;
 import com.pgalaxyp.fragmento.combat.random.*;
 import com.pgalaxyp.fragmento.combat.damageModule.api.*;
 import com.pgalaxyp.fragmento.combat.damageModule.port.*;

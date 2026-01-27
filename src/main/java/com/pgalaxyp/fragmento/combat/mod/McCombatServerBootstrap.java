@@ -1,10 +1,11 @@
-package com.pgalaxyp.fragmento.combat.random;
+package com.pgalaxyp.fragmento.combat.mod;
 
 import com.pgalaxyp.fragmento.combat.actorModule.system.*;
 import com.pgalaxyp.fragmento.combat.damageModule.system.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.system.*;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
 import com.pgalaxyp.fragmento.combat.contentModule.api.ContentCatalog;
+import com.pgalaxyp.fragmento.combat.random.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.TargetingService;
 import com.pgalaxyp.fragmento.combat.damageModule.port.DefaultSnapshotProvider;
 import com.pgalaxyp.fragmento.combat.actorModule.minecraft.McActorSnapshotPort;

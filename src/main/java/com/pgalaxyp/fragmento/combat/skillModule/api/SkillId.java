@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.skillModule;
+package com.pgalaxyp.fragmento.combat.skillModule.api;
 
 import java.util.Objects;
 

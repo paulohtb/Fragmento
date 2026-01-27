@@ -1,7 +1,8 @@
-package com.pgalaxyp.fragmento.combat.random;
+package com.pgalaxyp.fragmento.combat.inputModule.system;
 
 import com.pgalaxyp.fragmento.combat.inputModule.port.InputSnapshotProvider;
 import com.pgalaxyp.fragmento.combat.inputModule.port.InputSnapshotView;
+import com.pgalaxyp.fragmento.combat.random.GameSnapshot;
 
 import java.util.Objects;
 

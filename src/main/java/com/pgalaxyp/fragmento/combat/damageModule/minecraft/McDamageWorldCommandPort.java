@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.damageModule.minecraft;
 
 import com.pgalaxyp.fragmento.combat.random.*;
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageApplied;
+import com.pgalaxyp.fragmento.combat.damageModule.event.DamageApplied;
 import java.util.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.server.MinecraftServer;
