@@ -1,9 +1,7 @@
 package com.pgalaxyp.fragmento.combat.inputModule.system;
 
-import com.pgalaxyp.fragmento.combat.inputModule.port.InputSnapshotProvider;
-import com.pgalaxyp.fragmento.combat.inputModule.port.InputSnapshotView;
-import com.pgalaxyp.fragmento.combat.random.GameSnapshot;
-
+import com.pgalaxyp.fragmento.combat.inputModule.port.*;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameSnapshot;
 import java.util.Objects;
 
 public final class ClientInputSnapshotProvider implements InputSnapshotProvider {
@@ -16,7 +14,6 @@ public final class ClientInputSnapshotProvider implements InputSnapshotProvider 
     @Override
     public InputSnapshotView current() {
         GameSnapshot snap = receiver.lastSnapshot();
-        if (snap == null) return InputSnapshotView.empty();
-        return InputSnapshotView.of(snap);
+        return snap == null ? InputSnapshotView.empty() : InputSnapshotView.of(snap);
     }
 }

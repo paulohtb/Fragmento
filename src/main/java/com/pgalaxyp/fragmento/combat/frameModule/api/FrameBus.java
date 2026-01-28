@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.random;
+package com.pgalaxyp.fragmento.combat.frameModule.api;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -33,7 +33,7 @@ public final class FrameBus {
     }
 
     public void clearEvents(Predicate<FrameEvent> filter) {
-        events.removeIf(filter);
+        events.removeIf(Objects.requireNonNull(filter));
     }
 
     public <T> void view(Class<T> type, T value) {

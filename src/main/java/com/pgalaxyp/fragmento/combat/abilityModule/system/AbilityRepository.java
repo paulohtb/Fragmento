@@ -1,20 +1,10 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.system;
 
-import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilityId;
-import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilitySnapshot;
-import com.pgalaxyp.fragmento.combat.abilityModule.event.AbilityEnded;
+import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
-import com.pgalaxyp.fragmento.combat.random.FrameEvent;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.TreeMap;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameEvent;
+import com.pgalaxyp.fragmento.combat.abilityModule.event.AbilityEnded;
+import java.util.*;
 
 final class AbilityRepository {
     private final Map<ActorId, Active> activeByActor = new HashMap<>();
@@ -36,13 +26,10 @@ final class AbilityRepository {
             if (actorId == null) throw new IllegalArgumentException();
             Active a = activeByActor.get(actorId);
             if (a == null) continue;
-            if (frameId >= a.startFrame && frameId < a.endFrameExclusive) {
-                out.add(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
-            }
+            if (frameId >= a.startFrame && frameId < a.endFrameExclusive) out.add(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
         }
 
-        if (out.isEmpty()) return List.of();
-        return List.copyOf(out);
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     boolean cooldownActive(ActorId actorId, AbilityId abilityId, long frameId) {
@@ -69,7 +56,6 @@ final class AbilityRepository {
 
         ArrayList<FrameEvent> out = new ArrayList<>();
         Iterator<Map.Entry<ActorId, Active>> it = activeByActor.entrySet().iterator();
-
         while (it.hasNext()) {
             Map.Entry<ActorId, Active> e = it.next();
             Active a = e.getValue();
@@ -78,9 +64,7 @@ final class AbilityRepository {
                 out.add(new AbilityEnded(new AbilitySnapshot(a.abilityId, e.getKey(), a.startFrame, a.endFrameExclusive)));
             }
         }
-
-        if (out.isEmpty()) return List.of();
-        return List.copyOf(out);
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     void cleanupCooldowns(long frameId) {
@@ -104,8 +88,8 @@ final class AbilityRepository {
 
     void pruneToActors(Collection<ActorId> liveActors) {
         if (liveActors == null) throw new IllegalArgumentException();
-        if (!activeByActor.isEmpty()) { activeByActor.entrySet().removeIf(e -> !liveActors.contains(e.getKey())); }
-        if (!cooldownEndByActor.isEmpty()) { cooldownEndByActor.entrySet().removeIf(e -> !liveActors.contains(e.getKey())); }
+        if (!activeByActor.isEmpty()) activeByActor.entrySet().removeIf(e -> !liveActors.contains(e.getKey()));
+        if (!cooldownEndByActor.isEmpty()) cooldownEndByActor.entrySet().removeIf(e -> !liveActors.contains(e.getKey()));
     }
 
     private record Active(AbilityId abilityId, long startFrame, long endFrameExclusive) {

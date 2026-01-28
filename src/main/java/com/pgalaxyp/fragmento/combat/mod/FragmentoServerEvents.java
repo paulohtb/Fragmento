@@ -1,7 +1,9 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
-import com.pgalaxyp.fragmento.combat.random.*;
+
+import com.pgalaxyp.fragmento.combat.engineModule.port.*;
 import com.pgalaxyp.fragmento.combat.contentModule.bard.BardIds;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameEngine;
 import com.pgalaxyp.fragmento.combat.contentModule.FragmentoDomainContent;
 import com.pgalaxyp.fragmento.combat.inputModule.minecraft.McInputClientEvents;
 import com.pgalaxyp.fragmento.combat.damageModule.minecraft.McDamageWorldCommandPort;

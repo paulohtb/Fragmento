@@ -7,7 +7,6 @@ import java.util.*;
 public final class AbilityComboRepository {
     private static final int MAX_GAP_FRAMES = 20;
     private static final int MAX_STEP_INDEX = 1;
-
     private record ComboState(WeaponId weaponId, int stepIndex, long lastFrame) {}
     private final Map<ActorId, ComboState> byActor = new HashMap<>();
 

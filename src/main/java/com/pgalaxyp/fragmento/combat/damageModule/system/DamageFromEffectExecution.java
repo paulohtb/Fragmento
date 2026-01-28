@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.combat.damageModule.system;
 
-import com.pgalaxyp.fragmento.combat.random.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.effectModule.api.*;
-import com.pgalaxyp.fragmento.combat.damageModule.event.DamageRequested;
 import com.pgalaxyp.fragmento.combat.effectModule.event.EffectTriggered;
+import com.pgalaxyp.fragmento.combat.damageModule.event.DamageRequested;
 import java.util.*;
 
 public final class DamageFromEffectExecution implements FrameSystem {
@@ -14,15 +14,13 @@ public final class DamageFromEffectExecution implements FrameSystem {
     }
 
     @Override
-    public void tick(FrameContext frame, GameState state, FrameBus bus) {
+    public void tick(FrameContext frame, Object state, FrameBus bus) {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
-
-        for (EffectTriggered e : bus.events(EffectTriggered.class)) {
-            EffectDef def = effects.get(e.effectId());
-            if (def == null) continue;
-            bus.publish(new DamageRequested(e.source(), e.target(), def.damage()));
+        for (var e : bus.events(EffectTriggered.class)) {
+            var def = effects.get(e.effectId());
+            if (def != null) bus.publish(new DamageRequested(e.source(), e.target(), def.damage()));
         }
     }
 }

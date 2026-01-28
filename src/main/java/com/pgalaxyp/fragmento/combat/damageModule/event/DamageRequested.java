@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.damageModule.event;
 
-import com.pgalaxyp.fragmento.combat.random.FrameEvent;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameEvent;
 import com.pgalaxyp.fragmento.combat.damageModule.api.DamageSpec;
 import java.util.Objects;
 

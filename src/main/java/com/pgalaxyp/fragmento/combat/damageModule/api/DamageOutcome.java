@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damageModule.api;
 
-import com.pgalaxyp.fragmento.combat.random.FrameEvent;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameEvent;
 import java.util.*;
 
 public record DamageOutcome(List<FrameEvent> events) {

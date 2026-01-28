@@ -1,19 +1,21 @@
-package com.pgalaxyp.fragmento.combat.random;
+package com.pgalaxyp.fragmento.combat.engineModule.api;
 
-import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilityViewSnapshot;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
+import com.pgalaxyp.fragmento.combat.engineModule.port.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorView;
-import java.util.List;
-import java.util.Objects;
+import com.pgalaxyp.fragmento.combat.inputModule.port.IntentSourcePort;
+import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilityViewSnapshot;
+import java.util.*;
 
 public final class GameEngine {
-    private final com.pgalaxyp.fragmento.combat.inputModule.port.IntentSourcePort intents;
+    private final IntentSourcePort intents;
     private final FlowPipeline pipeline;
     private final WorldCommandPort world;
     private final SnapshotPort snapshots;
     private GameState state;
     private long nextFrame;
 
-    public GameEngine(com.pgalaxyp.fragmento.combat.inputModule.port.IntentSourcePort intents, FlowPipeline pipeline, WorldCommandPort world, SnapshotPort snapshots, GameState initial) {
+    public GameEngine(IntentSourcePort intents, FlowPipeline pipeline, WorldCommandPort world, SnapshotPort snapshots, GameState initial) {
         this.intents = Objects.requireNonNull(intents);
         this.pipeline = Objects.requireNonNull(pipeline);
         this.world = Objects.requireNonNull(world);
@@ -26,8 +28,7 @@ public final class GameEngine {
         FrameContext frame = new FrameContext(nextFrame++, tickIndex);
         FrameBus bus = pipeline.run(frame, state, intents.drain());
 
-        var events = bus.events();
-
+        List<FrameEvent> events = bus.events();
         ActorView committedActors = bus.viewOpt(ActorView.class).orElse(state.actors());
         GameState committed = new GameState(frame, committedActors);
 

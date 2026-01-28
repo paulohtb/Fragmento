@@ -1,8 +1,9 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.port;
 
-import com.pgalaxyp.fragmento.combat.random.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
 import java.util.Collection;
 
 public interface AbilityPort {

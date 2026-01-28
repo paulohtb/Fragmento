@@ -1,6 +1,7 @@
 package com.pgalaxyp.fragmento.combat.damageModule.system;
 
-import com.pgalaxyp.fragmento.combat.random.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import com.pgalaxyp.fragmento.combat.damageModule.port.DamagePort;
 import com.pgalaxyp.fragmento.combat.damageModule.event.DamageRequested;
 import java.util.Objects;
@@ -13,13 +14,13 @@ public final class DamageExecution implements FrameSystem {
     }
 
     @Override
-    public void tick(FrameContext frame, GameState state, FrameBus bus) {
+    public void tick(FrameContext frame, Object state, FrameBus bus) {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
-
-        for (DamageRequested e : bus.events(DamageRequested.class)) {
-            damage.resolve(e, frame, state).events().forEach(bus::publish);
+        var gameState = (GameState) state;
+        for (var requested : bus.events(DamageRequested.class)) {
+            damage.resolve(requested, frame, gameState).events().forEach(bus::publish);
         }
     }
 }

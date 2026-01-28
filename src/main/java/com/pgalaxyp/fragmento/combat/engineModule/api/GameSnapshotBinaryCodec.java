@@ -1,8 +1,8 @@
-package com.pgalaxyp.fragmento.combat.random;
+package com.pgalaxyp.fragmento.combat.engineModule.api;
 
+import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
-import com.pgalaxyp.fragmento.combat.actorModule.api.ActorView;
-import com.pgalaxyp.fragmento.combat.actorModule.api.ActorViewBinaryCodec;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
 import java.io.*;
 
 public final class GameSnapshotBinaryCodec {

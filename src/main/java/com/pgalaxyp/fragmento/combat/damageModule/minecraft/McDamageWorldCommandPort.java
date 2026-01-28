@@ -1,7 +1,9 @@
 package com.pgalaxyp.fragmento.combat.damageModule.minecraft;
 
-import com.pgalaxyp.fragmento.combat.random.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import com.pgalaxyp.fragmento.combat.damageModule.event.DamageApplied;
+import com.pgalaxyp.fragmento.combat.engineModule.port.WorldCommandPort;
 import java.util.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.server.MinecraftServer;
@@ -19,7 +21,6 @@ public final class McDamageWorldCommandPort implements WorldCommandPort {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(events);
-
         for (FrameEvent event : events) {
             if (event instanceof DamageApplied damage) applyDamage(damage);
         }
@@ -29,7 +30,6 @@ public final class McDamageWorldCommandPort implements WorldCommandPort {
         UUID uuid = damage.targetActorId().value();
         LivingEntity entity = findLiving(uuid);
         if (entity == null) return;
-
         float amount = damage.hearts() * 2.0f;
         entity.setHealth(Math.max(0.0f, entity.getHealth() - amount));
     }
@@ -37,7 +37,6 @@ public final class McDamageWorldCommandPort implements WorldCommandPort {
     private LivingEntity findLiving(UUID uuid) {
         Entity player = server.getPlayerList().getPlayer(uuid);
         if (player instanceof LivingEntity entity) return entity;
-
         for (ServerLevel level : server.getAllLevels()) {
             Entity entity = level.getEntity(uuid);
             if (entity instanceof LivingEntity living) return living;

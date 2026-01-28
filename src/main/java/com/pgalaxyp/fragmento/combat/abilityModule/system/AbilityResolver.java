@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.system;
 
-import com.pgalaxyp.fragmento.combat.random.GameState;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import java.util.*;
 
 public final class AbilityResolver {

@@ -1,9 +1,9 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.api;
 
-import com.pgalaxyp.fragmento.combat.random.GameState;
-import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import java.util.Objects;
 
 public record AbilityRule(String ruleId, ClassId classId, WeaponId weaponId, Integer stepIndex, AbilityId baseAbility, AbilityId resultAbility) {
@@ -24,7 +24,7 @@ public record AbilityRule(String ruleId, ClassId classId, WeaponId weaponId, Int
         if (stepIndex != null && stepIndex != stepIndexIn) return false;
         if (baseAbility != null && !baseAbility.equals(baseAbilityIn)) return false;
         if (classId == null) return true;
-        ActorState a = state.findActor(actorId).orElse(null);
+        var a = state.findActor(actorId).orElse(null);
         return a != null && classId.equals(a.classId());
     }
 }

@@ -1,13 +1,11 @@
 package com.pgalaxyp.fragmento.combat.inputModule.minecraft;
 
-import com.pgalaxyp.fragmento.combat.inputModule.port.ActorInputContextProvider;
-import com.pgalaxyp.fragmento.combat.inputModule.port.InputIntentSink;
-import com.pgalaxyp.fragmento.combat.inputModule.port.InputSnapshotProvider;
-import com.pgalaxyp.fragmento.combat.random.*;
 import com.pgalaxyp.fragmento.combat.mod.FragmentoMod;
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.inputModule.api.*;
+import com.pgalaxyp.fragmento.combat.inputModule.port.*;
 import com.pgalaxyp.fragmento.combat.inputModule.system.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.IntentEnvelope;
 import com.pgalaxyp.fragmento.combat.inputModule.port.ServerIntentReceiverPort;
 import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
 import java.util.*;

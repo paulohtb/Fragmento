@@ -1,10 +1,11 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.system;
 
-import com.pgalaxyp.fragmento.combat.random.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
-import com.pgalaxyp.fragmento.combat.abilityModule.event.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
+import com.pgalaxyp.fragmento.combat.abilityModule.event.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import com.pgalaxyp.fragmento.combat.abilityModule.port.AbilityPort;
 import java.util.*;
 
@@ -42,7 +43,6 @@ public final class AbilityEngine implements AbilityPort {
         if (cdEnd >= 0) repo.startCooldown(actorId, def.id(), cdEnd);
 
         AbilitySnapshot snap = new AbilitySnapshot(def.id(), actorId, f, endExclusive);
-
         return new AbilityOutcome(List.of(new AbilityStarted(snap, def.startEffect(), target, actorId)));
     }
 
