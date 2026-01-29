@@ -4,7 +4,7 @@ import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
 import java.util.*;
 
-public record GameState(FrameContext frame, ActorView actors) {
+public record GameState(FrameContext frame, ActorView actors) implements ActorStateView {
     public GameState {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(actors);

@@ -1,14 +1,13 @@
 package com.pgalaxyp.fragmento.combat.actorModule.system;
 
-import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
+import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.event.*;
 import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import java.util.*;
 
 public final class ActorCommitSystem implements FrameSystem {
-    @Override
-    public void tick(FrameContext frame, Object state, FrameBus bus) {
+    @Override public void tick(FrameContext frame, Object state, FrameBus bus) {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
@@ -21,5 +20,12 @@ public final class ActorCommitSystem implements FrameSystem {
     private static void applyOne(Map<ActorId, ActorState> actors, FrameEvent event) {
         if (event instanceof ActorUpserted(var id, var state)) actors.put(id, state);
         else if (event instanceof ActorRemoved(var id)) actors.remove(id);
+        else if (event instanceof ActorHealthAdjusted(var id, var delta)) {
+            var s = actors.get(id);
+            if (s == null) return;
+            int max = s.maxHealthHearts();
+            int nh = Math.max(0, Math.min(max, s.healthHearts() + delta));
+            if (nh != s.healthHearts()) actors.put(id, new ActorState(s.classId(), s.equippedWeaponId(), nh, max));
+        }
     }
 }

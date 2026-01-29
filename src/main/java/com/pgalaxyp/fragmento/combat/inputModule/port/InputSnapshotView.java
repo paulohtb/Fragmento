@@ -25,10 +25,6 @@ public final class InputSnapshotView {
         return snapshot != null;
     }
 
-    public Optional<GameSnapshot> raw() {
-        return snapshot == null ? Optional.empty() : Optional.of(snapshot);
-    }
-
     public long frameIdOrZero() {
         return snapshot == null ? 0L : snapshot.frame().frameId();
     }

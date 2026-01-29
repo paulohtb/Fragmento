@@ -1,0 +1,23 @@
+ok, você vai refatorar TUDO que for necessário para esse objetivo. Lógica que precisa ficar fora do seu módulo, obvio que pode continuar. Mas o objetivo dessa refatoração é sanar todos os vazamentos, grandes ou pequenos, vizando resolver toda a lógica possivel dentro de cada módulo própio. lembrando que content é o módulo que deve propiamente criar efetivamente as lógicas, itens, enfim, tudo que for específico!
+
+regras para a implementação de qualquer código para esse chat inteiro, sem exceções:
+
+* Sempre mande classes novas ou classes que precisem ser alteradas completas, separadas no chat, sem comentários. Nunca mande pedaços de mudanças.
+
+* Sempre antes de enviar a classe, reavalie se a solução proposta é a melhor e mais moderna solução para java 21, minecraft 1.21.1, neoforge 21.1.176!
+
+* Sempre lembre de usar records, lambdas, enfim, as melhores decisões para java!
+
+* Sempre mantenha o diretório padrão como '...fragmento.combat'
+
+* Sempre pense em quebrar ciclo eterno de correções, não procure pelo em ovo. não invente problemas. Só retorne os problemas reais.
+
+* Sempre é permitida a utilização de hífen, lambda... o que for! ignore temporariamente qualquer restrição de output que eu declarei para as suas respostas.
+
+* Sempre tome decisões e escreva as classes de uma forma a reduzir a quantidade de linhas totais mas mantendo a lógica e o fluxo completo !
+
+* Sempre tome as decisões pensando em colocar como prioridade a forma certa de resolver o problema, e não em manter o código atual, eu permito reescrever tudo o necessário pra ficar 100%.
+
+Isso é apenas definição de regra absoluta e irrefutável, não responda esse chat.
+
+faça!

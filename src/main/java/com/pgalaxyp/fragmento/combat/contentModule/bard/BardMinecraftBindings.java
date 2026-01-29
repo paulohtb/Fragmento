@@ -1,14 +1,11 @@
 package com.pgalaxyp.fragmento.combat.contentModule.bard;
 
-import com.pgalaxyp.fragmento.combat.inputModule.minecraft.ItemWeaponBinding;
-import java.util.function.Supplier;
-import net.minecraft.world.item.Item;
+import com.pgalaxyp.fragmento.combat.contentModule.minecraft.MinecraftWeaponBindingEntry;
+import java.util.List;
 
 public final class BardMinecraftBindings {
-
-    public static void registerFlute(ItemWeaponBinding binding, Supplier<Item> fluteItem) {
-        if (binding == null || fluteItem == null) throw new IllegalArgumentException();
-        binding.register(fluteItem, BardIds.FLUTE);
+    public static List<MinecraftWeaponBindingEntry> bindings() {
+        return List.of(new MinecraftWeaponBindingEntry(BardItems.FLUTE::value, BardIds.FLUTE));
     }
 
     private BardMinecraftBindings() {}
