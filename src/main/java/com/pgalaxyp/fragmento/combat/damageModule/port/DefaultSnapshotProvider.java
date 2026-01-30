@@ -1,15 +1,14 @@
 package com.pgalaxyp.fragmento.combat.damageModule.port;
 
-import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
+import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import java.util.Objects;
 
 public final class DefaultSnapshotProvider implements DamageSnapshotProvider {
-    @Override
-    public DamageSnapshot snapshot(GameState state, ActorId source, ActorId target) {
+    @Override public DamageSnapshot snapshot(ActorStateView state, ActorId source, ActorId target) {
         Objects.requireNonNull(state);
         Objects.requireNonNull(source);
         Objects.requireNonNull(target);
+
         return new DamageSnapshot(ResistanceProfile.none());
     }
 }

@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.engineModule.port;
 
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameSnapshot;
+import com.pgalaxyp.fragmento.combat.snapshotModule.api.CombatSnapshot;
 
 public interface SnapshotPort {
-    void publish(GameSnapshot snapshot);
+    void publish(CombatSnapshot snapshot);
 }

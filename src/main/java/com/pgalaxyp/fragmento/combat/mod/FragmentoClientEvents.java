@@ -6,6 +6,8 @@ import com.pgalaxyp.fragmento.combat.inputModule.port.*;
 import com.pgalaxyp.fragmento.combat.inputModule.system.*;
 import com.pgalaxyp.fragmento.combat.inputModule.minecraft.*;
 import com.pgalaxyp.fragmento.combat.frameModule.api.IntentEnvelope;
+import com.pgalaxyp.fragmento.combat.intentModule.api.IntentSinkPort;
+import com.pgalaxyp.fragmento.combat.platformModule.FragmentoPlatform;
 import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
 import java.util.*;
 import java.util.function.Supplier;
@@ -16,7 +18,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.InputEvent;
 
-@EventBusSubscriber(modid = FragmentoMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = FragmentoPlatform.MODID, value = Dist.CLIENT)
 public final class FragmentoClientEvents {
     private static volatile Runtime runtime;
 
@@ -44,27 +46,27 @@ public final class FragmentoClientEvents {
                 return player == null ? Optional.empty() : Optional.of(new ActorId(player.getUUID()));
             };
             ActorInputContextProvider actorContext = new McActorContext(weaponBinding, localProvider);
-            InputIntentSink sink = new IntegratedServerIntentSink(FragmentoMod.INTEGRATED_SERVER_INTENTS::get);
+            IntentSinkPort sink = new IntegratedServerIntentSink(FragmentoMod.INTEGRATED_SERVER_INTENTS::get);
 
             return new Runtime(new PrimaryActionInputHandler(actorContext, snapshots, sink, new InputConsumptionPolicy()));
         }
     }
 
-    private static final class IntegratedServerIntentSink implements InputIntentSink {
-        private static final InputIntentSink NOOP = envelope -> {};
-        private final Supplier<Object> lookup;
-        private volatile Object last;
-        private volatile InputIntentSink delegate = NOOP;
+    private static final class IntegratedServerIntentSink implements IntentSinkPort {
+        private static final IntentSinkPort NOOP = envelope -> {};
+        private final Supplier<IntentSinkPort> lookup;
+        private volatile IntentSinkPort last;
+        private volatile IntentSinkPort delegate = NOOP;
 
-        IntegratedServerIntentSink(Supplier<Object> lookup) { this.lookup = Objects.requireNonNull(lookup); }
+        IntegratedServerIntentSink(Supplier<IntentSinkPort> lookup) { this.lookup = Objects.requireNonNull(lookup); }
 
-        @Override public void emit(IntentEnvelope envelope) {
-            Object object = lookup.get();
-            if (object != last) {
-                last = object;
-                delegate = object instanceof ServerIntentReceiverPort port ? new LocalInputIntentSink(port) : NOOP;
+        @Override public void enqueue(IntentEnvelope envelope) {
+            IntentSinkPort port = lookup.get();
+            if (port != last) {
+                last = port;
+                delegate = port == null ? NOOP : port;
             }
-            delegate.emit(Objects.requireNonNull(envelope));
+            delegate.enqueue(Objects.requireNonNull(envelope));
         }
     }
 

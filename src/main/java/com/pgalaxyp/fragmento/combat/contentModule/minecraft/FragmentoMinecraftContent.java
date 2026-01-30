@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.contentModule.minecraft;
 
-import com.pgalaxyp.fragmento.combat.contentModule.bard.BardMinecraftPack;
+import com.pgalaxyp.fragmento.combat.contentModule.minecraft.bard.BardMinecraftPack;
 import java.util.List;
 
 public final class FragmentoMinecraftContent {

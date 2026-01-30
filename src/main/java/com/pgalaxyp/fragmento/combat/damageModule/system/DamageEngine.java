@@ -3,8 +3,8 @@ package com.pgalaxyp.fragmento.combat.damageModule.system;
 import com.pgalaxyp.fragmento.combat.damageModule.api.*;
 import com.pgalaxyp.fragmento.combat.damageModule.port.*;
 import com.pgalaxyp.fragmento.combat.damageModule.event.*;
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
 import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorStateView;
 import java.util.*;
 
 public final class DamageEngine implements DamagePort {
@@ -16,7 +16,7 @@ public final class DamageEngine implements DamagePort {
         this.snapshots = Objects.requireNonNull(snapshots);
     }
 
-    @Override public DamageOutcome resolve(DamageRequested request, FrameContext frame, GameState state) {
+    @Override public DamageOutcome resolve(DamageRequested request, FrameContext frame, ActorStateView state) {
         Objects.requireNonNull(request);
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);

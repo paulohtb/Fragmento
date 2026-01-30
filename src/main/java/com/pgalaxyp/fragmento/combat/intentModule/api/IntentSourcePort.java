@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.inputModule.port;
+package com.pgalaxyp.fragmento.combat.intentModule.api;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.IntentEnvelope;
 import java.util.List;

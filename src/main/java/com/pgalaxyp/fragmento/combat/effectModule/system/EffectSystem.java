@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.effectModule.system;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
-import com.pgalaxyp.fragmento.combat.effectModule.api.*;
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorStateView;
+import com.pgalaxyp.fragmento.combat.effectModule.api.EffectService;
 import com.pgalaxyp.fragmento.combat.effectModule.event.EffectTriggered;
 import java.util.Objects;
 
@@ -13,7 +13,7 @@ public record EffectSystem(EffectService effects) implements FrameSystem {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
-        var gs = (GameState) state;
-        for (var t : bus.events(EffectTriggered.class)) effects.applyResolved(frame, gs, t.effectId(), t.source(), t.target()).events().forEach(bus::publish);
+        var s = (ActorStateView) state;
+        for (var t : bus.events(EffectTriggered.class)) effects.applyResolved(frame, s, t.effectId(), t.source(), t.target()).events().forEach(bus::publish);
     }
 }

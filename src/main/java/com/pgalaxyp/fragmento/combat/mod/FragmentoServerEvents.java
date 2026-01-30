@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.combat.mod;
 import com.pgalaxyp.fragmento.combat.engineModule.port.*;
 import com.pgalaxyp.fragmento.combat.contentModule.bard.BardIds;
 import com.pgalaxyp.fragmento.combat.engineModule.api.GameEngine;
+import com.pgalaxyp.fragmento.combat.platformModule.FragmentoPlatform;
 import com.pgalaxyp.fragmento.combat.contentModule.FragmentoDomainContent;
 import com.pgalaxyp.fragmento.combat.damageModule.minecraft.McDamageWorldCommandPort;
 import java.util.*;
@@ -12,7 +13,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-@EventBusSubscriber(modid = FragmentoMod.MODID)
+@EventBusSubscriber(modid = FragmentoPlatform.MODID)
 public final class FragmentoServerEvents {
     private static final Map<MinecraftServer, ServerRuntime> RUNTIMES = new WeakHashMap<>();
 

@@ -1,12 +1,12 @@
-package com.pgalaxyp.fragmento.combat.engineModule.api;
+package com.pgalaxyp.fragmento.combat.snapshotModule.api;
 
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
 import java.io.*;
 
-public final class GameSnapshotBinaryCodec {
-    public static void write(DataOutput out, GameSnapshot snap) throws IOException {
+public final class CombatSnapshotBinaryCodec {
+    public static void write(DataOutput out, CombatSnapshot snap) throws IOException {
         if (out == null || snap == null) throw new IllegalArgumentException();
         out.writeLong(snap.frame().frameId());
         out.writeInt(snap.frame().tickIndex());
@@ -14,13 +14,14 @@ public final class GameSnapshotBinaryCodec {
         AbilityViewBinaryCodec.write(out, snap.abilities());
     }
 
-    public static GameSnapshot read(DataInput in) throws IOException {
+    public static CombatSnapshot read(DataInput in) throws IOException {
         if (in == null) throw new IllegalArgumentException();
         FrameContext frame = new FrameContext(in.readLong(), in.readInt());
         ActorView actors = ActorViewBinaryCodec.read(in);
         AbilityViewSnapshot abilities = AbilityViewBinaryCodec.read(in);
-        return new GameSnapshot(frame, actors, abilities);
+
+        return new CombatSnapshot(frame, actors, abilities);
     }
 
-    private GameSnapshotBinaryCodec() {}
+    private CombatSnapshotBinaryCodec() {}
 }

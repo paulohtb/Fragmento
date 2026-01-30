@@ -1,37 +1,32 @@
 package com.pgalaxyp.fragmento.combat.inputModule.port;
 
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameSnapshot;
+import com.pgalaxyp.fragmento.combat.snapshotModule.api.CombatSnapshot;
 import java.util.Optional;
 
 public final class InputSnapshotView {
     private static final InputSnapshotView EMPTY = new InputSnapshotView(null);
-    private final GameSnapshot snapshot;
+    private final CombatSnapshot snapshot;
 
-    private InputSnapshotView(GameSnapshot snapshot) {
+    public static InputSnapshotView empty() { return EMPTY; }
+
+    public boolean isPresent() { return snapshot != null; }
+
+    private InputSnapshotView(CombatSnapshot snapshot) {
         this.snapshot = snapshot;
-    }
-
-    public static InputSnapshotView empty() {
-        return EMPTY;
-    }
-
-    public static InputSnapshotView of(GameSnapshot snapshot) {
-        if (snapshot == null) throw new IllegalArgumentException();
-        return new InputSnapshotView(snapshot);
-    }
-
-    public boolean isPresent() {
-        return snapshot != null;
     }
 
     public long frameIdOrZero() {
         return snapshot == null ? 0L : snapshot.frame().frameId();
     }
 
+    public static InputSnapshotView of(CombatSnapshot snapshot) {
+        if (snapshot == null) throw new IllegalArgumentException();
+        return new InputSnapshotView(snapshot);
+    }
+
     public Optional<ActorState> findActor(ActorId actorId) {
         if (actorId == null) throw new IllegalArgumentException();
-        if (snapshot == null) return Optional.empty();
-        return snapshot.actors().findActor(actorId);
+        return snapshot == null ? Optional.empty() : snapshot.actors().findActor(actorId);
     }
 }
