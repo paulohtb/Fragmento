@@ -10,5 +10,5 @@ public interface ContentPack {
     Collection<EffectDef> effects();
     List<AbilityRule> abilityRules();
     Map<WeaponId, AbilityId> primaryBindings();
-    Map<AbilityId, AbilityEffectSpec> abilityEffects();
+    Map<AbilityId, AbilityTriggerSpec> abilityTriggers();
 }

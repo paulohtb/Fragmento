@@ -2,7 +2,6 @@ package com.pgalaxyp.fragmento.combat.mod;
 
 import com.pgalaxyp.fragmento.combat.intentModule.api.IntentSinkPort;
 import com.pgalaxyp.fragmento.combat.platformModule.FragmentoPlatform;
-import com.pgalaxyp.fragmento.combat.inputModule.system.ClientSnapshotReceiver;
 import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
 import java.util.concurrent.atomic.AtomicReference;
 import net.neoforged.fml.common.Mod;

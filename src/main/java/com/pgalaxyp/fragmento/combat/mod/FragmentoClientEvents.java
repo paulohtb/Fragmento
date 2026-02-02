@@ -38,8 +38,9 @@ public final class FragmentoClientEvents {
 
     private record Runtime(PrimaryActionInputHandler primaryHandler) {
         static Runtime create() {
-            InputSnapshotProvider snapshots = new ClientInputSnapshotProvider(FragmentoMod.CLIENT_RECEIVER);
+            InputSnapshotProvider snapshots = new SnapshotBackedInputSnapshotProvider(FragmentoMod.CLIENT_RECEIVER);
             var weaponBinding = new ItemWeaponBinding();
+
             for (var e : FragmentoMinecraftContent.REGISTRY.clientWeaponBindings()) weaponBinding.register(e.item(), e.weaponId());
             LocalActorProvider localProvider = () -> {
                 LocalPlayer player = Minecraft.getInstance().player;

@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.combat.actorModule.system;
 
-import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.port.*;
 import com.pgalaxyp.fragmento.combat.actorModule.event.*;
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
+import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
 import java.util.*;
 
 public final class ActorSyncSystem implements FrameSystem {
@@ -18,19 +18,20 @@ public final class ActorSyncSystem implements FrameSystem {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
-        var gs = (GameState) state;
-        var now = Optional.ofNullable(port.snapshot()).orElseGet(List::of);
+        var prev = (ActorStateView) state;
+        var now = Optional.ofNullable(port.snapshot()).orElse(List.of());
         var live = new HashSet<ActorId>(Math.max(16, now.size()));
-        var classes = new HashMap<ActorId, com.pgalaxyp.fragmento.combat.classModule.api.ClassId>(Math.max(16, now.size()));
+        var classes = new HashMap<ActorId, ClassId>(Math.max(16, now.size()));
         for (var o : now) {
             if (o == null) continue;
-            live.add(o.actorId());
-            classes.put(o.actorId(), o.classId());
-            bus.publish(new ActorUpserted(o.actorId(), ActorState.idleWithHealth(o.classId(), o.healthHearts(), o.maxHealthHearts())));
+            var id = o.actorId();
+            live.add(id);
+            classes.put(id, o.classId());
+            var next = new ActorState(o.classId(), o.healthHearts(), o.maxHealthHearts());
+            var old = prev.findActor(id).orElse(null);
+            if (!next.equals(old)) bus.publish(new ActorUpserted(id, next));
         }
-        for (var actorId : gs.actors().actors().navigableKeySet()) {
-            if (actorId != null && !live.contains(actorId)) bus.publish(new ActorRemoved(actorId));
-        }
+        for (var id : prev.actors().ids()) if (!live.contains(id)) bus.publish(new ActorRemoved(id));
         bus.view(ActorSyncView.class, new ActorSyncView(classes, live));
     }
 }

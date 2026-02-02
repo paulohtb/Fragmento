@@ -1,9 +1,0 @@
-package com.pgalaxyp.fragmento.combat.engineModule.system;
-
-import com.pgalaxyp.fragmento.combat.frameModule.api.*;
-import java.util.Objects;
-
-public record AbilityViewSystem(FrameSystem delegate) implements FrameSystem {
-    public AbilityViewSystem { Objects.requireNonNull(delegate); }
-    @Override public void tick(FrameContext frame, Object state, FrameBus bus) { delegate.tick(frame, state, bus); }
-}

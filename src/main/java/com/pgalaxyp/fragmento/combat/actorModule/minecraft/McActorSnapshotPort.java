@@ -1,19 +1,14 @@
 package com.pgalaxyp.fragmento.combat.actorModule.minecraft;
 
+import com.pgalaxyp.fragmento.combat.util.HealthUnits;
+import com.pgalaxyp.fragmento.combat.actorModule.port.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
-import com.pgalaxyp.fragmento.combat.actorModule.port.ActorObservation;
-import com.pgalaxyp.fragmento.combat.actorModule.port.ActorSnapshotPort;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
-
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public final class McActorSnapshotPort implements ActorSnapshotPort {
-
     private final MinecraftServer server;
     private final ClassId defaultClassId;
 
@@ -22,34 +17,17 @@ public final class McActorSnapshotPort implements ActorSnapshotPort {
         this.defaultClassId = Objects.requireNonNull(defaultClassId);
     }
 
-    @Override
-    public List<ActorObservation> snapshot() {
-        List<ServerPlayer> players = server.getPlayerList().getPlayers();
-        if (players == null || players.isEmpty()) return List.of();
-
+    @Override public List<ActorObservation> snapshot() {
+        var players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) return List.of();
         var out = new ArrayList<ActorObservation>(players.size());
         for (ServerPlayer p : players) {
             if (p == null) continue;
-
-            float hp = p.getHealth();
-            float maxHp = p.getMaxHealth();
-
-            int hearts = toHearts(hp);
-            int maxHearts = Math.max(1, toHearts(maxHp));
-
+            int hearts = HealthUnits.heartsFromHealthPoints(p.getHealth());
+            int maxHearts = Math.max(1, HealthUnits.heartsFromHealthPoints(p.getMaxHealth()));
             if (hearts > maxHearts) hearts = maxHearts;
-
             out.add(new ActorObservation(new ActorId(p.getUUID()), defaultClassId, hearts, maxHearts));
         }
-        return List.copyOf(out);
-    }
-
-    private static int toHearts(float healthPoints) {
-        if (!Float.isFinite(healthPoints)) return 0;
-        if (healthPoints <= 0.0f) return 0;
-        double hearts = Math.ceil(healthPoints / 2.0);
-        if (!Double.isFinite(hearts)) return 0;
-        if (hearts > (double) Integer.MAX_VALUE) return Integer.MAX_VALUE;
-        return (int) hearts;
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 }

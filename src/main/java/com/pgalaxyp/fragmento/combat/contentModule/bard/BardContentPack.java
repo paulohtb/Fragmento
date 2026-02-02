@@ -2,13 +2,12 @@ package com.pgalaxyp.fragmento.combat.contentModule.bard;
 
 import com.pgalaxyp.fragmento.combat.effectModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
+import com.pgalaxyp.fragmento.combat.contentModule.api.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
-import com.pgalaxyp.fragmento.combat.contentModule.api.ContentPack;
 import java.util.*;
 
 public enum BardContentPack implements ContentPack {
     INSTANCE;
-
     private static final TargetingSpec SPEC = new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 16.0, TargetingFallback.IMAGINARY_POINT);
 
     @Override public Collection<AbilityDefinition> abilities() {
@@ -34,10 +33,10 @@ public enum BardContentPack implements ContentPack {
         return Map.of(BardIds.FLUTE, BardIds.FLUTE_NOTE);
     }
 
-    @Override public Map<AbilityId, AbilityEffectSpec> abilityEffects() {
+    @Override public Map<AbilityId, AbilityTriggerSpec> abilityTriggers() {
         return Map.of(
-                BardIds.FLUTE_NOTE, new AbilityEffectSpec(BardIds.FLUTE_NOTE_DAMAGE, SPEC),
-                BardIds.FLUTE_NOTE_2, new AbilityEffectSpec(BardIds.FLUTE_NOTE_2_DAMAGE, SPEC)
+                BardIds.FLUTE_NOTE, new AbilityTriggerSpec(BardIds.FLUTE_NOTE_DAMAGE, SPEC),
+                BardIds.FLUTE_NOTE_2, new AbilityTriggerSpec(BardIds.FLUTE_NOTE_2_DAMAGE, SPEC)
         );
     }
 }

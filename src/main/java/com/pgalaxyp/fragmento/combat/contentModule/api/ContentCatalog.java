@@ -5,13 +5,13 @@ import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
 import java.util.*;
 
-public record ContentCatalog(Map<AbilityId, AbilityDefinition> abilities, Map<EffectId, EffectDef> effects, List<AbilityRule> abilityRules, Map<WeaponId, AbilityId> primaryBindings, Map<AbilityId, AbilityEffectSpec> abilityEffects) {
+public record ContentCatalog(Map<AbilityId, AbilityDefinition> abilities, Map<EffectId, EffectDef> effects, List<AbilityRule> abilityRules, Map<WeaponId, AbilityId> primaryBindings, Map<AbilityId, AbilityTriggerSpec> abilityTriggers) {
     public ContentCatalog {
         abilities = Map.copyOf(Objects.requireNonNull(abilities));
         effects = Map.copyOf(Objects.requireNonNull(effects));
         abilityRules = List.copyOf(Objects.requireNonNull(abilityRules));
         primaryBindings = Map.copyOf(Objects.requireNonNull(primaryBindings));
-        abilityEffects = Map.copyOf(Objects.requireNonNull(abilityEffects));
+        abilityTriggers = Map.copyOf(Objects.requireNonNull(abilityTriggers));
     }
 
     public static ContentCatalog of(List<? extends ContentPack> packs) {
@@ -20,7 +20,7 @@ public record ContentCatalog(Map<AbilityId, AbilityDefinition> abilities, Map<Ef
         var effects = new LinkedHashMap<EffectId, EffectDef>();
         var rules = new ArrayList<AbilityRule>();
         var primary = new LinkedHashMap<WeaponId, AbilityId>();
-        var abilityEffects = new LinkedHashMap<AbilityId, AbilityEffectSpec>();
+        var triggers = new LinkedHashMap<AbilityId, AbilityTriggerSpec>();
         for (ContentPack p : packs) {
             if (p == null) throw new IllegalArgumentException();
             for (AbilityDefinition d : p.abilities()) putUnique(abilities, d.id(), d, "abilityId");
@@ -30,13 +30,12 @@ public record ContentCatalog(Map<AbilityId, AbilityDefinition> abilities, Map<Ef
                 if (e.getKey() == null || e.getValue() == null) throw new IllegalArgumentException();
                 putUnique(primary, e.getKey(), e.getValue(), "weaponId");
             }
-            for (var e : p.abilityEffects().entrySet()) {
+            for (var e : p.abilityTriggers().entrySet()) {
                 if (e.getKey() == null || e.getValue() == null) throw new IllegalArgumentException();
-                putUnique(abilityEffects, e.getKey(), e.getValue(), "abilityId(effect)");
+                putUnique(triggers, e.getKey(), e.getValue(), "abilityId(trigger)");
             }
         }
-
-        return new ContentCatalog(abilities, effects, rules, primary, abilityEffects);
+        return new ContentCatalog(abilities, effects, rules, primary, triggers);
     }
 
     private static <K, V> void putUnique(Map<K, V> map, K key, V value, String label) {

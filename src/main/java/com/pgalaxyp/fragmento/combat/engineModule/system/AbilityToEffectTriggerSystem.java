@@ -1,15 +1,14 @@
-package com.pgalaxyp.fragmento.combat.effectModule.system;
+package com.pgalaxyp.fragmento.combat.engineModule.system;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilityId;
-import com.pgalaxyp.fragmento.combat.effectModule.api.AbilityEffectSpec;
-import com.pgalaxyp.fragmento.combat.effectModule.event.EffectTriggered;
 import com.pgalaxyp.fragmento.combat.abilityModule.event.AbilityStarted;
+import com.pgalaxyp.fragmento.combat.contentModule.api.AbilityTriggerSpec;
 import java.util.*;
 
-public record AbilityEffectTriggerSystem(Map<AbilityId, AbilityEffectSpec> bindings, TargetingService targeting) implements FrameSystem {
-    public AbilityEffectTriggerSystem {
+public record AbilityToEffectTriggerSystem(Map<AbilityId, AbilityTriggerSpec> bindings, TargetingService targeting) implements FrameSystem {
+    public AbilityToEffectTriggerSystem {
         bindings = Map.copyOf(Objects.requireNonNull(bindings));
         Objects.requireNonNull(targeting);
     }
@@ -23,8 +22,7 @@ public record AbilityEffectTriggerSystem(Map<AbilityId, AbilityEffectSpec> bindi
             var spec = bindings.get(snap.abilityId());
             if (spec == null) continue;
             var target = targeting.resolve(new TargetingRequest(snap.actorId(), spec.targeting()));
-            var actorTarget = target.actorTargetId();
-            if (actorTarget != null) bus.publish(new EffectTriggered(spec.effectId(), snap.actorId(), actorTarget));
+            var actorTarget = target.actorTargetIdOrNull();
         }
     }
 }

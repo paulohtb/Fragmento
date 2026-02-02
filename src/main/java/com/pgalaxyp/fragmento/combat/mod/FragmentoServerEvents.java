@@ -1,11 +1,10 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
 import com.pgalaxyp.fragmento.combat.engineModule.port.*;
-import com.pgalaxyp.fragmento.combat.contentModule.bard.BardIds;
+import com.pgalaxyp.fragmento.combat.damageModule.minecraft.*;
 import com.pgalaxyp.fragmento.combat.engineModule.api.GameEngine;
 import com.pgalaxyp.fragmento.combat.platformModule.FragmentoPlatform;
 import com.pgalaxyp.fragmento.combat.contentModule.FragmentoDomainContent;
-import com.pgalaxyp.fragmento.combat.damageModule.minecraft.McDamageWorldCommandPort;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.server.MinecraftServer;
@@ -24,11 +23,11 @@ public final class FragmentoServerEvents {
     }
 
     private static ServerRuntime createRuntime(MinecraftServer server) {
-        WorldCommandPort world = new McDamageWorldCommandPort(server);
+        var damagePort = new McDamageWorldCommandPort(server);
+        WorldCommandPort world = new McDamageWorldCommandSystem(damagePort);
         SnapshotPort snapshots = server.isDedicatedServer() ? new NoopSnapshotPort() : new LocalSnapshotPort(FragmentoMod.CLIENT_RECEIVER);
-        var created = McCombatServerBootstrap.create(server, world, snapshots, FragmentoDomainContent.CATALOG, BardIds.BARD);
+        var created = McCombatServerBootstrap.create(server, world, snapshots, FragmentoDomainContent.CATALOG, FragmentoDomainContent.DEFAULT_CLASS_ID);
         if (!server.isDedicatedServer()) FragmentoMod.INTEGRATED_SERVER_INTENTS.set(created.intents());
-
         return new ServerRuntime(created.engine(), new AtomicInteger());
     }
 
