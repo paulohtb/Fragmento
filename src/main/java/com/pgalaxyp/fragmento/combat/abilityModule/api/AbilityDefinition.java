@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.api;
 
-import java.util.Objects;
+import java.util.*;
 
 public record AbilityDefinition(AbilityId id, int durationFrames, int cooldownFrames) {
     public AbilityDefinition {
@@ -13,7 +13,7 @@ public record AbilityDefinition(AbilityId id, int durationFrames, int cooldownFr
         return Math.addExact(startFrame, durationFrames);
     }
 
-    public long cooldownEndExclusive(long startFrame) {
-        return cooldownFrames == 0 ? -1L : Math.addExact(startFrame, cooldownFrames);
+    public OptionalLong cooldownEndExclusive(long startFrame) {
+        return cooldownFrames == 0 ? OptionalLong.empty() : OptionalLong.of(Math.addExact(startFrame, cooldownFrames));
     }
 }

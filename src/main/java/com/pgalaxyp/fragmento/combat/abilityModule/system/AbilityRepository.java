@@ -2,13 +2,11 @@ package com.pgalaxyp.fragmento.combat.abilityModule.system;
 
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
-import com.pgalaxyp.fragmento.combat.frameModule.api.FrameEvent;
-import com.pgalaxyp.fragmento.combat.abilityModule.event.AbilityEnded;
 import java.util.*;
 
 final class AbilityRepository {
     private final Map<ActorId, Active> activeByActor = new HashMap<>();
-    private final Map<ActorId, NavigableMap<AbilityId, Long>> cooldownEndByActor = new HashMap<>();
+    private final Map<ActorId, Map<AbilityId, Long>> cooldownEndByActor = new HashMap<>();
 
     Optional<AbilitySnapshot> activeOf(ActorId actorId, long frameId) {
         Active a = activeByActor.get(actorId);
@@ -20,7 +18,6 @@ final class AbilityRepository {
         if (actorIds == null) throw new IllegalArgumentException();
         if (frameId < 0) throw new IllegalArgumentException();
         if (actorIds.isEmpty() || activeByActor.isEmpty()) return List.of();
-
         ArrayList<AbilitySnapshot> out = new ArrayList<>();
         for (ActorId actorId : actorIds) {
             if (actorId == null) throw new IllegalArgumentException();
@@ -28,13 +25,12 @@ final class AbilityRepository {
             if (a == null) continue;
             if (frameId >= a.startFrame && frameId < a.endFrameExclusive) out.add(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
         }
-
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     boolean cooldownActive(ActorId actorId, AbilityId abilityId, long frameId) {
         if (frameId < 0) throw new IllegalArgumentException();
-        NavigableMap<AbilityId, Long> inner = cooldownEndByActor.get(actorId);
+        Map<AbilityId, Long> inner = cooldownEndByActor.get(actorId);
         if (inner == null) return false;
         Long end = inner.get(abilityId);
         return end != null && frameId < end;
@@ -46,42 +42,26 @@ final class AbilityRepository {
 
     void startCooldown(ActorId actorId, AbilityId abilityId, long endExclusive) {
         if (endExclusive < 0) throw new IllegalArgumentException();
-        NavigableMap<AbilityId, Long> inner = cooldownEndByActor.computeIfAbsent(actorId, k -> new TreeMap<>());
+        Map<AbilityId, Long> inner = cooldownEndByActor.computeIfAbsent(actorId, k -> new HashMap<>());
         Long prev = inner.get(abilityId);
         if (prev == null || endExclusive > prev) inner.put(abilityId, endExclusive);
     }
 
-    List<FrameEvent> evictEndedAtOrBefore(long frameId) {
-        if (activeByActor.isEmpty()) return List.of();
-
-        ArrayList<FrameEvent> out = new ArrayList<>();
+    void evictEndedAtOrBefore(long frameId) {
+        if (activeByActor.isEmpty()) return;
         Iterator<Map.Entry<ActorId, Active>> it = activeByActor.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<ActorId, Active> e = it.next();
-            Active a = e.getValue();
-            if (frameId >= a.endFrameExclusive) {
-                it.remove();
-                out.add(new AbilityEnded(new AbilitySnapshot(a.abilityId, e.getKey(), a.startFrame, a.endFrameExclusive)));
-            }
+            Active a = it.next().getValue();
+            if (frameId >= a.endFrameExclusive) it.remove();
         }
-        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     void cleanupCooldowns(long frameId) {
         if (cooldownEndByActor.isEmpty()) return;
-
-        Iterator<Map.Entry<ActorId, NavigableMap<AbilityId, Long>>> it = cooldownEndByActor.entrySet().iterator();
+        Iterator<Map.Entry<ActorId, Map<AbilityId, Long>>> it = cooldownEndByActor.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<ActorId, NavigableMap<AbilityId, Long>> e = it.next();
-            NavigableMap<AbilityId, Long> inner = e.getValue();
-
-            Iterator<Map.Entry<AbilityId, Long>> it2 = inner.entrySet().iterator();
-            while (it2.hasNext()) {
-                Map.Entry<AbilityId, Long> c = it2.next();
-                Long end = c.getValue();
-                if (end != null && frameId >= end) it2.remove();
-            }
-
+            Map<AbilityId, Long> inner = it.next().getValue();
+            inner.entrySet().removeIf(e -> e.getValue() != null && frameId >= e.getValue());
             if (inner.isEmpty()) it.remove();
         }
     }

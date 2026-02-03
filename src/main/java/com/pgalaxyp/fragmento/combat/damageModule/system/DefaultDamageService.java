@@ -1,21 +1,14 @@
 package com.pgalaxyp.fragmento.combat.damageModule.system;
 
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageRequest;
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageResult;
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageService;
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageSpec;
-import com.pgalaxyp.fragmento.combat.damageModule.port.DamageSnapshot;
+import com.pgalaxyp.fragmento.combat.damageModule.api.*;
+import java.util.Objects;
 
-public final class DefaultDamageService implements DamageService {
-    @Override
-    public DamageResult resolve(DamageRequest request, DamageSnapshot snapshot) {
-        if (request == null || snapshot == null) {
-            throw new IllegalArgumentException();
-        }
+enum DefaultDamageService implements DamageService {
+    INSTANCE;
 
+    @Override public DamageResult resolve(DamageRequest request) {
+        Objects.requireNonNull(request);
         DamageSpec spec = request.spec();
-        int hearts = spec.baseHearts();
-
-        return new DamageResult(hearts, spec.type(), spec.element());
+        return new DamageResult(spec.baseHearts(), spec.type(), spec.element());
     }
 }

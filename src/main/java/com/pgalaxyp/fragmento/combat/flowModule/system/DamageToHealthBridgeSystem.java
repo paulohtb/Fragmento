@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.engineModule.system;
+package com.pgalaxyp.fragmento.combat.flowModule.system;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.damageModule.event.DamageApplied;
@@ -10,6 +10,6 @@ public record DamageToHealthBridgeSystem() implements FrameSystem {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
-        for (var d : bus.events(DamageApplied.class)) bus.publish(new ActorHealthAdjusted(d.targetActorId(), Math.negateExact(d.hearts())));
+        for (var d : bus.events(DamageApplied.class)) bus.publish(new ActorHealthAdjusted(d.targetActorId(), Math.negateExact(d.damageHearts())));
     }
 }

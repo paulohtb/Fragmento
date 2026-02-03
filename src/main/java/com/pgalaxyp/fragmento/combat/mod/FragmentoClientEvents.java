@@ -2,15 +2,14 @@ package com.pgalaxyp.fragmento.combat.mod;
 
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.inputModule.api.*;
-import com.pgalaxyp.fragmento.combat.inputModule.port.*;
-import com.pgalaxyp.fragmento.combat.inputModule.system.*;
 import com.pgalaxyp.fragmento.combat.inputModule.minecraft.*;
-import com.pgalaxyp.fragmento.combat.frameModule.api.IntentEnvelope;
 import com.pgalaxyp.fragmento.combat.intentModule.api.IntentSinkPort;
 import com.pgalaxyp.fragmento.combat.platformModule.FragmentoPlatform;
+import com.pgalaxyp.fragmento.combat.inputModule.port.ActorInputContextProvider;
+import com.pgalaxyp.fragmento.combat.inputModule.system.PrimaryActionInputHandler;
 import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
-import java.util.*;
-import java.util.function.Supplier;
+import com.pgalaxyp.fragmento.combat.intentModule.minecraft.IntegratedServerIntentSink;
+import java.util.Optional;
 import net.minecraft.client.*;
 import net.minecraft.client.player.LocalPlayer;
 import net.neoforged.api.distmarker.Dist;
@@ -25,22 +24,17 @@ public final class FragmentoClientEvents {
     @SubscribeEvent public static void onKey(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft instance = Minecraft.getInstance();
         if (instance.level == null) return;
-
         KeyMapping attack = instance.options.keyAttack;
         if (event.getKeyMapping() != attack) return;
-
         Runtime r = runtime;
         if (r == null) runtime = r = Runtime.create();
-
         InputDecision decision = r.primaryHandler.onSemanticInput(SemanticInput.PRIMARY_ACTION);
         if (decision.consumeVanilla()) event.setCanceled(true);
     }
 
     private record Runtime(PrimaryActionInputHandler primaryHandler) {
         static Runtime create() {
-            InputSnapshotProvider snapshots = new SnapshotBackedInputSnapshotProvider(FragmentoMod.CLIENT_RECEIVER);
             var weaponBinding = new ItemWeaponBinding();
-
             for (var e : FragmentoMinecraftContent.REGISTRY.clientWeaponBindings()) weaponBinding.register(e.item(), e.weaponId());
             LocalActorProvider localProvider = () -> {
                 LocalPlayer player = Minecraft.getInstance().player;
@@ -48,26 +42,7 @@ public final class FragmentoClientEvents {
             };
             ActorInputContextProvider actorContext = new McActorContext(weaponBinding, localProvider);
             IntentSinkPort sink = new IntegratedServerIntentSink(FragmentoMod.INTEGRATED_SERVER_INTENTS::get);
-
-            return new Runtime(new PrimaryActionInputHandler(actorContext, snapshots, sink, new InputConsumptionPolicy()));
-        }
-    }
-
-    private static final class IntegratedServerIntentSink implements IntentSinkPort {
-        private static final IntentSinkPort NOOP = envelope -> {};
-        private final Supplier<IntentSinkPort> lookup;
-        private volatile IntentSinkPort last;
-        private volatile IntentSinkPort delegate = NOOP;
-
-        IntegratedServerIntentSink(Supplier<IntentSinkPort> lookup) { this.lookup = Objects.requireNonNull(lookup); }
-
-        @Override public void enqueue(IntentEnvelope envelope) {
-            IntentSinkPort port = lookup.get();
-            if (port != last) {
-                last = port;
-                delegate = port == null ? NOOP : port;
-            }
-            delegate.enqueue(Objects.requireNonNull(envelope));
+            return new Runtime(new PrimaryActionInputHandler(actorContext, sink));
         }
     }
 

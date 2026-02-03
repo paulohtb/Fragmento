@@ -10,16 +10,14 @@ import java.util.*;
 public final class ActorSyncSystem implements FrameSystem {
     private final ActorSnapshotPort port;
 
-    public ActorSyncSystem(ActorSnapshotPort port) {
-        this.port = Objects.requireNonNull(port);
-    }
+    public ActorSyncSystem(ActorSnapshotPort port) { this.port = Objects.requireNonNull(port); }
 
     @Override public void tick(FrameContext frame, Object state, FrameBus bus) {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(state);
         Objects.requireNonNull(bus);
         var prev = (ActorStateView) state;
-        var now = Optional.ofNullable(port.snapshot()).orElse(List.of());
+        List<ActorObservation> now = Objects.requireNonNull(port.snapshot());
         var live = new HashSet<ActorId>(Math.max(16, now.size()));
         var classes = new HashMap<ActorId, ClassId>(Math.max(16, now.size()));
         for (var o : now) {

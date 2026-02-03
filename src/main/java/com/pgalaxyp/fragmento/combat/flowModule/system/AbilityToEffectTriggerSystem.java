@@ -1,8 +1,9 @@
-package com.pgalaxyp.fragmento.combat.engineModule.system;
+package com.pgalaxyp.fragmento.combat.flowModule.system;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.AbilityId;
+import com.pgalaxyp.fragmento.combat.effectModule.event.EffectTriggered;
 import com.pgalaxyp.fragmento.combat.abilityModule.event.AbilityStarted;
 import com.pgalaxyp.fragmento.combat.contentModule.api.AbilityTriggerSpec;
 import java.util.*;
@@ -21,8 +22,8 @@ public record AbilityToEffectTriggerSystem(Map<AbilityId, AbilityTriggerSpec> bi
             var snap = started.snapshot();
             var spec = bindings.get(snap.abilityId());
             if (spec == null) continue;
-            var target = targeting.resolve(new TargetingRequest(snap.actorId(), spec.targeting()));
-            var actorTarget = target.actorTargetIdOrNull();
+            var actorTarget = targeting.resolve(new TargetingRequest(snap.actorId(), spec.targeting())).actorTargetIdOrNull();
+            if (actorTarget != null) bus.publish(new EffectTriggered(spec.effectId(), snap.actorId(), actorTarget));
         }
     }
 }

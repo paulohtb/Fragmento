@@ -4,6 +4,8 @@ import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
 import java.util.*;
 
 public record ActorSyncView(Map<ActorId, ClassId> classes, Set<ActorId> liveActorIds) {
+    public static final ActorSyncView EMPTY = new ActorSyncView(Map.of(), Set.of());
+
     public ActorSyncView {
         classes = Map.copyOf(Objects.requireNonNull(classes));
         liveActorIds = Set.copyOf(Objects.requireNonNull(liveActorIds));

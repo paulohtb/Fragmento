@@ -4,16 +4,22 @@ import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
 import java.util.*;
 
-public final class AbilityComboRepository {
-    private static final int MAX_GAP_FRAMES = 20;
+final class AbilityComboRepository {
     private record ComboState(WeaponId weaponId, int stepIndex, long lastFrame) {}
-    record Plan(int step, ComboState state) {}
+
+    record Plan(ComboState state) {
+        Plan { Objects.requireNonNull(state); }
+        int step() { return state.stepIndex(); }
+    }
+
     private final int maxStepIndex;
+    private final int maxGapFrames;
     private final Map<ActorId, ComboState> byActor = new HashMap<>();
 
-    AbilityComboRepository(int maxStepIndex) {
-        if (maxStepIndex < 0) throw new IllegalArgumentException();
+    AbilityComboRepository(int maxStepIndex, int maxGapFrames) {
+        if (maxStepIndex < 0 || maxGapFrames < 0) throw new IllegalArgumentException();
         this.maxStepIndex = maxStepIndex;
+        this.maxGapFrames = maxGapFrames;
     }
 
     Plan plan(ActorId actorId, WeaponId weaponId, long frameId) {
@@ -21,17 +27,19 @@ public final class AbilityComboRepository {
         Objects.requireNonNull(weaponId);
         if (frameId < 0) throw new IllegalArgumentException();
         ComboState prev = byActor.get(actorId);
-        if (prev == null || !prev.weaponId.equals(weaponId) || Math.subtractExact(frameId, prev.lastFrame) > MAX_GAP_FRAMES) {
-            var s = new ComboState(weaponId, 0, frameId);
-            return new Plan(0, s);
-        }
+        boolean reset = prev == null || !prev.weaponId.equals(weaponId) || Math.subtractExact(frameId, prev.lastFrame) > maxGapFrames;
+        if (reset) return new Plan(new ComboState(weaponId, 0, frameId));
         int next = prev.stepIndex + 1;
         if (next > maxStepIndex) next = 0;
-        var s = new ComboState(weaponId, next, frameId);
-        return new Plan(next, s);
+        return new Plan(new ComboState(weaponId, next, frameId));
     }
 
     void commit(ActorId actorId, Plan plan) {
         byActor.put(Objects.requireNonNull(actorId), Objects.requireNonNull(plan).state());
+    }
+
+    void pruneToActors(Collection<ActorId> liveActors) {
+        Objects.requireNonNull(liveActors);
+        if (!byActor.isEmpty()) byActor.entrySet().removeIf(e -> !liveActors.contains(e.getKey()));
     }
 }

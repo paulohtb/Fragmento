@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.engineModule.port;
 
-import com.pgalaxyp.fragmento.combat.snapshotModule.api.CombatSnapshot;
+import com.pgalaxyp.fragmento.combat.engineModule.api.EngineSnapshot;
 
 public final class NoopSnapshotPort implements SnapshotPort {
-    @Override public void publish(CombatSnapshot snapshot) {}
+    @Override public void publish(EngineSnapshot snapshot) {}
 }
