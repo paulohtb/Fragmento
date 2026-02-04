@@ -9,6 +9,7 @@ final class AbilityRepository {
     private final Map<ActorId, Map<AbilityId, Long>> cooldownEndByActor = new HashMap<>();
 
     Optional<AbilitySnapshot> activeOf(ActorId actorId, long frameId) {
+        Objects.requireNonNull(actorId);
         Active a = activeByActor.get(actorId);
         if (a == null || frameId < a.startFrame || frameId >= a.endFrameExclusive) return Optional.empty();
         return Optional.of(new AbilitySnapshot(a.abilityId, actorId, a.startFrame, a.endFrameExclusive));
@@ -29,6 +30,8 @@ final class AbilityRepository {
     }
 
     boolean cooldownActive(ActorId actorId, AbilityId abilityId, long frameId) {
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(abilityId);
         if (frameId < 0) throw new IllegalArgumentException();
         Map<AbilityId, Long> inner = cooldownEndByActor.get(actorId);
         if (inner == null) return false;
@@ -37,10 +40,12 @@ final class AbilityRepository {
     }
 
     void putActive(ActorId actorId, AbilityId abilityId, long startFrame, long endFrameExclusive) {
-        activeByActor.put(actorId, new Active(Objects.requireNonNull(abilityId), startFrame, endFrameExclusive));
+        activeByActor.put(Objects.requireNonNull(actorId), new Active(Objects.requireNonNull(abilityId), startFrame, endFrameExclusive));
     }
 
     void startCooldown(ActorId actorId, AbilityId abilityId, long endExclusive) {
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(abilityId);
         if (endExclusive < 0) throw new IllegalArgumentException();
         Map<AbilityId, Long> inner = cooldownEndByActor.computeIfAbsent(actorId, k -> new HashMap<>());
         Long prev = inner.get(abilityId);

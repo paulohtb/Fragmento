@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.weaponModule;
+package com.pgalaxyp.fragmento.combat.weaponModule.api;
 
 import java.util.Objects;
 

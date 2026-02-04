@@ -7,7 +7,13 @@ public final class FrameBus {
     private final List<FrameEvent> events = new ArrayList<>();
     private final Map<Class<?>, Object> views = new HashMap<>();
 
-    public FrameBus(List<?> intents) { this.intents = List.copyOf(Objects.requireNonNull(intents)); }
+    public FrameBus(List<?> intents) { this(intents, Map.of()); }
+
+    public FrameBus(List<?> intents, Map<Class<?>, ?> initialViews) {
+        this.intents = List.copyOf(Objects.requireNonNull(intents));
+        Objects.requireNonNull(initialViews).forEach((k, v) -> views.put(Objects.requireNonNull(k), Objects.requireNonNull(v)));
+    }
+
     public List<?> intents() { return intents; }
 
     public <T> List<T> intents(Class<T> type) {

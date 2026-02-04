@@ -9,9 +9,9 @@ public final class FlowPipeline {
         this.systems = List.copyOf(Objects.requireNonNull(systems));
     }
 
-    public FrameBus run(FrameContext frame, Object state, List<?> intents) {
-        FrameBus bus = new FrameBus(intents);
-        for (FrameSystem s : systems) s.tick(frame, state, bus);
+    public FrameBus run(FrameContext frame, List<?> intents, Map<Class<?>, ?> initialViews) {
+        FrameBus bus = new FrameBus(intents, initialViews);
+        for (FrameSystem s : systems) s.tick(frame, bus);
         return bus;
     }
 }

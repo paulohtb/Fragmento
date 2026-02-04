@@ -1,11 +1,10 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
-import com.pgalaxyp.fragmento.combat.snapshotModule.api.CombatSnapshot;
+import com.pgalaxyp.fragmento.combat.engineModule.api.EngineSnapshot;
 import java.util.Objects;
 
 public final class ClientSnapshotReceiver {
-    private volatile CombatSnapshot last;
-    public void acceptSnapshot(CombatSnapshot snapshot) { last = Objects.requireNonNull(snapshot); }
-
-    public CombatSnapshot lastSnapshot() { return last; }
+    private volatile EngineSnapshot last;
+    public void acceptSnapshot(EngineSnapshot snapshot) { last = Objects.requireNonNull(snapshot); }
+    public EngineSnapshot lastSnapshot() { return last; }
 }

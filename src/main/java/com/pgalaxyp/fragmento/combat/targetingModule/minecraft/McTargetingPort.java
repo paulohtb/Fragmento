@@ -3,14 +3,14 @@ package com.pgalaxyp.fragmento.combat.targetingModule.minecraft;
 import com.pgalaxyp.fragmento.combat.util.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.port.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
-import com.pgalaxyp.fragmento.combat.minecraft.McLivingEntityLookup;
+import com.pgalaxyp.fragmento.combat.platformModule.minecraft.McLivingEntityLookup;
 import java.util.*;
 import java.util.function.Predicate;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.entity.*;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 
 public final class McTargetingPort implements TargetingPort {
@@ -30,12 +30,10 @@ public final class McTargetingPort implements TargetingPort {
 
     @Override public Optional<RaycastHit> raycastFirstHit(ActorId casterId, ViewRay ray, double rangeBlocks) {
         if (!Double.isFinite(rangeBlocks) || rangeBlocks <= 0.0) throw new IllegalArgumentException();
-        if (ray == null) throw new IllegalArgumentException();
-
+        Objects.requireNonNull(ray);
         UUID casterUuid = Objects.requireNonNull(casterId).value();
         LivingEntity caster = McLivingEntityLookup.findLiving(server, casterUuid);
         if (caster == null) return Optional.empty();
-
         ServerLevel level = (ServerLevel) caster.level();
         Vec3 start = new Vec3(ray.origin().x(), ray.origin().y(), ray.origin().z());
         Vec3 dir = new Vec3(ray.direction().x(), ray.direction().y(), ray.direction().z());
@@ -47,7 +45,6 @@ public final class McTargetingPort implements TargetingPort {
             blockLoc = blockHit.getLocation();
             maxDist = Math.max(0.0, start.distanceTo(blockLoc));
         }
-
         Vec3 entityEnd = start.add(dir.scale(maxDist));
         AABB box = caster.getBoundingBox().expandTowards(dir.scale(maxDist)).inflate(1.0);
         Predicate<Entity> pred = e -> e instanceof LivingEntity && !e.isSpectator() && e.isPickable() && !casterUuid.equals(e.getUUID());
@@ -59,7 +56,6 @@ public final class McTargetingPort implements TargetingPort {
         if (blockLoc != null) {
             return Optional.of(new RaycastBlockHit(new Vec3d(blockLoc.x, blockLoc.y, blockLoc.z), start.distanceTo(blockLoc)));
         }
-
         return Optional.empty();
     }
 }

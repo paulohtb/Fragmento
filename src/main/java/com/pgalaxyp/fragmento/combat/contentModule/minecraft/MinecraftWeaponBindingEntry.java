@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.contentModule.minecraft;
 
-import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
+import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
 import java.util.Objects;
 import java.util.function.Supplier;
 import net.minecraft.world.item.Item;

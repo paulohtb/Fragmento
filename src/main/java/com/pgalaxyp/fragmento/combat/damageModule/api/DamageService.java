@@ -1,5 +1,6 @@
 package com.pgalaxyp.fragmento.combat.damageModule.api;
 
+@FunctionalInterface
 public interface DamageService {
-    DamageResult resolve(DamageRequest request);
+    int resolveDamageHearts(DamageRequest request);
 }

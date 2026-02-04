@@ -1,4 +1,4 @@
-package com.pgalaxyp.fragmento.combat.minecraft;
+package com.pgalaxyp.fragmento.combat.platformModule.minecraft;
 
 import java.util.*;
 import net.minecraft.world.entity.*;

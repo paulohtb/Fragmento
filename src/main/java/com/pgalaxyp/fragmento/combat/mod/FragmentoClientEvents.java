@@ -1,6 +1,6 @@
 package com.pgalaxyp.fragmento.combat.mod;
 
-import com.pgalaxyp.fragmento.combat.actorModule.api.*;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
 import com.pgalaxyp.fragmento.combat.inputModule.api.*;
 import com.pgalaxyp.fragmento.combat.inputModule.minecraft.*;
 import com.pgalaxyp.fragmento.combat.intentModule.api.IntentSinkPort;
@@ -10,6 +10,7 @@ import com.pgalaxyp.fragmento.combat.inputModule.system.PrimaryActionInputHandle
 import com.pgalaxyp.fragmento.combat.contentModule.minecraft.FragmentoMinecraftContent;
 import com.pgalaxyp.fragmento.combat.intentModule.minecraft.IntegratedServerIntentSink;
 import java.util.Optional;
+import java.util.function.Supplier;
 import net.minecraft.client.*;
 import net.minecraft.client.player.LocalPlayer;
 import net.neoforged.api.distmarker.Dist;
@@ -36,11 +37,11 @@ public final class FragmentoClientEvents {
         static Runtime create() {
             var weaponBinding = new ItemWeaponBinding();
             for (var e : FragmentoMinecraftContent.REGISTRY.clientWeaponBindings()) weaponBinding.register(e.item(), e.weaponId());
-            LocalActorProvider localProvider = () -> {
+            Supplier<Optional<ActorId>> localId = () -> {
                 LocalPlayer player = Minecraft.getInstance().player;
                 return player == null ? Optional.empty() : Optional.of(new ActorId(player.getUUID()));
             };
-            ActorInputContextProvider actorContext = new McActorContext(weaponBinding, localProvider);
+            ActorInputContextProvider actorContext = new McActorContext(weaponBinding, localId);
             IntentSinkPort sink = new IntegratedServerIntentSink(FragmentoMod.INTEGRATED_SERVER_INTENTS::get);
             return new Runtime(new PrimaryActionInputHandler(actorContext, sink));
         }

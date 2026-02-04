@@ -2,9 +2,9 @@ package com.pgalaxyp.fragmento.combat.abilityModule.system;
 
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.event.*;
-import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
+import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
 import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
 import com.pgalaxyp.fragmento.combat.abilityModule.port.AbilityPort;
 import java.util.*;

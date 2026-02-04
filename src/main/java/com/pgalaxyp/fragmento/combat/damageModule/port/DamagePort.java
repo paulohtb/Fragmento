@@ -1,8 +1,7 @@
 package com.pgalaxyp.fragmento.combat.damageModule.port;
 
-import com.pgalaxyp.fragmento.combat.damageModule.api.DamageOutcome;
-import com.pgalaxyp.fragmento.combat.damageModule.event.DamageRequested;
+import com.pgalaxyp.fragmento.combat.damageModule.api.*;
 
 public interface DamagePort {
-    DamageOutcome resolve(DamageRequested request);
+    DamageOutcome resolve(DamageRequest request);
 }

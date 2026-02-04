@@ -8,7 +8,9 @@ public record EngineSnapshot(FrameContext frame, ActorView actors, Map<Class<?>,
     public EngineSnapshot {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(actors);
-        views = Map.copyOf(Objects.requireNonNull(views));
+        var m = new HashMap<>(Objects.requireNonNull(views));
+        m.remove(ActorView.class);
+        views = m.isEmpty() ? Map.of() : Map.copyOf(m);
     }
 
     public <T> Optional<T> viewOpt(Class<T> type) {

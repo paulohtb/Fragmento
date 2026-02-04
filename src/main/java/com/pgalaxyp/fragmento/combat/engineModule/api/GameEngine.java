@@ -25,7 +25,7 @@ public final class GameEngine {
 
     public void step(int tickIndex) {
         FrameContext frame = new FrameContext(nextFrame++, tickIndex);
-        FrameBus bus = pipeline.run(frame, state, intents.drain());
+        FrameBus bus = pipeline.run(frame, intents.drain(), Map.of(ActorView.class, state.actors()));
         List<FrameEvent> events = bus.events();
         ActorView committedActors = bus.viewOpt(ActorView.class).orElse(state.actors());
         GameState committed = new GameState(frame, committedActors);

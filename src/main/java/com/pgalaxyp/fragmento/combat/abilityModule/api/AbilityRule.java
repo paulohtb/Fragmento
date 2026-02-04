@@ -1,7 +1,7 @@
 package com.pgalaxyp.fragmento.combat.abilityModule.api;
 
-import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
+import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
 import java.util.Objects;
 
 public record AbilityRule(String ruleId, ClassId classId, WeaponId weaponId, Integer stepIndex, AbilityId baseAbility, AbilityId resultAbility) {

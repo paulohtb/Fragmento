@@ -1,10 +1,10 @@
 package com.pgalaxyp.fragmento.combat.engineModule.api;
 
-import com.pgalaxyp.fragmento.combat.actorModule.api.*;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorView;
 import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
-import java.util.*;
+import java.util.Objects;
 
-public record GameState(FrameContext frame, ActorView actors) implements ActorStateView {
+public record GameState(FrameContext frame, ActorView actors) {
     public GameState {
         Objects.requireNonNull(frame);
         Objects.requireNonNull(actors);

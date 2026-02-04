@@ -2,7 +2,7 @@ package com.pgalaxyp.fragmento.combat.inputModule.system;
 
 import com.pgalaxyp.fragmento.combat.inputModule.api.*;
 import com.pgalaxyp.fragmento.combat.intentModule.api.*;
-import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
+import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
 import com.pgalaxyp.fragmento.combat.inputModule.port.ActorInputContextProvider;
 import java.util.Objects;
 

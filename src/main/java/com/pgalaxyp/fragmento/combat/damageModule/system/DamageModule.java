@@ -10,7 +10,7 @@ public final class DamageModule {
     }
 
     public static DamagePort createDefault() {
-        return create(DefaultDamageService.INSTANCE);
+        return create(req -> req.spec().baseHearts());
     }
 
     private DamageModule() {}

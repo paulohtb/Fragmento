@@ -1,15 +1,11 @@
 package com.pgalaxyp.fragmento.combat.inputModule.minecraft;
 
-import com.pgalaxyp.fragmento.combat.weaponModule.WeaponId;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
+import java.util.*;
 import java.util.function.Supplier;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.*;
 
 public final class ItemWeaponBinding {
-
     private final Map<Item, WeaponId> resolved = new HashMap<>();
     private final Map<Supplier<Item>, WeaponId> pending = new HashMap<>();
 
@@ -21,20 +17,16 @@ public final class ItemWeaponBinding {
     public Optional<WeaponId> resolve(ItemStack stack) {
         if (stack == null) throw new IllegalArgumentException();
         Item item = stack.getItem();
-
         WeaponId direct = resolved.get(item);
         if (direct != null) return Optional.of(direct);
-
         if (!pending.isEmpty()) {
             pending.entrySet().removeIf(e -> {
-                Item resolvedItem = e.getKey().get();
-                if (resolvedItem == null) return false;
-                resolved.put(resolvedItem, e.getValue());
+                Item it = e.getKey().get();
+                if (it == null) return false;
+                resolved.put(it, e.getValue());
                 return true;
             });
-            return Optional.ofNullable(resolved.get(item));
         }
-
-        return Optional.empty();
+        return Optional.ofNullable(resolved.get(item));
     }
 }
