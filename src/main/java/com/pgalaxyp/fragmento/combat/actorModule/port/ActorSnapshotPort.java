@@ -1,7 +1,8 @@
 package com.pgalaxyp.fragmento.combat.actorModule.port;
 
-import java.util.List;
+import com.pgalaxyp.fragmento.combat.actorModule.api.ActorView;
 
+@FunctionalInterface
 public interface ActorSnapshotPort {
-    List<ActorObservation> snapshot();
+    ActorView snapshot();
 }

@@ -4,7 +4,7 @@ import com.pgalaxyp.fragmento.combat.damageModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.contentModule.api.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
-import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
+import com.pgalaxyp.fragmento.combat.actionModule.api.ActionSlot;
 import java.util.*;
 
 public enum BardContentPack implements ContentPack {
@@ -14,6 +14,8 @@ public enum BardContentPack implements ContentPack {
     private static final DamageSpec NOTE_DAMAGE = new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR);
     private static final DamageSpec NOTE_2_DAMAGE = new DamageSpec(2, DamageType.MAGIC, DamageElement.AIR);
 
+    private static final ClassKit KIT = new ClassKit(BardIds.BARD, Set.of(BardIds.FLUTE), Set.of(BardIds.FLUTE_NOTE, BardIds.FLUTE_NOTE_2), Map.of(ActionSlot.PRIMARY, BardIds.FLUTE_NOTE));
+
     @Override public Collection<AbilityDefinition> abilities() {
         return List.of(
                 new AbilityDefinition(BardIds.FLUTE_NOTE, 10, 20),
@@ -21,13 +23,7 @@ public enum BardContentPack implements ContentPack {
         );
     }
 
-    @Override public List<AbilityRule> abilityRules() {
-        return List.of(new AbilityRule("bard.flute.combo", BardIds.BARD, BardIds.FLUTE, 1, BardIds.FLUTE_NOTE, BardIds.FLUTE_NOTE_2));
-    }
-
-    @Override public Map<WeaponId, AbilityId> primaryBindings() {
-        return Map.of(BardIds.FLUTE, BardIds.FLUTE_NOTE);
-    }
+    @Override public Collection<ClassKit> classKits() { return List.of(KIT); }
 
     @Override public Map<AbilityId, AbilityTriggerSpec> abilityTriggers() {
         return Map.of(

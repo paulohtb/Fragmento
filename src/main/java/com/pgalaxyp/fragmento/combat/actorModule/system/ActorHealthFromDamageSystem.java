@@ -1,13 +1,13 @@
-package com.pgalaxyp.fragmento.combat.flowModule.system;
+package com.pgalaxyp.fragmento.combat.actorModule.system;
 
-import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.actorModule.port.ActorHealthPort;
 import com.pgalaxyp.fragmento.combat.damageModule.event.DamageApplied;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import java.util.*;
 
-public record DamageToActorHealthSystem(ActorHealthPort health) implements FrameSystem {
-    public DamageToActorHealthSystem { Objects.requireNonNull(health); }
+public record ActorHealthFromDamageSystem(ActorHealthPort health) implements FrameSystem {
+    public ActorHealthFromDamageSystem { Objects.requireNonNull(health); }
 
     @Override public void tick(FrameContext frame, FrameBus bus) {
         Objects.requireNonNull(frame);

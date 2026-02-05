@@ -1,8 +1,8 @@
 package com.pgalaxyp.fragmento.combat.actorModule.minecraft;
 
 import com.pgalaxyp.fragmento.combat.util.HealthUnits;
-import com.pgalaxyp.fragmento.combat.actorModule.port.*;
-import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.actorModule.port.ActorSnapshotPort;
+import com.pgalaxyp.fragmento.combat.actorModule.api.*;
 import com.pgalaxyp.fragmento.combat.classModule.api.ClassId;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,17 +17,17 @@ public final class McActorSnapshotPort implements ActorSnapshotPort {
         this.defaultClassId = Objects.requireNonNull(defaultClassId);
     }
 
-    @Override public List<ActorObservation> snapshot() {
+    @Override public ActorView snapshot() {
         var players = server.getPlayerList().getPlayers();
-        if (players.isEmpty()) return List.of();
-        var out = new ArrayList<ActorObservation>(players.size());
+        if (players.isEmpty()) return ActorView.empty();
+        var map = new TreeMap<ActorId, ActorState>();
         for (ServerPlayer p : players) {
             if (p == null) continue;
             int hearts = HealthUnits.heartsFromHealthPoints(p.getHealth());
             int maxHearts = Math.max(1, HealthUnits.heartsFromHealthPoints(p.getMaxHealth()));
             if (hearts > maxHearts) hearts = maxHearts;
-            out.add(new ActorObservation(new ActorId(p.getUUID()), defaultClassId, hearts, maxHearts));
+            map.put(new ActorId(p.getUUID()), new ActorState(defaultClassId, hearts, maxHearts));
         }
-        return out.isEmpty() ? List.of() : List.copyOf(out);
+        return map.isEmpty() ? ActorView.empty() : new ActorView(map);
     }
 }

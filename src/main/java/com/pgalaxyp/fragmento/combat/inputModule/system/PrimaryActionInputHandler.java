@@ -22,7 +22,6 @@ public final class PrimaryActionInputHandler {
         if (actorId == null) return InputDecision.passThrough();
         WeaponId weaponId = actorContext.weaponInHandId(actorId).orElse(null);
         if (weaponId == null) return InputDecision.passThrough();
-        sink.enqueue(actorId, new PrimaryActionIntent(weaponId));
-        return InputDecision.consume();
+        return sink.enqueue(actorId, new PrimaryActionIntent(weaponId)) ? InputDecision.consume() : InputDecision.passThrough();
     }
 }

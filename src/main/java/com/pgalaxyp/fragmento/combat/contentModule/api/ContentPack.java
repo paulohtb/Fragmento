@@ -1,13 +1,11 @@
 package com.pgalaxyp.fragmento.combat.contentModule.api;
 
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
-import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
+import com.pgalaxyp.fragmento.combat.classModule.api.ClassKit;
 import java.util.*;
 
 public interface ContentPack {
     Collection<AbilityDefinition> abilities();
-    List<AbilityRule> abilityRules();
-    Map<WeaponId, AbilityId> primaryBindings();
+    Collection<ClassKit> classKits();
     Map<AbilityId, AbilityTriggerSpec> abilityTriggers();
-    default AbilityTuning abilityTuning() { return AbilityTuning.DEFAULT; }
 }
