@@ -25,18 +25,18 @@ public final class ItemWeaponBinding {
 
     public Optional<WeaponId> resolve(ItemStack stack) {
         Objects.requireNonNull(stack);
-        if (!frozen) resolvePending();
+        resolvePending();
         return Optional.ofNullable(resolved.get(stack.getItem()));
     }
 
     private void resolvePending() {
         if (pending.isEmpty()) return;
-        pending.entrySet().removeIf(e -> {
-            Item it = e.getKey().get();
-            if (it == null) return false;
-            resolved.put(it, e.getValue());
-            return true;
-        });
-        pending.clear();
+        for (var it = pending.entrySet().iterator(); it.hasNext(); ) {
+            var e = it.next();
+            var item = e.getKey().get();
+            if (item == null) continue;
+            resolved.put(item, e.getValue());
+            it.remove();
+        }
     }
 }

@@ -5,6 +5,7 @@ import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.contentModule.api.*;
 import com.pgalaxyp.fragmento.combat.targetingModule.api.*;
 import com.pgalaxyp.fragmento.combat.actionModule.api.ActionSlot;
+import com.pgalaxyp.fragmento.combat.classModule.api.ClassKit;
 import java.util.*;
 
 public enum BardContentPack implements ContentPack {
@@ -13,7 +14,6 @@ public enum BardContentPack implements ContentPack {
     private static final TargetingSpec SPEC = new TargetingSpec(TargetingMode.RAYCAST_SINGLE, 16.0, TargetingFallback.IMAGINARY_POINT);
     private static final DamageSpec NOTE_DAMAGE = new DamageSpec(1, DamageType.MAGIC, DamageElement.AIR);
     private static final DamageSpec NOTE_2_DAMAGE = new DamageSpec(2, DamageType.MAGIC, DamageElement.AIR);
-
     private static final ClassKit KIT = new ClassKit(BardIds.BARD, Set.of(BardIds.FLUTE), Set.of(BardIds.FLUTE_NOTE, BardIds.FLUTE_NOTE_2), Map.of(ActionSlot.PRIMARY, BardIds.FLUTE_NOTE));
 
     @Override public Collection<AbilityDefinition> abilities() {

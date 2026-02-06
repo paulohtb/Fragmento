@@ -3,6 +3,7 @@ package com.pgalaxyp.fragmento.combat.abilityModule.system;
 import com.pgalaxyp.fragmento.combat.abilityModule.api.*;
 import com.pgalaxyp.fragmento.combat.abilityModule.event.*;
 import com.pgalaxyp.fragmento.combat.actorModule.api.ActorId;
+import com.pgalaxyp.fragmento.combat.frameModule.api.FrameEvent;
 import java.util.*;
 
 final class AbilityEngine {
@@ -13,11 +14,11 @@ final class AbilityEngine {
         this.defs = Map.copyOf(Objects.requireNonNull(defs));
     }
 
-    Object tryStart(ActorId actorId, AbilityId abilityId, long frameId) {
+    FrameEvent tryStart(ActorId actorId, AbilityId abilityId, long frameId) {
         Objects.requireNonNull(actorId);
         Objects.requireNonNull(abilityId);
         if (frameId < 0) throw new IllegalArgumentException();
-        AbilityDefinition def = defs.get(abilityId);
+        var def = defs.get(abilityId);
         if (def == null) return new AbilityRejected(actorId, abilityId, AbilityRejectReason.UNKNOWN_ABILITY);
         if (repo.activeOf(actorId, frameId).isPresent()) return new AbilityRejected(actorId, def.id(), AbilityRejectReason.LOCKED);
         if (repo.cooldownActive(actorId, def.id(), frameId)) return new AbilityRejected(actorId, def.id(), AbilityRejectReason.COOLDOWN);
@@ -27,7 +28,7 @@ final class AbilityEngine {
         return new AbilityStarted(new AbilitySnapshot(def.id(), actorId, frameId, endExclusive));
     }
 
-    void tick(long frameId, Collection<ActorId> liveActors) {
+    void tick(long frameId, Set<ActorId> liveActors) {
         Objects.requireNonNull(liveActors);
         if (frameId < 0) throw new IllegalArgumentException();
         repo.evictEndedAtOrBefore(frameId);
@@ -35,7 +36,7 @@ final class AbilityEngine {
         repo.pruneToActors(liveActors);
     }
 
-    AbilityViewSnapshot view(Collection<ActorId> actorIds, long frameId) {
+    AbilityViewSnapshot view(Set<ActorId> actorIds, long frameId) {
         Objects.requireNonNull(actorIds);
         if (frameId < 0) throw new IllegalArgumentException();
         return new AbilityViewSnapshot(repo.activeAll(actorIds, frameId));

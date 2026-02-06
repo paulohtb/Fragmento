@@ -5,5 +5,5 @@ import net.neoforged.bus.api.IEventBus;
 
 public interface MinecraftContentPack {
     void register(IEventBus modBus);
-    default List<MinecraftWeaponBindingEntry> clientWeaponBindings() { return List.of(); }
+    default List<MinecraftWeaponBindingEntry> weaponBindings() { return List.of(); }
 }

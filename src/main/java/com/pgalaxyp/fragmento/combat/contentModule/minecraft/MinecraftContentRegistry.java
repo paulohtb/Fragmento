@@ -14,10 +14,10 @@ public record MinecraftContentRegistry(List<MinecraftContentPack> packs) {
         for (var p : packs) p.register(modBus);
     }
 
-    public List<MinecraftWeaponBindingEntry> clientWeaponBindings() {
+    public List<MinecraftWeaponBindingEntry> weaponBindings() {
         ArrayList<MinecraftWeaponBindingEntry> out = new ArrayList<>();
         for (var p : packs) {
-            var list = p.clientWeaponBindings();
+            var list = p.weaponBindings();
             if (list == null || list.isEmpty()) continue;
             for (var e : list) {
                 if (e == null) throw new IllegalArgumentException();

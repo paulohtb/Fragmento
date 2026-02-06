@@ -1,34 +1,28 @@
 package com.pgalaxyp.fragmento.combat.engineModule.api;
 
 import com.pgalaxyp.fragmento.combat.frameModule.api.*;
-import com.pgalaxyp.fragmento.combat.engineModule.port.*;
-import com.pgalaxyp.fragmento.combat.actorModule.api.ActorView;
 import com.pgalaxyp.fragmento.combat.flowModule.api.FlowPipeline;
-import com.pgalaxyp.fragmento.combat.intentModule.api.IntentSourcePort;
+import com.pgalaxyp.fragmento.combat.engineModule.port.WorldCommandPort;
+import com.pgalaxyp.fragmento.combat.commandModule.api.CommandSourcePort;
 import java.util.*;
 
 public final class GameEngine {
-    private final IntentSourcePort intents;
+    private final CommandSourcePort commands;
     private final FlowPipeline pipeline;
     private final WorldCommandPort world;
-    private GameState state;
     private long nextFrame;
 
-    public GameEngine(IntentSourcePort intents, FlowPipeline pipeline, WorldCommandPort world, GameState initial) {
-        this.intents = Objects.requireNonNull(intents);
+    public GameEngine(CommandSourcePort commands, FlowPipeline pipeline, WorldCommandPort world, long initialFrameId) {
+        this.commands = Objects.requireNonNull(commands);
         this.pipeline = Objects.requireNonNull(pipeline);
         this.world = Objects.requireNonNull(world);
-        this.state = Objects.requireNonNull(initial);
-        this.nextFrame = initial.frame().frameId() + 1L;
+        if (initialFrameId < 0) throw new IllegalArgumentException();
+        this.nextFrame = initialFrameId + 1L;
     }
 
     public void step(int tickIndex) {
-        FrameContext frame = new FrameContext(nextFrame++, tickIndex);
-        FrameBus bus = pipeline.run(frame, intents.drain(), Map.of(ActorView.class, state.actors()));
-        var events = bus.events();
-        ActorView committedActors = bus.viewOpt(ActorView.class).orElse(state.actors());
-        GameState committed = new GameState(frame, committedActors);
-        state = committed;
-        world.apply(frame, committed, events);
+        var frame = new FrameContext(nextFrame++, tickIndex);
+        var bus = pipeline.run(frame, commands.drain(), Map.of());
+        world.apply(frame, bus.events());
     }
 }

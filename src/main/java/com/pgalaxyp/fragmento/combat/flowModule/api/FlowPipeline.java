@@ -8,9 +8,9 @@ public final class FlowPipeline {
 
     public FlowPipeline(List<FrameSystem> systems) { this.systems = List.copyOf(Objects.requireNonNull(systems)); }
 
-    public FrameBus run(FrameContext frame, List<?> intents, Map<Class<?>, ?> initialViews) {
-        FrameBus bus = new FrameBus(intents, initialViews);
-        for (FrameSystem s : systems) s.tick(frame, bus);
+    public FrameBus run(FrameContext frame, List<? extends FrameCommand> commands, Map<Class<?>, ?> initialViews) {
+        var bus = new FrameBus(Objects.requireNonNull(commands), initialViews);
+        for (var s : systems) s.tick(frame, bus);
         return bus;
     }
 }

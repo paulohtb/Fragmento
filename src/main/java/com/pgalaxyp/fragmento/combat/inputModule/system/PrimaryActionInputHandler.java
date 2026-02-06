@@ -1,27 +1,22 @@
 package com.pgalaxyp.fragmento.combat.inputModule.system;
 
 import com.pgalaxyp.fragmento.combat.inputModule.api.*;
-import com.pgalaxyp.fragmento.combat.intentModule.api.*;
-import com.pgalaxyp.fragmento.combat.weaponModule.api.WeaponId;
-import com.pgalaxyp.fragmento.combat.inputModule.port.ActorInputContextProvider;
+import com.pgalaxyp.fragmento.combat.inputModule.port.*;
 import java.util.Objects;
 
 public final class PrimaryActionInputHandler {
-    private final ActorInputContextProvider actorContext;
-    private final IntentSinkPort sink;
+    private final LocalWeaponContext context;
+    private final PrimaryActionCommandPort port;
 
-    public PrimaryActionInputHandler(ActorInputContextProvider actorContext, IntentSinkPort sink) {
-        this.actorContext = Objects.requireNonNull(actorContext);
-        this.sink = Objects.requireNonNull(sink);
+    public PrimaryActionInputHandler(LocalWeaponContext context, PrimaryActionCommandPort port) {
+        this.context = Objects.requireNonNull(context);
+        this.port = Objects.requireNonNull(port);
     }
 
     public InputDecision onSemanticInput(SemanticInput input) {
         Objects.requireNonNull(input);
         if (input != SemanticInput.PRIMARY_ACTION) return InputDecision.passThrough();
-        var actorId = actorContext.localActorId().orElse(null);
-        if (actorId == null) return InputDecision.passThrough();
-        WeaponId weaponId = actorContext.weaponInHandId(actorId).orElse(null);
-        if (weaponId == null) return InputDecision.passThrough();
-        return sink.enqueue(actorId, new PrimaryActionIntent(weaponId)) ? InputDecision.consume() : InputDecision.passThrough();
+        if (context.weaponInMainHandId().isEmpty()) return InputDecision.passThrough();
+        return port.sendPrimaryAction() ? InputDecision.consume() : InputDecision.passThrough();
     }
 }

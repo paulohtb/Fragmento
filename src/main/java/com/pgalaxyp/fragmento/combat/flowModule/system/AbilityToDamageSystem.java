@@ -25,7 +25,7 @@ public record AbilityToDamageSystem(Map<AbilityId, AbilityTriggerSpec> triggers,
             if (spec == null) continue;
             var target = targeting.resolve(new TargetingRequest(snap.actorId(), spec.targeting())).actorTargetIdOrNull();
             if (target == null) continue;
-            damage.resolve(new DamageRequest(snap.actorId(), target, spec.damage())).events().forEach(bus::publish);
+            bus.publish(damage.resolve(new DamageRequest(snap.actorId(), target, spec.damage())));
         }
     }
 }

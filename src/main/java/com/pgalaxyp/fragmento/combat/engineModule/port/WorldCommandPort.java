@@ -1,9 +1,6 @@
 package com.pgalaxyp.fragmento.combat.engineModule.port;
 
-import com.pgalaxyp.fragmento.combat.engineModule.api.GameState;
-import com.pgalaxyp.fragmento.combat.frameModule.api.FrameContext;
+import com.pgalaxyp.fragmento.combat.frameModule.api.*;
 import java.util.List;
 
-public interface WorldCommandPort {
-    void apply(FrameContext frame, GameState state, List<Object> events);
-}
+public interface WorldCommandPort { void apply(FrameContext frame, List<FrameEvent> events); }
